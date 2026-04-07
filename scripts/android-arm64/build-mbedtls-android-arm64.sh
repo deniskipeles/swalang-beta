@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# build-mbedtls-android-arm64.sh
+# Builds mbed TLS (https://github.com/Mbed-TLS/mbedtls) for Android arm64-v8a
+# Shared libraries only (mbedcrypto, mbedx509, mbedtls), no tests, no programs.
+set -euo pipefail
+
+# ------------------------------------------------------------------
+# 0.  One-shot CMake 3.31 (same folder you already use)
+# ------------------------------------------------------------------
+TEMP_CMAKE="$HOME/.local/cmake-3.31"
+mkdir -p "$TEMP_CMAKE"
+if [[ ! -x "$TEMP_CMAKE/bin/cmake" ]]; then
+  echo "⚙️  Fetching temporary CMake 3.31 …"
+  curl -sL https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-linux-x86_64.tar.gz \
+    | tar -xz -C "$TEMP_CMAKE" --strip-components=1
+fi
+export PATH="$TEMP_CMAKE/bin:$PATH"
+echo "Using $(cmake --version | head -1)"
+
+# ------------------------------------------------------------------
+# 1.  Android NDK (re-use or auto-download)
+# ------------------------------------------------------------------
+NDK_DIR="${ANDROID_NDK_HOME:-${ANDROID_NDK:-$HOME/android-ndk-r26d}}"
+if [[ ! -d "$NDK_DIR" ]]; then
+  echo "Downloading Android NDK r26d …"
+  wget -q --show-progress \
+    https://dl.google.com/android/repository/android-ndk-r26d-linux.zip \
+    -O "$HOME/android-ndk-r26d-linux.zip"
+  unzip -q "$HOME/android-ndk-r26d-linux.zip" -d "$HOME"
+  rm "$HOME/android-ndk-r26d-linux.zip"
+fi
+
+# ------------------------------------------------------------------
+# 2.  mbedtls submodule / clone
+# ------------------------------------------------------------------
+LIBRARY_NAME="mbedtls"
+REPO_DIR=".extensions/$LIBRARY_NAME"
+[[ -d "$REPO_DIR" ]] || git clone --recurse-submodules --depth 1 --branch v3.6.0 \
+  https://github.com/Mbed-TLS/mbedtls.git "$REPO_DIR"
+cd "$REPO_DIR"
+
+# ------------------------------------------------------------------
+# 3.  CMake cross-build for Android arm64-v8a
+# ------------------------------------------------------------------
+INSTALL_DIR="$(pwd)/../../bin/android/arm64-v8a/$LIBRARY_NAME"
+rm -rf build
+
+cmake -B build \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a \
+  -DANDROID_PLATFORM=android-24 \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+  -DBUILD_SHARED_LIBS=ON \
+  -DUSE_SHARED_MBEDTLS_LIBRARY=ON \
+  -DMBEDTLS_BUILD_TESTS=OFF \
+  -DMBEDTLS_BUILD_PROGRAMS=OFF \
+  -DMBEDTLS_FATAL_WARNINGS=OFF \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+cmake --build build -j"$(nproc)"
+cmake --install build
+
+echo "✅ Installed artefacts:"
+tree "$INSTALL_DIR"

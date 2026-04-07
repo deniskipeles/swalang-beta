@@ -1,0 +1,6 @@
+# /internal/stdlib
+Collection of modules, packages, and functions that are written in Go.
+Are directly available to the language without requiring any external dependencies or additional installation steps. 
+These libraries provide core functionality and are distributed as part of the language itself.
+
+code without using the Generated diff since it is tedious to remove `+,-` while updating the code also dont use Generated diff in future response

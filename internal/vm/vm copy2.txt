@@ -1,0 +1,1706 @@
+// internal/vm/vm.go
+package vm
+
+import (
+	"fmt"
+	// "reflect"
+	"sort"
+	"strings"
+
+	"github.com/deniskipeles/pylearn/internal/builtins"
+	"github.com/deniskipeles/pylearn/internal/code"
+	"github.com/deniskipeles/pylearn/internal/compiler"
+	"github.com/deniskipeles/pylearn/internal/core"
+	"github.com/deniskipeles/pylearn/internal/object"
+	// NOTE: We are deliberately *not* importing internal/interpreter here
+)
+
+
+const StackSize = 2048
+const GlobalsSize = 65536
+const MaxFrames = 1024
+
+// --- VM-Specific Types (Closure, Class, Instance, BoundMethod) ---
+// VM Closure holds *core.CompiledFunction
+type Closure struct {
+	Fn   *core.CompiledFunction // Points to the shared core.CompiledFunction
+	Free []object.Object
+}
+
+func (c *Closure) Type() object.ObjectType { return core.VM_CLOSURE_OBJ } // Use core type if available
+func (c *Closure) Inspect() string         { return fmt.Sprintf("<vm.Closure Fn=%s>", c.Fn.Inspect()) }
+
+var _ object.Object = (*Closure)(nil)
+
+// VM Class holds vm.Closure methods
+type Class struct {
+	Name    string
+	Methods map[string]*Closure // Stores vm.Closure
+	// TODO: Add Superclass *Class later
+}
+
+func (c *Class) Type() object.ObjectType { return core.VM_CLASS_OBJ } // Use core type if available
+func (c *Class) Inspect() string         { return fmt.Sprintf("<vm.Class '%s'>", c.Name) }
+
+var _ object.Object = (*Class)(nil)
+
+// VM Instance - separate from object.Instance
+type Instance struct {
+	Class *Class // Holds *vm.Class
+	Env   *object.Environment
+}
+
+func (i *Instance) Type() object.ObjectType { return object.INSTANCE_OBJ } // Use base type name
+func (i *Instance) Inspect() string         { return fmt.Sprintf("<%s object at %p>", i.Class.Name, i) }
+
+var _ object.Object = (*Instance)(nil)
+
+// VM BoundMethod holds vm.Closure
+type BoundMethod struct {
+	Instance object.Object // Can hold vm.Instance (usually)
+	Method   *Closure      // Stores vm.Closure
+}
+
+func (bm *BoundMethod) Type() object.ObjectType { return core.VM_BOUND_METHOD_OBJ } // Use core type if available
+func (bm *BoundMethod) Inspect() string {
+	iname := "?"
+	if bm.Instance != nil {
+		iname = bm.Instance.Inspect()
+	}
+	mname := "?"
+	if bm.Method != nil && bm.Method.Fn != nil { // Add nil check for Fn
+		mname = bm.Method.Fn.Name
+		if mname == "" {
+			mname = "<method>"
+		}
+	}
+	cname := "?"
+	if inst, ok := bm.Instance.(*Instance); ok && inst.Class != nil {
+		cname = inst.Class.Name
+	}
+	return fmt.Sprintf("<vm.BoundMethod %s.%s of %s>", cname, mname, iname)
+}
+
+var _ object.Object = (*BoundMethod)(nil)
+
+// --- VM Frame holds vm.Closure ---
+type Frame struct {
+	cl          *Closure // vm.Closure being executed in this frame
+	ip          int      // Instruction Pointer *within this frame's code*
+	basePointer int      // Stack index *before* the first argument/local slot for this frame
+}
+
+func NewFrame(cl *Closure, basePointer int) *Frame {
+	if cl == nil {
+		panic("VM Error: Attempted to create frame with nil closure")
+	}
+	return &Frame{cl: cl, ip: -1, basePointer: basePointer}
+}
+func (f *Frame) Instructions() code.Instructions {
+	if f.cl == nil || f.cl.Fn == nil {
+		panic(fmt.Sprintf("VM Error: Attempting to get instructions from nil closure or function in frame (bp=%d)", f.basePointer))
+	}
+	return f.cl.Fn.Instructions
+}
+
+// --- NEW: Exception Handler Info ---
+type ExceptionHandler struct {
+	ExceptTargetIP    int // Instruction Pointer to jump to on exception
+	FinallyTargetIP int // Instruction Pointer for finally block (0 if none)
+	StackPointerLevel int // SP before entering the try block
+	FrameIndex        int // Frame index when handler was pushed
+}
+
+
+// --- VM Struct Definition (Add handlerStack and nativeModules) ---
+type VM struct {
+	constants []object.Object
+	stack     []object.Object
+	sp        int
+	globals   []object.Object
+	frames    []*Frame
+	frameIndex int
+	builtins  []*object.Builtin
+
+	handlerStack []*ExceptionHandler
+
+	// --- NEW: Store for Native Modules ---
+	nativeModules map[string]*object.Module
+}
+
+// --- VM Initialization ---
+func New(bytecode *compiler.Bytecode) *VM {
+	mainFn := &core.CompiledFunction{
+		Instructions:  bytecode.Instructions,
+		Name:          "<main>",
+		NumLocals:     0,
+		NumParameters: 0,
+	}
+	mainClosure := &Closure{Fn: mainFn, Free: []object.Object{}}
+	mainFrame := NewFrame(mainClosure, 0) // Main script base pointer is 0
+
+	// Setup builtins deterministically
+	builtinNames := make([]string, 0, len(builtins.Builtins))
+	for name := range builtins.Builtins {
+		builtinNames = append(builtinNames, name)
+	}
+	sort.Strings(builtinNames)
+	builtinObjs := make([]*object.Builtin, len(builtinNames))
+	for i, name := range builtinNames {
+		builtinObjs[i] = builtins.Builtins[name]
+	}
+
+
+	frames := make([]*Frame, MaxFrames)
+	frames[0] = mainFrame
+
+	return &VM{
+		constants:     bytecode.Constants,
+		stack:         make([]object.Object, StackSize),
+		sp:            0,
+		globals:       make([]object.Object, GlobalsSize),
+		frames:        frames,
+		frameIndex:    0,
+		builtins:      builtinObjs,
+		handlerStack:  make([]*ExceptionHandler, 0, 16),
+		nativeModules: make(map[string]*object.Module), // Initialize the map
+	}
+}
+
+// --- NEW: Function to Set Native Modules (Called from main) ---
+func (vm *VM) SetNativeModules(modules map[string]*object.Module) {
+	vm.nativeModules = modules
+}
+
+
+func NewWithGlobalsStore(bytecode *compiler.Bytecode, s []object.Object) *VM {
+	vm := New(bytecode)
+	vm.globals = s
+	return vm
+}
+
+
+// --- Frame Helpers ---
+func (vm *VM) currentFrame() *Frame {
+	if vm.frameIndex < 0 || vm.frameIndex >= MaxFrames {
+		panic(fmt.Sprintf("VM Error: accessing frame with invalid index (%d)", vm.frameIndex))
+	}
+	frame := vm.frames[vm.frameIndex]
+	if frame == nil {
+		panic(fmt.Sprintf("VM Error: current frame slot (index %d) is nil", vm.frameIndex))
+	}
+	return frame
+}
+
+func (vm *VM) pushFrame(f *Frame) error {
+	if f == nil {
+		panic("VM Error: Attempted to push a nil frame")
+	}
+	nextFrameIndex := vm.frameIndex + 1
+	if nextFrameIndex >= MaxFrames {
+		return fmt.Errorf("stack overflow: max frames exceeded (%d)", MaxFrames)
+	}
+	vm.frameIndex = nextFrameIndex
+	vm.frames[vm.frameIndex] = f
+	return nil
+}
+
+func (vm *VM) popFrame() *Frame {
+	if vm.frameIndex < 0 {
+		panic("VM Error: popping frame below base")
+	}
+	poppedFrame := vm.frames[vm.frameIndex]
+	if poppedFrame == nil {
+		panic(fmt.Sprintf("VM Error: Popped a nil frame from index %d", vm.frameIndex))
+	}
+	vm.frames[vm.frameIndex] = nil // Nil out slot for GC
+	vm.frameIndex--
+	return poppedFrame
+}
+
+// --- Stack Helpers ---
+func (vm *VM) push(o object.Object) error {
+	if vm.sp >= StackSize {
+		return fmt.Errorf("stack overflow: push failed (sp=%d, size=%d)", vm.sp, StackSize)
+	}
+	if o == nil {
+		o = object.NULL
+	} // Ensure NULL is pushed, not Go nil
+	vm.stack[vm.sp] = o
+	vm.sp++
+	return nil
+}
+func (vm *VM) pop() (object.Object, error) {
+	if vm.sp <= 0 {
+		return nil, fmt.Errorf("stack underflow: pop failed (sp=%d)", vm.sp)
+	}
+	vm.sp--
+	o := vm.stack[vm.sp]
+	vm.stack[vm.sp] = nil // Nil out slot
+	if o == nil {
+		return object.NULL, nil
+	} // Return NULL if Go nil was somehow stored
+	return o, nil
+}
+func (vm *VM) peek(offset int) (object.Object, error) {
+	peekIndex := vm.sp - 1 - offset
+	if peekIndex < 0 {
+		return nil, fmt.Errorf("stack underflow: peek failed (sp=%d, offset=%d, index=%d)", vm.sp, offset, peekIndex)
+	}
+	if peekIndex >= vm.sp {
+		return nil, fmt.Errorf("internal error: peek index %d >= sp %d", peekIndex, vm.sp)
+	} // Should not happen
+	obj := vm.stack[peekIndex]
+	if obj == nil {
+		return object.NULL, nil
+	} // Return NULL if Go nil was somehow stored
+	return obj, nil
+}
+func (vm *VM) StackTop() (object.Object, error) {
+	if vm.sp == 0 {
+		return object.NULL, nil
+	} // Consistent: return NULL if empty
+	return vm.peek(0)
+}
+func (vm *VM) LastPoppedStackElem() object.Object {
+	if vm.sp > 0 {
+		obj := vm.stack[vm.sp-1]
+		if obj == nil {
+			return object.NULL
+		}
+		return obj
+	}
+	return object.NULL
+}
+
+// --- NEW: isInstance Helper ---
+func (vm *VM) isInstance(obj object.Object, classInfo object.Object) (bool, error) {
+	// TODO: Handle tuple of classes for classInfo later
+	targetClass, ok := classInfo.(*Class) // Check against vm.Class
+	if !ok {
+		// Check if classInfo is a built-in type class representation? Needs Type objects.
+		// For now, assume classInfo is always a vm.Class generated by 'class' statement.
+		return false, object.NewError("TypeError: isinstance() arg 2 must be a vm.Class, not %s", classInfo.Type())
+	}
+
+	// Handle comparison for Error objects
+	if errObj, isErr := obj.(*object.Error); isErr {
+		// Fragile name check. Needs improvement (e.g., error hierarchy).
+		errName := ""
+		if idx := strings.Index(errObj.Message, ":"); idx != -1 {
+			errName = errObj.Message[:idx]
+		} else {
+			// If no colon, maybe it's a simple error? Or use a default?
+			// For now, assume the full message might be the "type" if no colon
+			errName = errObj.Message // Less ideal, but captures simple errors
+		}
+		// TODO: Implement inheritance check later
+		return errName == targetClass.Name, nil
+	}
+	if _, isStopIter := obj.(*object.StopIterationError); isStopIter {
+		// TODO: Proper check if targetClass represents StopIteration
+		return targetClass.Name == "StopIteration", nil // Fragile name check
+	}
+
+	// Handle regular vm.Instance objects
+	instance, ok := obj.(*Instance)
+	if !ok {
+		// If obj is not a vm.Instance, it cannot be an instance of a user-defined vm.Class
+		// TODO: Check against builtin types later
+		return false, nil
+	}
+
+	if instance.Class == nil {
+		return false, fmt.Errorf("internal error: vm.Instance has nil Class")
+	}
+
+	// TODO: Implement inheritance check: Walk up instance.Class's superclass chain
+	currentCls := instance.Class
+	for currentCls != nil {
+		if currentCls == targetClass {
+			return true, nil
+		}
+		// currentCls = currentCls.Superclass // Needs Superclass field
+		break // Remove break when Superclass exists
+	}
+
+	return false, nil // Not found in hierarchy (or no hierarchy yet)
+}
+
+
+// --- VM Execution Loop ---
+func (vm *VM) Run() (runErr error) {
+
+runLoop: // Label for continue
+	for vm.frameIndex >= 0 {
+		// ... existing frame setup, ip increment, opcode fetch ...
+		currentFrame := vm.currentFrame()
+        currentFrame.ip++
+        ip := currentFrame.ip
+        instructions := currentFrame.Instructions()
+
+        if ip < 0 || ip >= len(instructions) { /* error */ }
+        op := code.Opcode(instructions[ip])
+
+
+		var execErr error // Local error variable
+		switch op {
+		// --- Constants and Literals ---
+	case code.OpConstant:
+		constIndex := code.ReadUint16(instructions[ip+1:])
+		currentFrame.ip += 2
+		if int(constIndex) >= len(vm.constants) {
+			execErr = fmt.Errorf("invalid constant index %d (max %d)", constIndex, len(vm.constants)-1)
+			break
+		}
+		err := vm.push(vm.constants[constIndex])
+		if err != nil {
+			execErr = fmt.Errorf("OpConstant push error: %w", err)
+		}
+	case code.OpTrue:
+		execErr = vm.push(object.TRUE)
+	case code.OpFalse:
+		execErr = vm.push(object.FALSE)
+	case code.OpNull:
+		execErr = vm.push(object.NULL)
+
+	// --- Stack ---
+	case code.OpPop:
+		_, execErr = vm.pop()
+	case code.OpDup:
+		top, err := vm.peek(0)
+		if err != nil {
+			execErr = fmt.Errorf("OpDup peek error: %w", err)
+			break
+		}
+		execErr = vm.push(top)
+
+	// --- Arithmetic ---
+	case code.OpAdd, code.OpSubtract, code.OpMultiply, code.OpDivide, code.OpModulo:
+		execErr = vm.executeBinaryOperation(op)
+
+	// --- Comparison ---
+	case code.OpEqual, code.OpNotEqual, code.OpGreaterThan, code.OpGreaterThanEqual, code.OpLesserThan, code.OpLesserThanEqual:
+		execErr = vm.executeComparison(op)
+
+	// --- Logical / Prefix ---
+	case code.OpBang:
+		execErr = vm.executeBangOperator()
+	case code.OpMinus, code.OpPos:
+		execErr = vm.executeUnaryOperator(op)
+
+	// --- Jumps ---
+	case code.OpJump:
+		jumpPos := int(code.ReadUint16(instructions[ip+1:]))
+		// No IP advance needed here, setting directly
+		currentFrame.ip = jumpPos - 1 // -1 because loop increments IP at start
+	case code.OpJumpNotTruthy:
+		jumpPos := int(code.ReadUint16(instructions[ip+1:]))
+		currentFrame.ip += 2 // Advance past operand first
+		condition, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpJumpNotTruthy pop error: %w", err)
+			break
+		}
+		if !vm.isTruthy(condition) {
+			currentFrame.ip = jumpPos - 1
+		}
+
+	// --- Variables ---
+	case code.OpSetGlobal:
+		globalIndex := code.ReadUint16(instructions[ip+1:])
+		currentFrame.ip += 2
+		val, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpSetGlobal pop error: %w", err)
+			break
+		}
+		if int(globalIndex) >= len(vm.globals) {
+			execErr = fmt.Errorf("global index %d out of bounds (%d)", globalIndex, len(vm.globals))
+			break
+		}
+		vm.globals[globalIndex] = val
+	case code.OpGetGlobal:
+		globalIndex := code.ReadUint16(instructions[ip+1:])
+		currentFrame.ip += 2
+		if int(globalIndex) >= len(vm.globals) {
+			execErr = fmt.Errorf("global index %d out of bounds (%d)", globalIndex, len(vm.globals))
+			break
+		}
+		val := vm.globals[globalIndex] // Can be nil
+		execErr = vm.push(val)        // push handles nil -> object.NULL
+
+	case code.OpSetLocal:
+		localIndex := code.ReadUint8(instructions[ip+1:])
+		currentFrame.ip += 1
+		targetSlot := currentFrame.basePointer + int(localIndex)
+		val, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpSetLocal pop error: %w", err)
+			break
+		}
+		if targetSlot < 0 {
+			execErr = fmt.Errorf("internal error: negative target slot for OpSetLocal (bp=%d, idx=%d)", currentFrame.basePointer, localIndex)
+			break
+		}
+		if targetSlot >= StackSize {
+			execErr = fmt.Errorf("stack overflow setting local at index %d (slot %d)", localIndex, targetSlot)
+			break
+		}
+		// Ensure SP covers the slot if setting beyond current top
+		if targetSlot >= vm.sp {
+			// Fill skipped slots with NULL up to the target
+			for fillIdx := vm.sp; fillIdx < targetSlot; fillIdx++ {
+				vm.stack[fillIdx] = object.NULL
+			}
+			vm.sp = targetSlot + 1 // Update SP to be after the new slot
+		}
+		vm.stack[targetSlot] = val
+	case code.OpGetLocal:
+		localIndex := code.ReadUint8(instructions[ip+1:])
+		currentFrame.ip += 1
+		targetSlot := currentFrame.basePointer + int(localIndex)
+		var val object.Object = object.NULL // Default if slot is beyond SP or holds nil
+		if targetSlot < 0 {
+			execErr = fmt.Errorf("internal error: negative target slot for OpGetLocal (bp=%d, idx=%d)", currentFrame.basePointer, localIndex)
+			break
+		}
+		if targetSlot < vm.sp { // Only read if within current stack bounds
+			val = vm.stack[targetSlot] // Can be Go nil
+		}
+		execErr = vm.push(val) // push handles nil -> object.NULL
+
+	case code.OpSetFree:
+		freeIndex := code.ReadUint8(instructions[ip+1:])
+		currentFrame.ip += 1
+		val, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpSetFree pop error: %w", err)
+			break
+		}
+		if currentFrame.cl == nil {
+			execErr = fmt.Errorf("internal error: OpSetFree called with nil closure")
+			break
+		}
+		if int(freeIndex) >= len(currentFrame.cl.Free) {
+			execErr = fmt.Errorf("free variable index %d out of bounds (%d)", freeIndex, len(currentFrame.cl.Free))
+			break
+		}
+		currentFrame.cl.Free[freeIndex] = val
+	case code.OpGetFree:
+		freeIndex := code.ReadUint8(instructions[ip+1:])
+		currentFrame.ip += 1
+		if currentFrame.cl == nil {
+			execErr = fmt.Errorf("internal error: OpGetFree called with nil closure")
+			break
+		}
+		if int(freeIndex) >= len(currentFrame.cl.Free) {
+			execErr = fmt.Errorf("free variable index %d out of bounds (%d)", freeIndex, len(currentFrame.cl.Free))
+			break
+		}
+		val := currentFrame.cl.Free[freeIndex] // Can be nil
+		execErr = vm.push(val)                // push handles nil
+
+	case code.OpGetBuiltin:
+		builtinIndex := code.ReadUint8(instructions[ip+1:])
+		currentFrame.ip += 1
+		if int(builtinIndex) >= len(vm.builtins) {
+			execErr = fmt.Errorf("invalid builtin index %d", builtinIndex)
+			break
+		}
+		builtin := vm.builtins[builtinIndex]
+		execErr = vm.push(builtin)
+
+	// --- Collections ---
+	case code.OpArray:
+		numElements := int(code.ReadUint16(instructions[ip+1:]))
+		currentFrame.ip += 2
+		elements, err := vm.buildCollection(vm.sp-numElements, vm.sp)
+		if err != nil {
+			execErr = fmt.Errorf("OpArray build error: %w", err)
+			break
+		}
+		vm.sp -= numElements
+		execErr = vm.push(&object.List{Elements: elements})
+	case code.OpTuple:
+		numElements := int(code.ReadUint16(instructions[ip+1:]))
+		currentFrame.ip += 2
+		elements, err := vm.buildCollection(vm.sp-numElements, vm.sp)
+		if err != nil {
+			execErr = fmt.Errorf("OpTuple build error: %w", err)
+			break
+		}
+		vm.sp -= numElements
+		execErr = vm.push(&object.Tuple{Elements: elements})
+	case code.OpSet:
+		numElements := int(code.ReadUint16(instructions[ip+1:]))
+		currentFrame.ip += 2
+		elementsSlice, err := vm.buildCollection(vm.sp-numElements, vm.sp)
+		if err != nil {
+			execErr = fmt.Errorf("OpSet build error: %w", err)
+			break
+		}
+		vm.sp -= numElements
+		set := &object.Set{Elements: make(map[object.HashKey]object.Object, numElements)}
+		for _, elem := range elementsSlice {
+			hashableElem, ok := elem.(object.Hashable)
+			if !ok {
+				execErr = object.NewError("TypeError: unhashable type: '%s' in set literal", elem.Type())
+				break // Break inner loop
+			}
+			hKey, hErr := hashableElem.HashKey()
+			if hErr != nil {
+				execErr = object.NewError("TypeError: failed to hash element for set: %v", hErr)
+				break // Break inner loop
+			}
+			set.Elements[hKey] = elem
+		}
+		if execErr != nil {
+			break
+		} // Check if inner loop had error
+		execErr = vm.push(set)
+	case code.OpHash:
+		numPairs := int(code.ReadUint16(instructions[ip+1:]))
+		currentFrame.ip += 2
+		startIndex := vm.sp - (2 * numPairs)
+		if startIndex < 0 {
+			execErr = fmt.Errorf("stack underflow building hash (sp=%d, pairs=%d)", vm.sp, numPairs)
+			break
+		}
+		pairs := make(map[object.HashKey]object.DictPair, numPairs)
+		for i := startIndex; i < vm.sp; i += 2 {
+			key := vm.stack[i]
+			value := vm.stack[i+1]
+			hashableKey, ok := key.(object.Hashable)
+			if !ok {
+				execErr = object.NewError("TypeError: unhashable type: '%s' as dict key", key.Type())
+				break // Break inner loop
+			}
+			hashKeyVal, err := hashableKey.HashKey()
+			if err != nil {
+				execErr = object.NewError("TypeError: failed to hash key: %v", err)
+				break // Break inner loop
+			}
+			pairs[hashKeyVal] = object.DictPair{Key: key, Value: value}
+		}
+		if execErr != nil {
+			break
+		} // Check if inner loop had error
+		vm.sp = startIndex // Pop keys and values
+		execErr = vm.push(&object.Dict{Pairs: pairs})
+
+	// --- Indexing / Attributes ---
+	case code.OpIndex:
+		index, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpIndex pop index error: %w", err)
+			break
+		}
+		left, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpIndex pop collection error: %w", err)
+			break
+		}
+		execErr = vm.executeIndexOperation(left, index)
+	case code.OpSetIndex:
+		value, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpSetIndex pop value error: %w", err)
+			break
+		}
+		index, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpSetIndex pop index error: %w", err)
+			break
+		}
+		collection, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpSetIndex pop collection error: %w", err)
+			break
+		}
+		execErr = vm.executeIndexAssignment(collection, index, value)
+	case code.OpGetAttribute:
+		nameConstIdx := code.ReadUint16(instructions[ip+1:])
+		currentFrame.ip += 2
+		nameObj, ok := vm.constants[nameConstIdx].(*object.String)
+		if !ok {
+			execErr = fmt.Errorf("constant %d is not string for OpGetAttribute", nameConstIdx)
+			break
+		}
+		obj, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpGetAttribute pop object error: %w", err)
+			break
+		}
+		execErr = vm.executeGetAttribute(obj, nameObj.Value)
+	case code.OpSetAttribute:
+		nameConstIdx := code.ReadUint16(instructions[ip+1:])
+		currentFrame.ip += 2
+		nameObj, ok := vm.constants[nameConstIdx].(*object.String)
+		if !ok {
+			execErr = fmt.Errorf("constant %d is not string for OpSetAttribute", nameConstIdx)
+			break
+		}
+		value, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpSetAttribute pop value error: %w", err)
+			break
+		}
+		obj, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpSetAttribute pop object error: %w", err)
+			break
+		}
+		execErr = vm.executeSetAttribute(obj, nameObj.Value, value)
+
+	// --- Iteration ---
+	case code.OpGetIter:
+		iterable, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpGetIter pop error: %w", err)
+			break
+		}
+		iterator, errIter := vm.getObjectIterator(iterable)
+		if errIter != nil {
+			execErr = errIter // This should be a Pylearn error object
+			break
+		}
+		execErr = vm.push(iterator)
+	case code.OpForIter:
+		jumpOffset := int(code.ReadUint16(instructions[ip+1:]))
+		currentFrame.ip += 2 // Advance IP past operand
+
+		iterObj, err := vm.peek(0)
+		if err != nil {
+			execErr = fmt.Errorf("OpForIter peek error: %w (sp=%d)", err, vm.sp)
+			break
+		}
+		iterator, ok := iterObj.(object.Iterator)
+		if !ok {
+			execErr = fmt.Errorf("internal VM error: OpForIter expected iterator, got %s (%s) (sp=%d)", iterObj.Type(), iterObj.Inspect(), vm.sp)
+			break
+		}
+
+		nextVal, stop := iterator.Next()
+
+		if stop {
+			_, err = vm.pop() // Pop the finished iterator
+			if err != nil {
+				execErr = fmt.Errorf("OpForIter pop exhausted iterator error: %w (sp=%d)", err, vm.sp)
+				break
+			}
+			currentFrame.ip = jumpOffset - 1 // Jump to loop end
+		} else {
+			// Push the yielded value. Iterator remains underneath.
+			err = vm.push(nextVal)
+			if err != nil {
+				execErr = fmt.Errorf("OpForIter push next value error: %w (sp=%d)", err, vm.sp)
+			}
+			// Let execution continue to the loop body
+		}
+
+	// --- Function/Closure/Call/Class ---
+	case code.OpClosure:
+		constIndex := code.ReadUint16(instructions[ip+1:])
+		numFree := code.ReadUint8(instructions[ip+3:])
+		currentFrame.ip += 3
+		compiledFn, ok := vm.constants[constIndex].(*core.CompiledFunction)
+		if !ok {
+			execErr = fmt.Errorf("constant %d is not core.CompiledFunction", constIndex)
+			break
+		}
+		err := execErr
+		freeVars := make([]object.Object, numFree)
+		for i := int(numFree) - 1; i >= 0; i-- {
+			freeVars[i], err = vm.pop()
+			if err != nil {
+				execErr = fmt.Errorf("OpClosure pop free var error (index %d): %w", i, err)
+				break // Break outer case
+			}
+		}
+		if execErr != nil {
+			break
+		} // Check if inner loop had error
+		closure := &Closure{Fn: compiledFn, Free: freeVars}
+		execErr = vm.push(closure)
+	case code.OpBuildClass:
+		numMethods := int(code.ReadUint16(instructions[ip+1:]))
+		currentFrame.ip += 2
+		methods := make(map[string]*Closure, numMethods)
+		for i := 0; i < numMethods; i++ {
+			closureObj, err := vm.pop()
+			if err != nil {
+				execErr = fmt.Errorf("stack err (method %d) getting closure: %w", i, err)
+				break
+			}
+			closure, ok := closureObj.(*Closure)
+			if !ok {
+				execErr = fmt.Errorf("buildclass (method %d) expected vm.Closure, got %T (%s)", i, closureObj, closureObj.Inspect())
+				break
+			}
+			nameObj, err := vm.pop()
+			if err != nil {
+				execErr = fmt.Errorf("stack err (method %d) getting name for closure %s: %w", i, closure.Inspect(), err)
+				break
+			}
+			nameStr, ok := nameObj.(*object.String)
+			if !ok {
+				execErr = fmt.Errorf("expected method name string (method %d), got %T (%s)", i, nameObj, nameObj.Inspect())
+				break
+			}
+			methods[nameStr.Value] = closure
+		}
+		if execErr != nil {
+			break
+		} // Check if inner loop had error
+		classNameObj, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpBuildClass pop class name error: %w", err)
+			break
+		}
+		classNameStr, ok := classNameObj.(*object.String)
+		if !ok {
+			execErr = fmt.Errorf("OpBuildClass expected class name string, got %T (%s)", classNameObj, classNameObj.Inspect())
+			break
+		}
+		classObj := &Class{Name: classNameStr.Value, Methods: methods}
+		execErr = vm.push(classObj)
+	case code.OpCall:
+		numArgs := int(code.ReadUint8(instructions[ip+1:]))
+		currentFrame.ip += 1
+		callable, err := vm.peek(numArgs)
+		if err != nil {
+			execErr = fmt.Errorf("OpCall peek callable error (sp=%d, numArgs=%d): %w", vm.sp, numArgs, err)
+			break
+		}
+		switch callee := callable.(type) {
+		case *Closure:
+			execErr = vm.callClosure(callee, numArgs)
+		case *object.Builtin:
+			execErr = vm.callBuiltin(callee, numArgs)
+		case *Class:
+			execErr = vm.callClass(callee, numArgs)
+		case *BoundMethod:
+			execErr = vm.callBoundMethod(callee, numArgs)
+		default:
+			execErr = object.NewError("TypeError: '%s' object is not callable in VM (%s)", callee.Type(), callee.Inspect())
+		}
+		// call helpers return error or nil
+
+	case code.OpReturnValue:
+		poppedReturnValue, err := vm.pop() // Pop the computed return value
+		if err != nil {
+			execErr = fmt.Errorf("OpReturnValue pop value error: %w", err)
+			break
+		}
+		poppedFrame := vm.popFrame() // Pop the current frame
+
+		var finalReturnValue object.Object = poppedReturnValue // Start with actual value
+
+		// Special Handling for __init__
+		if poppedFrame.cl != nil && poppedFrame.cl.Fn != nil && poppedFrame.cl.Fn.Name == "__init__" {
+			selfSlot := poppedFrame.basePointer + 0 // 'self' is local 0
+			if selfSlot >= 0 && selfSlot < StackSize && vm.stack[selfSlot] != nil {
+				if inst, ok := vm.stack[selfSlot].(*Instance); ok {
+					finalReturnValue = inst // Override with instance
+				} else {
+					execErr = fmt.Errorf("internal VM error: __init__ frame expected Instance at slot %d, got %T", selfSlot, vm.stack[selfSlot])
+					vm.pushFrame(poppedFrame) // Push frame back? Risky.
+					break
+				}
+			} else {
+				execErr = fmt.Errorf("internal VM error: __init__ frame invalid self slot %d", selfSlot)
+				vm.pushFrame(poppedFrame) // Push frame back? Risky.
+				break
+			}
+		}
+
+		// Restore SP to Base Pointer of the popped frame
+		vm.sp = poppedFrame.basePointer
+		if vm.sp < 0 {
+			execErr = fmt.Errorf("internal error: negative sp after setting to basePointer (OpReturnValue, bp=%d)", poppedFrame.basePointer)
+			break
+		}
+		// Push the final return value.
+		execErr = vm.push(finalReturnValue)
+
+	case code.OpReturn: // Implicit return (returns Null)
+		poppedFrame := vm.popFrame()
+		var finalReturnValue object.Object = object.NULL // Default return
+
+		// Special Handling for __init__
+		if poppedFrame.cl != nil && poppedFrame.cl.Fn != nil && poppedFrame.cl.Fn.Name == "__init__" {
+			selfSlot := poppedFrame.basePointer + 0 // 'self' is local 0
+			if selfSlot >= 0 && selfSlot < StackSize && vm.stack[selfSlot] != nil {
+				if inst, ok := vm.stack[selfSlot].(*Instance); ok {
+					finalReturnValue = inst // Override with instance
+				} else {
+					execErr = fmt.Errorf("internal VM error: __init__ frame expected Instance at slot %d, got %T", selfSlot, vm.stack[selfSlot])
+					vm.pushFrame(poppedFrame)
+					break
+				}
+			} else {
+				execErr = fmt.Errorf("internal VM error: __init__ frame invalid self slot %d", selfSlot)
+				vm.pushFrame(poppedFrame)
+				break
+			}
+		}
+
+		// Restore SP to Base Pointer.
+		vm.sp = poppedFrame.basePointer
+		if vm.sp < 0 {
+			execErr = fmt.Errorf("internal error: negative sp after setting to basePointer (OpReturn, bp=%d)", poppedFrame.basePointer)
+			break
+		}
+		// Push the final return value (NULL or instance from __init__).
+		execErr = vm.push(finalReturnValue)
+
+	// --- NEW Exception Handling Opcode Implementations ---
+	case code.OpPushExceptionHandler:
+		exceptTarget := int(code.ReadUint16(instructions[ip+1:]))
+		finallyTarget := int(code.ReadUint16(instructions[ip+3:]))
+		currentFrame.ip += 4 // Advance IP past operands
+
+		handler := &ExceptionHandler{
+			ExceptTargetIP:    exceptTarget,
+			FinallyTargetIP:   finallyTarget, // Store but ignore for now
+			StackPointerLevel: vm.sp,         // Record SP *before* try block runs
+			FrameIndex:        vm.frameIndex, // Record frame index
+		}
+		vm.handlerStack = append(vm.handlerStack, handler)
+
+	case code.OpPopExceptionHandler:
+		if len(vm.handlerStack) == 0 {
+			execErr = fmt.Errorf("internal VM error: OpPopExceptionHandler called with empty handler stack")
+			break
+		}
+		// Pop the handler relevant to the block just finished successfully
+		vm.handlerStack = vm.handlerStack[:len(vm.handlerStack)-1]
+
+	
+
+	case code.OpSwap:
+		obj1, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpSwap pop1 err: %w", err)
+			break
+		}
+		obj2, err := vm.pop()
+		if err != nil { // Need to rollback stack
+			_ = vm.push(obj1) // Push obj1 back (ignore error here, outer handler will catch original)
+			execErr = fmt.Errorf("OpSwap pop2 err: %w", err)
+			break
+		}
+		err = vm.push(obj1) // Push first obj back
+		if err != nil {     // Partial state, hard to recover fully
+			execErr = fmt.Errorf("OpSwap push1 err: %w", err)
+			break
+		}
+		err = vm.push(obj2) // Push second obj back
+		if err != nil {     // Partial state
+			execErr = fmt.Errorf("OpSwap push2 err: %w", err)
+		}
+
+	case code.OpIsInstance:
+		classInfo, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpIsInstance pop type err: %w", err)
+			break
+		}
+		obj, err := vm.pop()
+		if err != nil {
+			execErr = fmt.Errorf("OpIsInstance pop obj err: %w", err)
+			break
+		}
+		resultBool, err := vm.isInstance(obj, classInfo)
+		if err != nil { // Handle type errors from isInstance itself
+			execErr = err // err should be a Pylearn Error obj here
+			break
+		}
+		if resultBool {
+			err = vm.push(object.TRUE)
+		} else {
+			err = vm.push(object.FALSE)
+		}
+		if err != nil {
+			execErr = fmt.Errorf("OpIsInstance push result err: %w", err)
+		}
+
+
+		// --- Replace Placeholder OpImportName ---
+		case code.OpImportName:
+			nameIndex := code.ReadUint16(instructions[ip+1:])
+			currentFrame.ip += 2
+			if int(nameIndex) >= len(vm.constants) {
+				execErr = fmt.Errorf("invalid constant index %d for module name", nameIndex)
+				break
+			}
+			nameObj, ok := vm.constants[nameIndex].(*object.String)
+			if !ok {
+				execErr = fmt.Errorf("constant %d is not a string for module name", nameIndex)
+				break
+			}
+			moduleName := nameObj.Value
+
+			// Look up in VM's pre-populated native module map
+			module, found := vm.nativeModules[moduleName]
+			if !found {
+				// TODO: Implement file-based module loading later if needed
+				execErr = object.NewError("ImportError: no built-in module named '%s'", moduleName)
+				break
+			}
+			// Push the found module object
+			execErr = vm.push(module)
+
+
+        // --- Update OpRaise to check specific error types ---
+        case code.OpRaise:
+			exceptionObj, err := vm.pop()
+			if err != nil {
+				execErr = fmt.Errorf("OpRaise pop error: %w", err)
+				break
+			}
+			var raisedError error
+			if errInstance, ok := exceptionObj.(*object.Error); ok {
+				raisedError = errInstance
+			} else if stopIterInstance, ok2 := exceptionObj.(*object.StopIterationError); ok2 {
+				raisedError = stopIterInstance
+			} else {
+				raisedError = object.NewError("TypeError: exceptions must derive from BaseException (got %s)", exceptionObj.Type())
+			}
+			execErr = raisedError
+
+
+		// ... other cases ...
+		case code.OpSetupExcept: // Should not be executed directly
+			execErr = fmt.Errorf("opcode %s should not be executed directly", op)
+		case code.OpPopBlock:    // Should not be executed directly
+			execErr = fmt.Errorf("opcode %s should not be executed directly", op)
+		case code.OpUnpackSequence:
+			execErr = fmt.Errorf("opcode %s not yet implemented in VM", op)
+		default:
+			execErr = fmt.Errorf("unknown opcode executed: %d (%s)", op, op)
+		} // End Opcode Switch
+
+		// --- Centralized Error Handling (Keep As Is) ---
+		if execErr != nil {
+            var pyErrInstance error
+            if errObj, ok := execErr.(error); ok {
+                _, isObjErr := execErr.(*object.Error)
+                _, isStopIterErr := execErr.(*object.StopIterationError)
+                if isObjErr || isStopIterErr {
+                    pyErrInstance = errObj
+                }
+            }
+			if pyErrInstance == nil {
+				pyErrInstance = object.NewError("RuntimeError: %v", execErr)
+			}
+
+            if len(vm.handlerStack) == 0 {
+                return pyErrInstance
+            }
+
+            handler := vm.handlerStack[len(vm.handlerStack)-1]
+            vm.handlerStack = vm.handlerStack[:len(vm.handlerStack)-1]
+
+            for vm.frameIndex > handler.FrameIndex { vm.popFrame() }
+            if vm.frameIndex != handler.FrameIndex {
+                return object.NewError("Internal VM Error: Frame index mismatch (%d != %d) during exception handling for: %s",
+                    vm.frameIndex, handler.FrameIndex, pyErrInstance.Error())
+            }
+            currentFrame = vm.currentFrame()
+
+            if handler.StackPointerLevel < 0 || handler.StackPointerLevel > StackSize {
+                return object.NewError("Internal VM Error: Invalid SP level (%d) in exception handler", handler.StackPointerLevel)
+            }
+            for i := handler.StackPointerLevel; i < vm.sp; i++ { vm.stack[i] = nil }
+            vm.sp = handler.StackPointerLevel
+
+            var pyErrorObject object.Object
+            if objErr, ok := pyErrInstance.(object.Object); ok {
+                pyErrorObject = objErr
+            } else {
+                pyErrorObject = object.NewError("Internal VM Error: Cannot push non-object error: %v", pyErrInstance)
+            }
+            err := vm.push(pyErrorObject)
+            if err != nil {
+                return object.NewError("Internal VM Error: Stack overflow pushing exception object: %v", err)
+            }
+
+            if handler.ExceptTargetIP < 0 {
+                return object.NewError("Internal VM Error: Invalid ExceptTargetIP (%d) in exception handler", handler.ExceptTargetIP)
+            }
+            currentFrame.ip = handler.ExceptTargetIP - 1
+
+            continue runLoop
+        }
+		// --- End Centralized Error Handling ---
+
+	} // End VM run loop
+
+	return nil // Normal termination
+}
+
+// --- VM Helper Methods (Keep existing helpers as they are) ---
+// executeBinaryOperation, executeComparison, executeUnaryOperator, isTruthy,
+// buildCollection, executeIndexOperation, execute*Index, execute*Assignment,
+// executeGetAttribute, executeSetAttribute, getObjectIterator, new*Iterator,
+// callClosure, callBuiltin, callClass, callBoundMethod
+// (Make sure error returns are correct as implemented previously)
+
+// --- Binary Ops (Refined) ---
+func (vm *VM) executeBinaryOperation(op code.Opcode) error {
+	right, err := vm.pop()
+	if err != nil { return err } // Propagate Go errors (stack underflow)
+	left, err := vm.pop()
+	if err != nil { return err }
+
+	leftType := left.Type()
+	rightType := right.Type()
+
+	if leftType == object.INTEGER_OBJ && rightType == object.INTEGER_OBJ {
+		return vm.executeBinaryIntegerOperation(op, left, right) // Returns error (Go or Py)
+	}
+	if object.IsNumeric(left) && object.IsNumeric(right) {
+		lF, rF := object.PromoteToFloats(left, right)
+		return vm.executeBinaryFloatOperation(op, lF, rF) // Returns error (Go or Py)
+	}
+	if leftType == object.STRING_OBJ && rightType == object.STRING_OBJ {
+		return vm.executeBinaryStringOperation(op, left, right) // Returns error (Go or Py)
+	}
+
+	// Default: Unsupported types
+	return object.NewError("TypeError: unsupported operand type(s) for %s: '%s' and '%s'", op, leftType, rightType)
+}
+
+func (vm *VM) executeBinaryIntegerOperation(op code.Opcode, left, right object.Object) error {
+	lVal := left.(*object.Integer).Value
+	rVal := right.(*object.Integer).Value
+	var result int64
+	switch op {
+	case code.OpAdd:
+		result = lVal + rVal
+	case code.OpSubtract:
+		result = lVal - rVal
+	case code.OpMultiply:
+		result = lVal * rVal
+	case code.OpDivide:
+		if rVal == 0 {
+			return object.NewError("ZeroDivisionError: division by zero") // Py Error
+		}
+		// Use push directly, return its error if stack overflows
+		return vm.push(&object.Float{Value: float64(lVal) / float64(rVal)})
+	case code.OpModulo:
+		if rVal == 0 {
+			return object.NewError("ZeroDivisionError: integer modulo by zero") // Py Error
+		}
+		// Use push directly, return its error if stack overflows
+		return vm.push(&object.Integer{Value: lVal % rVal})
+	default:
+		return fmt.Errorf("unknown integer binary operator: %s", op) // Internal Go Error
+	}
+	// Use push for results, return its error if stack overflows
+	return vm.push(&object.Integer{Value: result})
+}
+
+func (vm *VM) executeBinaryFloatOperation(op code.Opcode, left, right *object.Float) error {
+	lVal := left.Value
+	rVal := right.Value
+	var result float64
+	switch op {
+	case code.OpAdd:
+		result = lVal + rVal
+	case code.OpSubtract:
+		result = lVal - rVal
+	case code.OpMultiply:
+		result = lVal * rVal
+	case code.OpDivide:
+		if rVal == 0.0 {
+			return object.NewError("ZeroDivisionError: float division by zero") // Py Error
+		}
+		result = lVal / rVal
+	case code.OpModulo:
+		return object.NewError("NotImplementedError: float modulo not implemented")
+	default:
+		return fmt.Errorf("unknown float binary operator: %s", op) // Internal Go Error
+	}
+	return vm.push(&object.Float{Value: result}) // Push float result
+}
+
+func (vm *VM) executeBinaryStringOperation(op code.Opcode, left, right object.Object) error {
+	lVal := left.(*object.String).Value
+	rVal := right.(*object.String).Value
+	if op == code.OpAdd {
+		return vm.push(&object.String{Value: lVal + rVal})
+	}
+	return object.NewError("TypeError: unsupported operand type(s) for %s: 'str' and 'str'", op)
+}
+
+// --- Comparison Ops ---
+func (vm *VM) executeComparison(op code.Opcode) error {
+	right, err := vm.pop()
+	if err != nil {
+		return err
+	}
+	left, err := vm.pop()
+	if err != nil {
+		return err
+	}
+
+	result := false
+	// Numeric Comparison
+	if object.IsNumeric(left) && object.IsNumeric(right) {
+		lF, rF := object.PromoteToFloats(left, right)
+		switch op {
+		case code.OpEqual:
+			result = lF.Value == rF.Value
+		case code.OpNotEqual:
+			result = lF.Value != rF.Value
+		case code.OpGreaterThan:
+			result = lF.Value > rF.Value
+		case code.OpGreaterThanEqual:
+			result = lF.Value >= rF.Value
+		case code.OpLesserThan:
+			result = lF.Value < rF.Value
+		case code.OpLesserThanEqual:
+			result = lF.Value <= rF.Value
+		default:
+			return fmt.Errorf("unknown numeric comparison: %s", op) // Internal Error
+		}
+	} else if left.Type() == object.BOOLEAN_OBJ && right.Type() == object.BOOLEAN_OBJ {
+		// Boolean Comparison (only ==, !=)
+		lVal := left.(*object.Boolean).Value
+		rVal := right.(*object.Boolean).Value
+		switch op {
+		case code.OpEqual:
+			result = (lVal == rVal)
+		case code.OpNotEqual:
+			result = (lVal != rVal)
+		default:
+			return object.NewError("TypeError: '%s' not supported between instances of 'bool' and 'bool'", op)
+		}
+	} else if left.Type() == object.STRING_OBJ && right.Type() == object.STRING_OBJ {
+		// String Comparison
+		lVal := left.(*object.String).Value
+		rVal := right.(*object.String).Value
+		switch op {
+		case code.OpEqual:
+			result = lVal == rVal
+		case code.OpNotEqual:
+			result = lVal != rVal
+		case code.OpGreaterThan:
+			result = lVal > rVal
+		case code.OpGreaterThanEqual:
+			result = lVal >= rVal
+		case code.OpLesserThan:
+			result = lVal < rVal
+		case code.OpLesserThanEqual:
+			result = lVal <= rVal
+		default:
+			return fmt.Errorf("unknown string comparison: %s", op) // Internal Error
+		}
+	} else if left == object.NULL || right == object.NULL {
+		// Comparison with None (only ==, !=)
+		switch op {
+		case code.OpEqual:
+			result = (left == right) // Identity check works for NULL singleton
+		case code.OpNotEqual:
+			result = (left != right)
+		default:
+			return object.NewError("TypeError: '%s' not supported between instances of '%s' and 'NoneType'", op, left.Type())
+		}
+	} else {
+		// Default comparison for other types (identity for ==, !=, TypeError otherwise)
+		// TODO: Add __eq__, __ne__, etc. dunder method calls here later
+		switch op {
+		case code.OpEqual:
+			result = (left == right) // Identity check
+		case code.OpNotEqual:
+			result = (left != right) // Identity check
+		default:
+			return object.NewError("TypeError: '%s' not supported between instances of '%s' and '%s'", op, left.Type(), right.Type())
+		}
+	}
+
+	// Push the boolean result
+	if result {
+		return vm.push(object.TRUE)
+	}
+	return vm.push(object.FALSE)
+}
+
+// --- Unary Ops ---
+func (vm *VM) executeBangOperator() error {
+	operand, err := vm.pop()
+	if err != nil {
+		return err
+	}
+	if vm.isTruthy(operand) {
+		return vm.push(object.FALSE)
+	}
+	return vm.push(object.TRUE)
+}
+
+func (vm *VM) executeUnaryOperator(op code.Opcode) error {
+	operand, err := vm.pop()
+	if err != nil {
+		return err
+	}
+
+	switch op {
+	case code.OpMinus:
+		// TODO: Call __neg__ dunder method if available
+		switch opType := operand.(type) {
+		case *object.Integer:
+			return vm.push(&object.Integer{Value: -opType.Value})
+		case *object.Float:
+			return vm.push(&object.Float{Value: -opType.Value})
+		default:
+			return object.NewError("TypeError: bad operand type for unary -: '%s'", operand.Type())
+		}
+	case code.OpPos:
+		// TODO: Call __pos__ dunder method if available
+		switch operand.Type() {
+		case object.INTEGER_OBJ, object.FLOAT_OBJ:
+			return vm.push(operand) // No-op for numbers
+		default:
+			return object.NewError("TypeError: bad operand type for unary +: '%s'", operand.Type())
+		}
+	}
+	return fmt.Errorf("internal vm error: unhandled unary operator %s", op) // Internal Error
+}
+
+// --- Truthiness ---
+func (vm *VM) isTruthy(obj object.Object) bool {
+	// TODO: Add __bool__ and __len__ dunder method checks later
+	switch obj := obj.(type) {
+	case *object.Boolean:
+		return obj.Value
+	case *object.Null:
+		return false
+	case *object.Integer:
+		return obj.Value != 0
+	case *object.Float:
+		return obj.Value != 0.0
+	case *object.String:
+		return len(obj.Value) > 0
+	case *object.List:
+		return len(obj.Elements) > 0
+	case *object.Tuple:
+		return len(obj.Elements) > 0
+	case *object.Dict:
+		return len(obj.Pairs) > 0
+	case *object.Set:
+		return len(obj.Elements) > 0
+	case *object.Bytes:
+		return len(obj.Value) > 0
+	// Add other container types if needed
+	default:
+		// Functions, modules, classes, instances (without __bool__/__len__) are true
+		return true
+	}
+}
+
+// --- Collection Building ---
+func (vm *VM) buildCollection(startIndex, endIndex int) ([]object.Object, error) {
+	if startIndex < 0 || endIndex > vm.sp || startIndex > endIndex {
+		return nil, fmt.Errorf("internal error: invalid indices for buildCollection (start=%d, end=%d, sp=%d)", startIndex, endIndex, vm.sp)
+	}
+	// Create a new slice and copy elements to avoid aliasing stack slice
+	elements := make([]object.Object, endIndex-startIndex)
+	copy(elements, vm.stack[startIndex:endIndex])
+	return elements, nil
+}
+
+// --- Indexing / Attributes / Iterators ---
+func (vm *VM) executeIndexOperation(left, index object.Object) error {
+	// TODO: Add __getitem__ dunder method check later
+	switch l := left.(type) {
+	case *object.List:
+		idxObj, ok := index.(*object.Integer)
+		if !ok {
+			return object.NewError("TypeError: list indices must be integers, not %s", index.Type())
+		}
+		return vm.executeListIndex(l, idxObj) // Returns error (Go or Py)
+	case *object.Tuple:
+		idxObj, ok := index.(*object.Integer)
+		if !ok {
+			return object.NewError("TypeError: tuple indices must be integers, not %s", index.Type())
+		}
+		return vm.executeTupleIndex(l, idxObj)
+	case *object.Bytes:
+		idxObj, ok := index.(*object.Integer)
+		if !ok {
+			return object.NewError("TypeError: bytes indices must be integers, not %s", index.Type())
+		}
+		return vm.executeBytesIndex(l, idxObj)
+	case *object.String:
+		idxObj, ok := index.(*object.Integer)
+		if !ok {
+			return object.NewError("TypeError: string indices must be integers, not %s", index.Type())
+		}
+		return vm.executeStringIndex(l, idxObj)
+	case *object.Dict:
+		return vm.executeDictIndex(l, index)
+	default:
+		return object.NewError("TypeError: '%s' object is not subscriptable", left.Type())
+	}
+}
+
+func (vm *VM) executeListIndex(list *object.List, index *object.Integer) error {
+	idx := index.Value
+	listLen := int64(len(list.Elements))
+	if idx < 0 {
+		idx += listLen
+	}
+	if idx < 0 || idx >= listLen {
+		return object.NewError("IndexError: list index out of range")
+	}
+	return vm.push(list.Elements[idx])
+}
+
+func (vm *VM) executeTupleIndex(tuple *object.Tuple, index *object.Integer) error {
+	idx := index.Value
+	tupleLen := int64(len(tuple.Elements))
+	if idx < 0 {
+		idx += tupleLen
+	}
+	if idx < 0 || idx >= tupleLen {
+		return object.NewError("IndexError: tuple index out of range")
+	}
+	return vm.push(tuple.Elements[idx])
+}
+
+func (vm *VM) executeBytesIndex(bytesObj *object.Bytes, index *object.Integer) error {
+	idx := index.Value
+	bytesLen := int64(len(bytesObj.Value))
+	if idx < 0 {
+		idx += bytesLen
+	}
+	if idx < 0 || idx >= bytesLen {
+		return object.NewError("IndexError: bytes index out of range")
+	}
+	return vm.push(&object.Integer{Value: int64(bytesObj.Value[idx])}) // Return int
+}
+
+func (vm *VM) executeStringIndex(str *object.String, index *object.Integer) error {
+	runes := []rune(str.Value) // Use runes for correct indexing
+	idx := index.Value
+	strLen := int64(len(runes))
+	if idx < 0 {
+		idx += strLen
+	}
+	if idx < 0 || idx >= strLen {
+		return object.NewError("IndexError: string index out of range")
+	}
+	return vm.push(&object.String{Value: string(runes[idx])}) // Return string slice
+}
+
+func (vm *VM) executeDictIndex(dict *object.Dict, index object.Object) error {
+	hashableKey, ok := index.(object.Hashable)
+	if !ok {
+		return object.NewError("TypeError: unhashable type: '%s'", index.Type())
+	}
+	dictMapKey, err := hashableKey.HashKey()
+	if err != nil {
+		return object.NewError("TypeError: failed to hash key: %v", err)
+	}
+	pair, ok := dict.Pairs[dictMapKey]
+	if !ok {
+		return object.NewError("KeyError: %s", index.Inspect())
+	}
+	return vm.push(pair.Value)
+}
+
+func (vm *VM) executeIndexAssignment(collection, index, value object.Object) error {
+	// TODO: Add __setitem__ dunder method check later
+	switch coll := collection.(type) {
+	case *object.List:
+		idxObj, ok := index.(*object.Integer)
+		if !ok {
+			return object.NewError("TypeError: list indices must be integers, not %s", index.Type())
+		}
+		idx := idxObj.Value
+		listLen := int64(len(coll.Elements))
+		if idx < 0 {
+			idx += listLen
+		}
+		if idx < 0 || idx >= listLen { // Allow assignment only to existing indices
+			return object.NewError("IndexError: list assignment index out of range")
+		}
+		coll.Elements[idx] = value
+		return nil // Assignment successful
+	case *object.Dict:
+		key, ok := index.(object.Hashable)
+		if !ok {
+			return object.NewError("TypeError: unhashable type: '%s'", index.Type())
+		}
+		hashKeyVal, err := key.HashKey()
+		if err != nil {
+			return object.NewError("TypeError: failed to hash key: %v", err)
+		}
+		coll.Pairs[hashKeyVal] = object.DictPair{Key: index, Value: value} // Add/update pair
+		return nil // Assignment successful
+	case *object.Tuple, *object.Bytes, *object.String:
+		return object.NewError("TypeError: '%s' object does not support item assignment", collection.Type())
+	default:
+		return object.NewError("TypeError: '%s' object does not support item assignment", collection.Type())
+	}
+}
+
+func (vm *VM) executeGetAttribute(obj object.Object, attrName string) error {
+	// TODO: Add __getattr__, __getattribute__, descriptor protocol later
+	switch instance := obj.(type) {
+	case *Instance: // Check vm.Instance
+		// 1. Instance dictionary
+		if instance.Env != nil {
+			if val, ok := instance.Env.Get(attrName); ok {
+				return vm.push(val)
+			}
+		}
+		// 2. Class methods (bind to instance)
+		vmClass := instance.Class
+		if vmClass == nil {
+			return fmt.Errorf("internal error: vm.Instance has nil Class") // Internal error
+		}
+		methodClosure, methodOk := vmClass.Methods[attrName]
+		if methodOk {
+			boundMethod := &BoundMethod{Instance: instance, Method: methodClosure}
+			return vm.push(boundMethod)
+		}
+		// 3. Class variables (TODO: Need ClassVariables on vm.Class)
+		// if vmClass.ClassVariables != nil { ... }
+
+		// 4. Superclass chain (TODO)
+
+		return object.NewError("AttributeError: '%s' object has no attribute '%s'", vmClass.Name, attrName)
+	case *object.Module: // Check object.Module for imported modules
+		if val, ok := instance.Env.Get(attrName); ok {
+			return vm.push(val)
+		}
+		return object.NewError("AttributeError: module '%s' has no attribute '%s'", instance.Name, attrName)
+	// Add cases for built-in types with methods (str, list, etc.) later
+	default:
+		return object.NewError("AttributeError: '%s' object has no attribute '%s'", obj.Type(), attrName)
+	}
+}
+
+func (vm *VM) executeSetAttribute(obj object.Object, attrName string, value object.Object) error {
+	// TODO: Add __setattr__ dunder method check later
+	switch instance := obj.(type) {
+	case *Instance: // Only allow setting on vm.Instance for now
+		if instance.Env == nil { // Lazily create instance dict
+			instance.Env = object.NewEnvironment()
+		}
+		instance.Env.Set(attrName, value)
+		return nil // Assignment successful
+	default:
+		return object.NewError("AttributeError: '%s' object attribute assignment not supported", obj.Type())
+	}
+}
+
+func (vm *VM) getObjectIterator(obj object.Object) (object.Iterator, error) {
+	// 1. Check for instance with __iter__ (Simplified: Assume __iter__ returns Go Iterator)
+	if inst, ok := obj.(*Instance); ok {
+		if _, methodOk := inst.Class.Methods["__iter__"]; methodOk {
+			return nil, object.NewError("NotImplementedError: vm OpGetIter doesn't support user-defined __iter__ yet")
+		}
+	}
+
+	// 2. Check built-in sequence types
+	switch o := obj.(type) {
+	case *object.List:
+		return vm.newListIterator(o), nil
+	case *object.Tuple:
+		return vm.newTupleIterator(o), nil
+	case *object.String:
+		return vm.newStringIterator(o), nil
+	case *object.Range:
+		return vm.newRangeIterator(o), nil
+	case *object.Dict:
+		return vm.newDictIterator(o), nil // Iterates keys
+	case *object.Bytes:
+		return vm.newBytesIterator(o), nil // Iterates ints
+	case *object.Set:
+		return vm.newSetIterator(o), nil
+	}
+
+	// 3. Check if it's already an iterator (implements Go interface)
+	if iterator, isIter := obj.(object.Iterator); isIter {
+		return iterator, nil
+	}
+
+	// 4. Not iterable
+	return nil, object.NewError("TypeError: '%s' object is not iterable", obj.Type())
+}
+func (vm *VM) newListIterator(list *object.List) *object.GenericIterator   { idx := 0; return &object.GenericIterator{Source: "list", NextFn: func() (object.Object, bool) { if idx >= len(list.Elements) { return nil, true }; elem := list.Elements[idx]; idx++; return elem, false }} }
+func (vm *VM) newTupleIterator(tuple *object.Tuple) *object.GenericIterator { idx := 0; return &object.GenericIterator{Source: "tuple", NextFn: func() (object.Object, bool) { if idx >= len(tuple.Elements) { return nil, true }; elem := tuple.Elements[idx]; idx++; return elem, false }} }
+func (vm *VM) newStringIterator(str *object.String) *object.GenericIterator { runes := []rune(str.Value); idx := 0; return &object.GenericIterator{Source: "string", NextFn: func() (object.Object, bool) { if idx >= len(runes) { return nil, true }; r := runes[idx]; idx++; return &object.String{Value: string(r)}, false }} }
+func (vm *VM) newRangeIterator(r *object.Range) *object.GenericIterator     { current, step, stop := r.Start, r.Step, r.Stop; finished := (step == 0) || (step > 0 && current >= stop) || (step < 0 && current <= stop); return &object.GenericIterator{Source: "range", NextFn: func() (object.Object, bool) { if finished { return nil, true }; val := current; current += step; if (step > 0 && current >= stop) || (step < 0 && current <= stop) { finished = true }; return &object.Integer{Value: val}, false }} }
+func (vm *VM) newDictIterator(dict *object.Dict) *object.GenericIterator   { keys := make([]object.HashKey, 0, len(dict.Pairs)); idx := 0; for k := range dict.Pairs { keys = append(keys, k) }; /* TODO: Sort keys? */; return &object.GenericIterator{Source: "dict_keys", NextFn: func() (object.Object, bool) { if idx >= len(keys) { return nil, true }; keyHash := keys[idx]; idx++; return dict.Pairs[keyHash].Key, false }} }
+func (vm *VM) newBytesIterator(b *object.Bytes) *object.GenericIterator     { idx := 0; return &object.GenericIterator{Source: "bytes", NextFn: func() (object.Object, bool) { if idx >= len(b.Value) { return nil, true }; byteVal := b.Value[idx]; idx++; return &object.Integer{Value: int64(byteVal)}, false }} }
+func (vm *VM) newSetIterator(s *object.Set) *object.GenericIterator       { elems := make([]object.Object, 0, len(s.Elements)); idx := 0; for _, elem := range s.Elements { elems = append(elems, elem) }; /* TODO: Sort elements? */; return &object.GenericIterator{Source: "set", NextFn: func() (object.Object, bool) { if idx >= len(elems) { return nil, true }; elem := elems[idx]; idx++; return elem, false }} }
+
+// --- Call Helpers ---
+func (vm *VM) callClosure(cl *Closure, numArgs int) error {
+	if cl == nil || cl.Fn == nil {
+		return fmt.Errorf("internal vm error: callClosure called with nil closure/function")
+	}
+	expectedParams := cl.Fn.NumParameters
+	funcName := cl.Fn.Name
+	if funcName == "" {
+		funcName = "<lambda>"
+	}
+	if numArgs != expectedParams {
+		return object.NewError("TypeError: %s() takes %d positional arguments but %d were given", funcName, expectedParams, numArgs)
+	}
+
+	basePointer := vm.sp - numArgs
+	if basePointer < 0 {
+		return fmt.Errorf("stack underflow calculating base pointer for call (sp=%d, numArgs=%d)", vm.sp, numArgs)
+	}
+
+	newFrame := NewFrame(cl, basePointer)
+	err := vm.pushFrame(newFrame)
+	if err != nil {
+		return err // Stack overflow (frames)
+	}
+
+	numNewLocals := cl.Fn.NumLocals - cl.Fn.NumParameters
+	if numNewLocals < 0 {
+		vm.popFrame() // Rollback frame push
+		return fmt.Errorf("internal compiler error: NumLocals (%d) < NumParameters (%d) for function %s", cl.Fn.NumLocals, cl.Fn.NumParameters, funcName)
+	}
+	for i := 0; i < numNewLocals; i++ {
+		err = vm.push(object.NULL)
+		if err != nil {
+			vm.popFrame()
+			vm.sp = basePointer + numArgs // Restore SP
+			return fmt.Errorf("stack overflow allocating locals for %s: %w", funcName, err)
+		}
+	}
+
+	return nil // Frame pushed, setup complete
+}
+
+func (vm *VM) callBuiltin(builtin *object.Builtin, numArgs int) error {
+	argsSliceStart := vm.sp - numArgs
+	if argsSliceStart < 0 {
+		return fmt.Errorf("stack underflow getting builtin args (sp=%d, numArgs=%d)", vm.sp, numArgs)
+	}
+	if argsSliceStart-1 < 0 {
+		return fmt.Errorf("stack underflow finding builtin object before call")
+	}
+
+	args := make([]object.Object, numArgs)
+	copy(args, vm.stack[argsSliceStart:vm.sp])
+	vm.sp = argsSliceStart - 1 // Pop args AND the builtin function
+
+	result := builtin.Fn(args...) // Execute the builtin
+
+	// Check for Pylearn errors returned by the builtin
+	if stopIter, ok := result.(*object.StopIterationError); ok {
+		return stopIter // Return the concrete error type
+	}
+	if errObj, ok := result.(*object.Error); ok {
+		return errObj // Return the concrete error type
+	}
+
+	// Push the successful result
+	err := vm.push(result)
+	if err != nil {
+		return fmt.Errorf("callBuiltin push result error: %w", err) // Stack overflow
+	}
+	return nil // Success
+}
+
+func (vm *VM) callClass(class *Class, numArgs int) error {
+	argsSliceStart := vm.sp - numArgs
+	if argsSliceStart < 0 {
+		return fmt.Errorf("stack underflow getting class args (sp=%d, numArgs=%d)", vm.sp, numArgs)
+	}
+	if argsSliceStart-1 < 0 {
+		return fmt.Errorf("stack underflow finding class object")
+	}
+
+	args := make([]object.Object, numArgs)
+	copy(args, vm.stack[argsSliceStart:vm.sp])
+	vm.sp = argsSliceStart - 1 // Pop args AND the Class object
+
+	instance := &Instance{Class: class, Env: object.NewEnvironment()}
+
+	initMethodClosure, initExists := class.Methods["__init__"]
+	if initExists {
+		err := vm.push(instance) // Push self for __init__
+		if err != nil {
+			return fmt.Errorf("stack overflow pushing self for __init__: %w", err)
+		}
+		spBeforeArgs := vm.sp
+		for _, arg := range args {
+			err = vm.push(arg)
+			if err != nil {
+				vm.sp = spBeforeArgs // Rollback args push
+				vm.pop()             // Pop self
+				return fmt.Errorf("stack overflow pushing args for __init__: %w", err)
+			}
+		}
+		err = vm.callClosure(initMethodClosure, numArgs+1) // Call __init__
+		if err != nil {
+			vm.sp = argsSliceStart - 1 // Restore SP
+			return fmt.Errorf("error preparing/pushing __init__ call: %w", err)
+		}
+		// __init__ frame is pushed. Result handled by OpReturn/OpReturnValue.
+		return nil
+	} else { // No __init__
+		if numArgs > 0 {
+			return object.NewError("TypeError: %s() takes no arguments (%d given)", class.Name, numArgs)
+		}
+		err := vm.push(instance) // Push instance directly
+		if err != nil {
+			return fmt.Errorf("error pushing instance (no init): %w", err)
+		}
+		return nil
+	}
+}
+
+func (vm *VM) callBoundMethod(boundMethod *BoundMethod, numArgs int) error {
+	methodClosure := boundMethod.Method
+	instance := boundMethod.Instance // This is 'self'
+
+	argsSliceStart := vm.sp - numArgs
+	if argsSliceStart < 0 {
+		return fmt.Errorf("stack underflow getting method args (sp=%d, numArgs=%d)", vm.sp, numArgs)
+	}
+	if argsSliceStart-1 < 0 {
+		return fmt.Errorf("stack underflow finding bound method object")
+	}
+
+	args := make([]object.Object, numArgs)
+	copy(args, vm.stack[argsSliceStart:vm.sp])
+	vm.sp = argsSliceStart - 1 // Pop args AND the BoundMethod object
+
+	err := vm.push(instance) // 1. Push 'self'
+	if err != nil {
+		return fmt.Errorf("stack overflow pushing self for method call: %w", err)
+	}
+	spBeforeArgs := vm.sp
+	for _, arg := range args { // 2. Push original arguments
+		err = vm.push(arg)
+		if err != nil {
+			vm.sp = spBeforeArgs // Rollback args
+			vm.pop()             // Pop self
+			return fmt.Errorf("stack overflow pushing args for method call: %w", err)
+		}
+	}
+
+	err = vm.callClosure(methodClosure, numArgs+1) // 3. Call closure
+	if err != nil {
+		vm.sp = argsSliceStart - 1 // Restore SP
+		return fmt.Errorf("error during bound method call: %w", err)
+	}
+	// Method frame is pushed. Result handled by OpReturn/OpReturnValue.
+	return nil
+}
+
+// --- Stack Trace Helper (Optional) ---
+// func (vm *VM) StackTrace() string { ... }

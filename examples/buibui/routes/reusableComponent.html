@@ -1,0 +1,9 @@
+{# routes/reusableComponent.html - uses pylearn_custom syntax #}
+<div style="border: 1px solid blue; padding: 10px; margin-top: 10px;">
+    <p>This is a reusable component!</p>
+    {% if component_data %}
+        <p>Data passed to component: {{ component_data }}</p>
+    {% else %}
+        <p>No specific data passed to this component instance.</p>
+    {% endif %}
+</div>

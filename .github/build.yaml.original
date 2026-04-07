@@ -1,0 +1,245 @@
+name: Build & Package Swalang
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ] # Triggers on tags like v0.1.0 for releases
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest] # macOS removed as requested my local os is ubuntu-20.04
+        # Consider if building on all platforms is needed for every push/PR.
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive # Crucial for fetching .extensions library sources
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23.0' # Ensure this matches your project's requirement
+
+    # --- OS-Specific Environment Setup ---
+
+    # --- Ubuntu Setup ---
+    - name: Install CMake and Build Dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y cmake
+        echo "=== Installing Core Build Tools and Swalang CGo Dependencies (Ubuntu) ==="
+        # This section installs the dependencies you specified for your Go CGo modules
+        # and the additional ones needed for building the C extensions.
+        sudo apt-get install -y \
+          build-essential \
+          pkg-config \
+          libffi-dev \
+          zlib1g-dev \
+          autoconf automake libtool \
+          texinfo \
+          libcurl4-openssl-dev \
+          libssl-dev \
+          curl \
+          unzip \
+          git
+        # --- Optional dependencies for enhanced libcurl features ---
+        # Uncomment and add if you want full libcurl functionality
+        # libbrotli-dev libzstd-dev libnghttp2-dev libpsl-dev libidn2-dev
+
+        echo "=== Verifying CMake Version ==="
+        cmake --version # Should show the version installed via snap (e.g., 3.28.x)
+
+    # --- Windows Setup ---
+    - name: Install CMake and Build Dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "=== Installing CMake, Build Tools, and Swalang CGo Dependencies via Chocolatey ==="
+        # Ensure Chocolatey is installed and up-to-date (usually pre-installed on GH runners)
+        choco upgrade chocolatey -y
+
+        # Install CMake (includes GUI and command-line)
+        choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+
+        # --- Installing MSYS2 and MinGW-w64 for CGo ---
+        # Your Go code expects MSYS2 at C:/msys64. We need to install it.
+        # Choco can install MSYS2
+        choco install msys2 -y
+
+        # Add MSYS2 and MinGW64 to PATH so subsequent commands can find them
+        # The standard install location for choco msys2 is C:\tools\msys64
+        # The MinGW64 binaries are in the mingw64 subdirectory
+        echo "C:\tools\msys64\mingw64\bin" >> $env:GITHUB_PATH
+        echo "C:\tools\msys64\usr\bin" >> $env:GITHUB_PATH # For make, bash etc. if needed by scripts
+
+        # --- Install dependencies using MSYS2's pacman ---
+        # Run pacman commands within an MSYS2 shell
+        # We use 'sh -l -c' to ensure the MSYS2 environment is loaded correctly
+        echo "=== Installing MinGW-w64 toolchain and libraries via MSYS2 pacman ==="
+        C:\tools\msys64\usr\bin\sh -l -c "pacman -Syu --noconfirm" # Update package databases
+        C:\tools\msys64\usr\bin\sh -l -c "pacman -S --noconfirm \
+            mingw-w64-x86_64-toolchain \
+            mingw-w64-x86_64-pkg-config \
+            mingw-w64-x86_64-libffi \
+            mingw-w64-x86_64-zlib \
+            mingw-w64-x86_64-curl"
+            # mingw-w64-x86_64-unzip"
+
+        # --- Important for Windows Builds ---
+        # Your build script (build-extensions.sh) is written for Unix-like shells (bash).
+        # Running it directly on Windows requires either:
+        # 1. Using Git Bash or MSYS2 shell provided by the installed MSYS2.
+        # 2. Rewriting the script for PowerShell/CMD.
+        # This workflow assumes you will run it in an MSYS2/bash context.
+        # Ensure the script is executable and the shell can find the tools installed by MSYS2.
+
+    # --- End OS-Specific Setup ---
+
+    # - name: Build swalang binary
+    #   shell: bash
+    #   run: |
+    #     echo "=== Building Swalang Go Binary ==="
+    #     mkdir -p dist/swalang-${{ runner.os }}
+    #     case "$RUNNER_OS" in
+    #       Windows)  GOOS_VAR="windows" ;;
+    #       macOS)    GOOS_VAR="darwin"  ;;
+    #       *)        GOOS_VAR="linux"   ;;
+    #     esac
+
+    #     CGO_ENABLED=1 \
+    #     GOARCH=amd64 \
+    #     go build -v \
+    #       -o "dist/swalang-${{ runner.os }}/swalang${GOOS_VAR:+.$GOOS_VAR}" \
+    #       ./cmd/interpreter/main.go
+    - name: Build Swalang Binary
+      shell: bash
+      env:
+        OS_NAME: ${{ runner.os }}
+      run: |
+        echo "=== Building Swalang Go Binary for $OS_NAME ==="
+        mkdir -p "dist/swalang-${OS_NAME}"
+
+        # Map GitHub OS name to GOOS and determine extension
+        case "$OS_NAME" in
+          Windows) GOOS_VAR="windows"; EXT=".exe" ;;
+          macOS)   GOOS_VAR="darwin";  EXT=""     ;;
+          *)       GOOS_VAR="linux";   EXT=""     ;;
+        esac
+
+        CGO_ENABLED=1 \
+        GOOS="$GOOS_VAR" \
+        GOARCH=amd64 \
+        go build -v \
+          -ldflags="-s -w" \
+          -o "dist/swalang-${OS_NAME}/swalang${EXT}" \
+          ./cmd/interpreter/main.go
+
+    - name: Compile native extensions (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        echo "=== Compiling Native C Extensions (Linux) ==="
+        chmod +x scripts/build-extensions.sh
+        # Run the build script. It should now find the necessary tools and deps.
+        # ./scripts/build-extensions.sh
+
+    - name: Compile native extensions (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "=== Compiling Native C Extensions (Windows via MSYS2) ==="
+        # The build script needs to run in the MSYS2 environment to find tools like gcc, make.
+        # Use the sh shell from MSYS2 to execute the script.
+        # C:\tools\msys64\usr\bin\sh -l -c "chmod +x scripts/build-extensions.sh && ./scripts/build-extensions.sh"
+
+    - name: Copy stdlib
+      shell: bash
+      run: |
+        echo "=== Copying Standard Library ==="
+        cp -r stdlib "dist/swalang-${RUNNER_OS}/"
+
+    - name: Copy Platform-Specific Libraries
+      shell: bash
+      env:
+        OS_NAME: ${{ runner.os }}
+      run: |
+        echo "=== Copying Core Standard Library ==="
+        mkdir -p "dist/swalang-${OS_NAME}/bin"
+
+        if [[ "$OS_NAME" == "Windows" ]]; then
+          cp -rL bin/Windows/* "dist/swalang-${OS_NAME}/bin/"
+        elif [[ "$OS_NAME" == "Linux" ]]; then
+          cp -r bin/Linux/* "dist/swalang-${OS_NAME}/bin/"
+        else
+          echo "Unsupported OS: $OS_NAME"
+          exit 1
+        fi
+
+
+    - name: Archive Build Artifacts (Unix-like)
+      if: runner.os != 'Windows'
+      run: |
+        echo "=== Archiving Build Artifacts (Unix-like) ==="
+        cd dist
+        # Use tar.gz for Unix-like systems, often preferred
+        tar -czvf swalang-${{ runner.os }}.tar.gz swalang-${{ runner.os }}
+
+    - name: Archive Build Artifacts (Windows)
+      shell: bash
+      if: runner.os == 'Windows'
+      run: |
+        echo "=== Archiving Build Artifacts (Windows) ==="
+        cd dist
+        # Use zip for Windows, commonly expected
+        # Note: PowerShell's Compress-Archive can also be used
+        7z a swalang-${{ runner.os }}.zip swalang-${{ runner.os }}
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: swalang-${{ runner.os }}
+        # Upload the correct archive format based on OS
+        path: |
+          dist/swalang-${{ runner.os }}.tar.gz
+          dist/swalang-${{ runner.os }}.zip
+        # The above path glob should pick the correct one for the runner
+
+  # ------------------------------------------------------------------
+  #  RELEASE JOB  – publishes the zipped binaries to GitHub Releases
+  # ------------------------------------------------------------------
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: build                          # wait for all matrix builds
+    if: startsWith(github.ref, 'refs/tags/v')   # only on tags like v1.2.3
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create release & upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/swalang-Linux/swalang-Linux.tar.gz
+            dist/swalang-Windows/swalang-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# Optional: Add a separate job to create a GitHub Release and upload artifacts
+# when a new tag is pushed (e.g., v0.1.0).
+# This would use actions/create-release and actions/upload-release-asset
+# conditioned on github.ref_type == 'tag'.

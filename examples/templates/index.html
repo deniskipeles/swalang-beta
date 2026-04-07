@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTMX and Alpine.js Example</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+        }
+        button {
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+        #content {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+        }
+    </style>
+</head>
+<body>
+    <p>Try these links:</p>
+    <ul>
+        <li><a href="/hello">/hello</a></li>
+        <li><a href="/data">/data (returns JSON)</a></li>
+        <li><a href="/users">/users (GET all users)</a></li>
+        <li><a href="/users/1">/users/1 (GET user by ID)</a></li>
+        <li>POST to /users with JSON like {"name": "Charlie", "email": "charlie@example.com"} to add a user.</li>
+    </ul>
+    <div class="container">
+        <h1>HTMX and Alpine.js Integration Example</h1>
+
+        <h2>HTMX Example</h2>
+        
+        <button hx-get="/data" hx-target="#content" hx-swap="innerHTML">
+            Load Data with HTMX
+        </button>
+        <div id="content">
+            Content will be loaded here by HTMX.
+        </div>
+
+        <h2>Alpine.js Example</h2>
+        <div x-data="{ message: 'Hello from Alpine.js!' }">
+            <p x-text="message"></p>
+            <button @click="message = 'Message changed by Alpine!'">
+                Change Message
+            </button>
+        </div>
+        <h1>Members</h1>
+        <ul>
+        {% for user in users %}
+        <li>{{ user.id }}. {{user.name}} {{user.email}} {{ user.username }}</li>
+        {% endfor %}
+        </ul>
+
+        <h2>HTMX and Alpine.js Combined</h2>
+        <div x-data="{ showDetails: false }">
+            <button hx-get="/details" hx-target="#details-content" hx-swap="innerHTML" @click="showDetails = !showDetails">
+                Toggle Details (HTMX + Alpine)
+            </button>
+            <div id="details-content" x-show="showDetails">
+                Details will be loaded here by HTMX and shown by Alpine.
+            </div>
+        </div>
+        {% for user in users %}
+        User: {{ user.name }}
+        Posts:
+        {% if user.posts %}
+          <ul>
+          {% for post in user.posts %}
+            <li>{{ post.title }} ({{ post.status }}) - Loop var: {{ post.title }} </li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          No posts for {{ user.name }}.
+        {% endif %}
+      {% endfor %}
+    </div>
+</body>
+</html>
