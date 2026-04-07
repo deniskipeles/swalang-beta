@@ -25,6 +25,8 @@ declare -A LIBRARIES=(
   [pcre2]="https://github.com/PhilipHazel/pcre2.git"
   [oniguruma]="https://github.com/kkos/oniguruma.git"
   [libevent]="https://github.com/libevent/libevent.git"
+  [mongoose]="https://github.com/cesanta/mongoose.git"
+  [yyjson]="https://github.com/ibireme/yyjson.git"
 )
 
 echo "Cloning foundational C libraries as submodules..."
