@@ -22,22 +22,6 @@ import (
 
 	"github.com/deniskipeles/pylearn/internal/stdlib/ffi3"
 
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/httpserver"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/net"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/sqlite"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/json"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/math"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/template"
-	
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyaio"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyconcurrent/futures"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyflasky"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyhttp"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyos"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pytime"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyre"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pycrypto"
-	// _ "github.com/deniskipeles/pylearn/internal/stdlib/pysys"
 
 )
 
