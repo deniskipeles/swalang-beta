@@ -18,14 +18,18 @@ def _load_library_with_fallbacks(base_name):
     """Tries to load libuv using common platform-specific names."""
     platform = sys.platform
     
-    # Common names for libuv shared library
     candidates = []
-    if platform == 'windows':
-        candidates = ['libuv.dll', 'uv.dll']
-    elif platform == 'darwin': # macOS
-        candidates = ['libuv.1.dylib', 'libuv.dylib']
-    else: # Linux and other Unix-like
-        candidates = ['libuv.so.1', 'libuv.so']
+    if platform == 'linux':
+        candidates.append(format_str("bin/x86_64-linux/libuv/lib{base_name}.so"))
+        candidates.append(format_str("lib{base_name}.so.1"))
+        candidates.append(format_str("lib{base_name}.so"))
+    elif platform == 'windows':
+        candidates.append(format_str("bin/x86_64-windows-gnu/libuv/lib{base_name}.dll"))
+        candidates.append(format_str('lib{base_name}.dll'))
+        candidates.append(format_str('{base_name}.dll'))
+    elif platform == 'darwin':
+        candidates.append(format_str('lib{base_name}.1.dylib'))
+        candidates.append(format_str('lib{base_name}.dylib'))
 
     last_error = None
     for name in candidates:

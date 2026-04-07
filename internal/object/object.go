@@ -47,24 +47,6 @@ const (
 )
 
 // --- Core Interfaces ---
-// BoundGoMethod is a special type of Builtin that is bound to a Go receiver instance.
-// This is used for methods on native Go objects exposed to Pylearn (like flasky.App).
-type BoundGoMethod struct {
-	Instance interface{} // The Go instance (e.g., *pyflasky.App)
-	Method   interface{} // The Go method implementation
-	Name     string
-}
-
-func (bgm *BoundGoMethod) Type() ObjectType { return BUILTIN_OBJ } // Behaves like a builtin
-func (bgm *BoundGoMethod) Inspect() string {
-	return fmt.Sprintf(constants.OBJECT_BOUND_GO_METHOD_INSPECT_FORMAT, bgm.Name)
-}
-func (bgm *BoundGoMethod) HashKey() (HashKey, error) {
-	// Not typically hashable, but can be made so if needed.
-	return HashKey{}, fmt.Errorf(constants.OBJECT_HASHABLE_UNHASHABLE_ERROR, bgm.Type())
-}
-
-var _ Object = (*BoundGoMethod)(nil)
 
 // Object is the interface that all runtime value representations must implement.
 type Object interface {

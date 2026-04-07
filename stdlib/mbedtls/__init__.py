@@ -20,29 +20,15 @@ def _load_library_with_fallbacks(base_name):
     """
     platform = sys.platform
     
-    # --- START OF FIX ---
-    # Define search paths. This should include the path from your build script.
-    # We will check relative to the interpreter's CWD.
-    project_lib_path = "bin/linux-x86_64/lib" # This matches your build script output
-
-    # Build a list of candidate paths and names
     candidates = []
-    
-    # 1. First, try the full path inside the project structure
     if platform == 'linux':
-        candidates.append(format_str("{project_lib_path}/lib{base_name}.so.21"))
-        candidates.append(format_str("{project_lib_path}/lib{base_name}.so"))
-    # Add elif for 'darwin' and 'windows' if you build for them
-    
-    # 2. Then, fall back to system-wide names
-    if platform == 'windows':
+        candidates.append(format_str("bin/x86_64-linux/mbedtls/lib{base_name}.so"))
+        candidates.append(format_str("lib{base_name}.so"))
+    elif platform == 'windows':
+        candidates.append(format_str("bin/x86_64-windows-gnu/mbedtls/{base_name}.dll"))
         candidates.append(format_str('{base_name}.dll'))
     elif platform == 'darwin':
         candidates.append(format_str('lib{base_name}.dylib'))
-    else: # Linux
-        candidates.append(format_str('lib{base_name}.so.21'))
-        candidates.append(format_str('lib{base_name}.so'))
-    # --- END OF FIX ---
 
     last_error = None
     for name in candidates:

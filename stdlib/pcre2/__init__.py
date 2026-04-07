@@ -18,13 +18,17 @@ def _load_library_with_fallbacks(base_name):
     platform = sys.platform
     
     candidates = []
-    if platform == 'windows':
-        # PCRE2 for Windows often has this -0 suffix
-        candidates = ['libpcre2-8-0.dll', 'libpcre2-8.dll']
+    if platform == 'linux':
+        candidates.append(format_str("bin/x86_64-linux/pcre2/lib{base_name}.so"))
+        candidates.append(format_str("lib{base_name}.so.0"))
+        candidates.append(format_str("lib{base_name}.so"))
+    elif platform == 'windows':
+        candidates.append(format_str("bin/x86_64-windows-gnu/pcre2/{base_name}.dll"))
+        candidates.append(format_str('{base_name}-0.dll'))
+        candidates.append(format_str('{base_name}.dll'))
     elif platform == 'darwin':
-        candidates = ['libpcre2-8.0.dylib', 'libpcre2-8.dylib']
-    else: # Linux and other Unix-like
-        candidates = ['libpcre2-8.so.0', 'libpcre2-8.so']
+        candidates.append(format_str('lib{base_name}.0.dylib'))
+        candidates.append(format_str('lib{base_name}.dylib'))
 
     last_error = None
     for name in candidates:
