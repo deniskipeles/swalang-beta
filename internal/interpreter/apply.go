@@ -6,7 +6,6 @@ import (
 	"github.com/deniskipeles/pylearn/internal/constants"
 	"github.com/deniskipeles/pylearn/internal/lexer"
 	"github.com/deniskipeles/pylearn/internal/object"
-	"github.com/deniskipeles/pylearn/internal/stdlib/pyflasky"
 )
 
 func applyFunctionOrClass(
@@ -262,22 +261,6 @@ func applyFunctionOrClass(
 			ctx.SetSuperContext(fn.Instance, fn.Method.OriginalClass)
 		}
 		return applyFunctionOrClass(ctx, fn.Method, methodPositionalArgs, callsiteKeywordArgs, callToken)
-
-	case *object.BoundGoMethod:
-		// This is a method on a native Go object (like our App).
-		// We need to call the underlying Go method with the instance as the first argument.
-		switch method := fn.Method.(type) {
-		case func(*pyflasky.App, object.ExecutionContext, ...object.Object) object.Object:
-			// Type assertion for our specific App methods.
-			appInstance, ok := fn.Instance.(*pyflasky.App)
-			if !ok {
-				return object.NewError(constants.InternalError, constants.InterpreterApplyFunctionBoundGoMethodTypeError)
-			}
-			// Call it, passing the instance (`self`) and then the script args.
-			return method(appInstance, ctx, providedPositionalArgs...)
-		default:
-			return object.NewError(constants.InternalError, constants.InterpreterApplyFunctionUnsupportedNativeMethodType)
-		}
 
 	case *object.Builtin:
 		// <<< THIS IS THE NEW, CORRECTED LOGIC FOR BUILTINS >>>

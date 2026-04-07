@@ -89,7 +89,7 @@ func (ic *InterpreterContext) Execute(callable object.Object, args ...object.Obj
 	for {
 		// First, check for standard callable types.
 		switch c := callable.(type) {
-		case *object.Function, *object.Builtin, *object.Class, *object.BoundMethod, *object.BoundGoMethod:
+		case *object.Function, *object.Builtin, *object.Class, *object.BoundMethod:
 			// For these types, `applyFunctionOrClass` handles everything.
 			return applyFunctionOrClass(ic, c, args, nil, object.NoToken)
 		}

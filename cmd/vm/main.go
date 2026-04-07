@@ -14,9 +14,6 @@ import (
 
 	// Shared object model and stdlib init side effects
 	"github.com/deniskipeles/pylearn/internal/object"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyhttp"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyos"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/httpserver"
 	"github.com/deniskipeles/pylearn/internal/stdlib/pysys"
 )
 

@@ -494,14 +494,3 @@ func TestInstanceObject(t *testing.T, obj object.Object, expectedClassName strin
 
 
 // --- Stdlib Specific Assertions ---
-
-// TestHttpResponseObject asserts obj is an HTTPResponse (can be kept specific if needed)
-func TestHttpResponseObject(t *testing.T, obj object.Object) (*object.HTTPResponse, bool) {
-	t.Helper()
-	resp, ok := obj.(*object.HTTPResponse)
-	if !ok {
-		t.Errorf("object is not HTTPResponse. got=%T (%s)", obj, obj.Inspect())
-        return nil, false
-	}
-	return resp, true
-}
