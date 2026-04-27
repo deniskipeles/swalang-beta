@@ -20,6 +20,13 @@ func getLibPath(target, lib, baseName string) string {
 		platform = "x86_64-windows-gnu"
 	}
 
+	// Try relative to project root (from tests dir)
+	path := fmt.Sprintf("../bin/%s/%s/%s%s%s", platform, lib, prefix, baseName, ext)
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+
+	// Try relative to current dir
 	return fmt.Sprintf("bin/%s/%s/%s%s%s", platform, lib, prefix, baseName, ext)
 }
 
@@ -111,6 +118,24 @@ try:
     version_fn = lib.uv_version_string([], ffi.c_char_p)
     v = version_fn()
     print(f"Libuv version: {v}")
+except Exception as e:
+    print(f"Error: {e}")
+    raise e
+`, path)
+		testhelpers.Eval(t, input)
+	})
+
+	t.Run("XZ (liblzma) Load", func(t *testing.T) {
+		path := getLibPath("", "xz", "lzma")
+		input := fmt.Sprintf(`
+import ffi
+lib_path = %q
+try:
+    lib = ffi.CDLL(lib_path)
+    print("XZ loaded")
+    version_fn = lib.lzma_version_string([], ffi.c_char_p)
+    v = version_fn()
+    print(f"XZ version: {v}")
 except Exception as e:
     print(f"Error: {e}")
     raise e

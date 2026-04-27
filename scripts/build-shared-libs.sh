@@ -158,8 +158,10 @@ build_lib() {
             ;;
         xz)
             if [[ "$target" == *"windows"* ]]; then
-                # Erase all .rc mentions just in case
-                sed -i 's/[^[:space:]]*\.rc//g' CMakeLists.txt || true
+                # Erase all .rc mentions just in case.
+                # Use perl to handle multi-line blocks correctly and avoid broken syntax.
+                perl -0777 -i -pe 's/target_sources\([^)]*\.rc[^)]*\)//g' CMakeLists.txt || true
+                perl -0777 -i -pe 's/set_target_properties\([^)]*\.rc[^)]*\)//g' CMakeLists.txt || true
             fi
             cmake -B build-$target $cmake_flags -DBUILD_SHARED_LIBS=ON
             # Use --target liblzma to skip building xz.exe and xzdec.exe
