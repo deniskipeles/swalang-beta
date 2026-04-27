@@ -1,0 +1,13 @@
+# ============================
+# Build artifacts
+# ============================
+builds/
+.deps/
+.extensions/
+bin/
+lib/
+
+# Other
+.vscode/
+.env
+*.exe
