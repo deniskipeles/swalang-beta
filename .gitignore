@@ -6,6 +6,7 @@ builds/
 .extensions/
 bin/
 lib/
+.windows_deps/
 
 # Other
 .vscode/
