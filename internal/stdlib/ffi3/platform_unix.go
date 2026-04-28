@@ -1,5 +1,5 @@
-// pylearn/internal/stdlib/ffi3/platform_unix.go
 //go:build linux || darwin
+// pylearn/internal/stdlib/ffi3/platform_unix.go
 
 package ffi3
 
@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 
@@ -21,20 +20,15 @@ var (
 	libCacheMu sync.RWMutex
 )
 
-// On Unix-like systems, this function does nothing.
-func registerPlatformSpecifics(env *object.Environment) {
-	// No Windows-specific functions to register.
-}
+func registerPlatformSpecifics(env *object.Environment) {}
 
-// findProjectRoot is still useful for development with `go run`.
 func findProjectRoot() (string, bool) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", false
 	}
 	for {
-		goModPath := filepath.Join(dir, "go.mod")
-		if _, err := os.Stat(goModPath); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir, true
 		}
 		parentDir := filepath.Dir(dir)
@@ -45,35 +39,38 @@ func findProjectRoot() (string, bool) {
 	}
 }
 
-// discoverDynamicPaths scans a base directory for library subdirectories and returns their potential library paths.
+// discoverDynamicPaths recursively scans up to 3 levels deep to find library folders
 func discoverDynamicPaths(baseDir string) []string {
-	var discoveredPaths []string
+	var paths []string
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		return discoveredPaths
+		return paths
 	}
+	paths = append(paths, baseDir)
 
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
-		return discoveredPaths
+		return paths
 	}
 
 	for _, entry := range entries {
 		if entry.IsDir() {
-			libraryBundleDir := filepath.Join(baseDir, entry.Name())
-			potentialSubDirs := []string{"lib", "bin"}
-			for _, subDir := range potentialSubDirs {
-				fullPath := filepath.Join(libraryBundleDir, subDir)
-				if _, err := os.Stat(fullPath); err == nil {
-					discoveredPaths = append(discoveredPaths, fullPath)
+			lvl1 := filepath.Join(baseDir, entry.Name())
+			paths = append(paths, lvl1)
+
+			subEntries, err := os.ReadDir(lvl1)
+			if err == nil {
+				for _, subEntry := range subEntries {
+					if subEntry.IsDir() {
+						lvl2 := filepath.Join(lvl1, subEntry.Name())
+						paths = append(paths, lvl2)
+					}
 				}
 			}
-			discoveredPaths = append(discoveredPaths, libraryBundleDir)
 		}
 	}
-	return discoveredPaths
+	return paths
 }
 
-// findLibrary attempts to locate a shared library file.
 func findLibrary(name string) string {
 	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
 		if _, err := os.Stat(name); err == nil {
@@ -83,39 +80,17 @@ func findLibrary(name string) string {
 
 	var allSearchPaths []string
 
-	// Helper function to get the desired directory name for the current architecture.
-	getPlatformArchAlias := func() string {
-		switch runtime.GOARCH {
-		case "amd64":
-			return "x86_64" // Translate Go's 'amd64' to the desired 'x86_64'
-		default:
-			return runtime.GOARCH // Use the default for all other architectures
-		}
-	}
-	platformArch := getPlatformArchAlias()
-
-	// Build the platform subdirectory path using our aliased architecture name.
-	platformSubDir := filepath.Join("bin", fmt.Sprintf("%s-%s", runtime.GOOS, platformArch))
-
-	// Discover dynamic paths relative to the executable (for deployed builds)
+	// Discover dynamic paths relative to the executable
 	if exePath, err := os.Executable(); err == nil {
 		exeDir := filepath.Dir(exePath)
-		dynamicBase := filepath.Join(exeDir, platformSubDir)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(dynamicBase)...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(exeDir, "bin"))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(exeDir, "lib"))...)
 	}
 
 	// Discover dynamic paths relative to the project root (for 'go run')
 	if projectRoot, found := findProjectRoot(); found {
-		dynamicBase := filepath.Join(projectRoot, platformSubDir)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(dynamicBase)...)
-	}
-
-	// Add static relative paths as a fallback
-	staticPaths := []string{"bin", "lib"}
-	if projectRoot, found := findProjectRoot(); found {
-		for _, sp := range staticPaths {
-			allSearchPaths = append(allSearchPaths, filepath.Join(projectRoot, sp))
-		}
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "bin"))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "lib"))...)
 	}
 
 	// Search all collected bundled paths
@@ -146,11 +121,9 @@ func findLibrary(name string) string {
 		}
 	}
 
-	// Final fallback to let the OS loader try to find it
 	return name
 }
 
-// LoadLibrary loads a shared library, handling caching and special loading cases.
 func LoadLibrary(name string) (*Library, error) {
 	libCacheMu.RLock()
 	if cachedLib, found := libCache[name]; found {
@@ -162,15 +135,12 @@ func LoadLibrary(name string) (*Library, error) {
 	libPath := findLibrary(name)
 	handle, err := libManager.LoadLibrary(libPath)
 	if err != nil {
-		// If loading a full path gave an "invalid ELF header", it's likely a linker script (e.g. libc.so).
-		// The correct action is to retry by passing the ORIGINAL, simple name to the system loader.
 		if strings.Contains(err.Error(), "invalid ELF header") {
-			handle, err = libManager.LoadLibrary(name) // Retry with just 'c' or 'm'
+			handle, err = libManager.LoadLibrary(name)
 			if err != nil {
 				return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v", name, err)}
 			}
 		} else {
-			// Original fallback for other errors (e.g. file not found)
 			if libPath != name {
 				handle, err = libManager.LoadLibrary(name)
 			}

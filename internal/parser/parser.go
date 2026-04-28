@@ -1497,7 +1497,6 @@ func (p *Parser) parseIndentedDictRemainder(dict *ast.DictLiteral) ast.Expressio
 	}
 }
 
-// REPLACE your existing parseSingleLineDictRemainder function with this one.
 func (p *Parser) parseSingleLineDictRemainder(dict *ast.DictLiteral) ast.Expression {
 	for p.peekTokenIs(lexer.COMMA) {
 		p.nextToken()
@@ -1507,7 +1506,6 @@ func (p *Parser) parseSingleLineDictRemainder(dict *ast.DictLiteral) ast.Express
 			break
 		}
 
-		// <<< THE FIX >>>
 		key := p.parseExpression(OR)
 		if key == nil {
 			return nil
@@ -1518,7 +1516,6 @@ func (p *Parser) parseSingleLineDictRemainder(dict *ast.DictLiteral) ast.Express
 		}
 		p.nextToken()
 
-		// <<< THE FIX >>>
 		value := p.parseExpression(OR)
 		if value == nil {
 			return nil
@@ -1526,6 +1523,9 @@ func (p *Parser) parseSingleLineDictRemainder(dict *ast.DictLiteral) ast.Express
 		dict.Pairs[key] = value
 	}
 
+	if p.curTokenIs(lexer.RBRACE) {
+		return dict
+	}
 	if !p.expectPeek(lexer.RBRACE) {
 		return nil
 	}
@@ -1579,7 +1579,6 @@ func (p *Parser) parseIndentedSetRemainder(set *ast.SetLiteral) ast.Expression {
 	}
 }
 
-// REPLACE your existing parseSingleLineSetRemainder function with this one for consistency.
 func (p *Parser) parseSingleLineSetRemainder(set *ast.SetLiteral) ast.Expression {
 	for p.peekTokenIs(lexer.COMMA) {
 		p.nextToken()
@@ -1589,7 +1588,6 @@ func (p *Parser) parseSingleLineSetRemainder(set *ast.SetLiteral) ast.Expression
 			break
 		}
 
-		// Use higher precedence for set elements.
 		element := p.parseExpression(OR)
 		if element == nil {
 			return nil
@@ -1597,6 +1595,9 @@ func (p *Parser) parseSingleLineSetRemainder(set *ast.SetLiteral) ast.Expression
 		set.Elements = append(set.Elements, element)
 	}
 
+	if p.curTokenIs(lexer.RBRACE) {
+		return set
+	}
 	if !p.expectPeek(lexer.RBRACE) {
 		return nil
 	}
@@ -2643,11 +2644,10 @@ func (p *Parser) parseSingleLineListRemainder(list *ast.ListLiteral) ast.Express
 		p.nextToken()
 		p.nextToken()
 
-		if p.curTokenIs(lexer.RBRACKET) {
+		if p.curTokenIs(lexer.RBRACKET) { // Trailing comma
 			break
 		}
 
-		// <<< FIX IS HERE: Use TUPLE_PRECEDENCE >>>
 		element := p.parseExpression(TUPLE_PRECEDENCE)
 		if element == nil {
 			return nil
@@ -2655,6 +2655,9 @@ func (p *Parser) parseSingleLineListRemainder(list *ast.ListLiteral) ast.Express
 		list.Elements = append(list.Elements, element)
 	}
 
+	if p.curTokenIs(lexer.RBRACKET) {
+		return list
+	}
 	if !p.expectPeek(lexer.RBRACKET) {
 		return nil
 	}
@@ -2777,7 +2780,6 @@ func (p *Parser) parseSingleLineTupleRemainder(tuple *ast.TupleLiteral) ast.Expr
 			break
 		}
 
-		// <<< FIX IS HERE: Use TUPLE_PRECEDENCE >>>
 		nextElement := p.parseExpression(TUPLE_PRECEDENCE)
 		if nextElement == nil {
 			return nil
@@ -2785,6 +2787,9 @@ func (p *Parser) parseSingleLineTupleRemainder(tuple *ast.TupleLiteral) ast.Expr
 		tuple.Elements = append(tuple.Elements, nextElement)
 	}
 
+	if p.curTokenIs(lexer.RPAREN) {
+		return tuple
+	}
 	if !p.expectPeek(lexer.RPAREN) {
 		return nil
 	}

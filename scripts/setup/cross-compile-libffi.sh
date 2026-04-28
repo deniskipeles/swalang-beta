@@ -23,16 +23,16 @@ make -j$(nproc)
 make install
 cd ..
 
-# --- 2. Linux Musl (x86_64-linux-musl) ---
-echo "🔨 Building static libffi for Linux (Musl)..."
-mkdir -p out_linux_musl
+# --- 2. Linux GNU (x86_64-linux-gnu.2.17) ---
+echo "🔨 Building static libffi for Linux (glibc 2.17)..."
+mkdir -p out_linux_gnu
 cd libffi-3.4.6
 make clean || true
-CC="zig cc -target x86_64-linux-musl" \
-CXX="zig c++ -target x86_64-linux-musl" \
-./configure --host=x86_64-linux-musl --enable-static --disable-shared --prefix="$(pwd)/../out_linux_musl"
+CC="zig cc -target x86_64-linux-gnu.2.17" \
+CXX="zig c++ -target x86_64-linux-gnu.2.17" \
+./configure --host=x86_64-linux-gnu --enable-static --disable-shared --prefix="$(pwd)/../out_linux_gnu"
 make -j$(nproc)
 make install
 cd ..
 
-echo "✅ libffi built successfully for Windows and Linux-musl."
+echo "✅ libffi built successfully for Windows and Linux-gnu."

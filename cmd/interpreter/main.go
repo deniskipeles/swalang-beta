@@ -21,7 +21,7 @@ import (
 	pysys_init "github.com/deniskipeles/pylearn/internal/stdlib/pysys"
 
 	"github.com/deniskipeles/pylearn/internal/stdlib/ffi3"
-
+	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyos"
 
 )
 

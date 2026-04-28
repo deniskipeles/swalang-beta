@@ -1,5 +1,5 @@
-// pylearn/internal/stdlib/ffi3/platform_windows.go
 //go:build windows
+// pylearn/internal/stdlib/ffi3/platform_windows.go
 
 package ffi3
 
@@ -27,7 +27,6 @@ var (
 	procGetLastError = kernel32.NewProc("GetLastError")
 )
 
-// pyGetLastError is the implementation for the Windows-specific builtin.
 func pyGetLastError(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 0 {
 		return object.NewError("TypeError", "get_last_error() takes no arguments")
@@ -36,20 +35,17 @@ func pyGetLastError(ctx object.ExecutionContext, args ...object.Object) object.O
 	return &object.Integer{Value: int64(ret)}
 }
 
-// registerPlatformSpecifics is called by the main init() function.
 func registerPlatformSpecifics(env *object.Environment) {
 	env.Set("get_last_error", &object.Builtin{Name: "_ffi.get_last_error", Fn: pyGetLastError})
 }
 
-// findProjectRoot is still useful for development with `go run`.
 func findProjectRoot() (string, bool) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", false
 	}
 	for {
-		goModPath := filepath.Join(dir, "go.mod")
-		if _, err := os.Stat(goModPath); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir, true
 		}
 		parentDir := filepath.Dir(dir)
@@ -60,41 +56,44 @@ func findProjectRoot() (string, bool) {
 	}
 }
 
-// discoverDynamicPaths scans a base directory for library subdirectories and returns their potential library paths.
+// discoverDynamicPaths recursively scans up to 3 levels deep to find library folders
 func discoverDynamicPaths(baseDir string) []string {
-	var discoveredPaths []string
+	var paths []string
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		return discoveredPaths
+		return paths
 	}
+	paths = append(paths, baseDir)
 
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
-		return discoveredPaths
+		return paths
 	}
 
 	for _, entry := range entries {
 		if entry.IsDir() {
-			libraryBundleDir := filepath.Join(baseDir, entry.Name())
-			potentialSubDirs := []string{"lib", "bin"}
-			for _, subDir := range potentialSubDirs {
-				fullPath := filepath.Join(libraryBundleDir, subDir)
-				if _, err := os.Stat(fullPath); err == nil {
-					discoveredPaths = append(discoveredPaths, fullPath)
+			lvl1 := filepath.Join(baseDir, entry.Name())
+			paths = append(paths, lvl1)
+
+			subEntries, err := os.ReadDir(lvl1)
+			if err == nil {
+				for _, subEntry := range subEntries {
+					if subEntry.IsDir() {
+						lvl2 := filepath.Join(lvl1, subEntry.Name())
+						paths = append(paths, lvl2)
+					}
 				}
 			}
-			discoveredPaths = append(discoveredPaths, libraryBundleDir)
 		}
 	}
-	return discoveredPaths
+	return paths
 }
 
-// addDllSearchPath adds a directory to the DLL search path if not already added.
 func addDllSearchPath(dir string) {
 	addedDllDirsMu.Lock()
 	defer addedDllDirsMu.Unlock()
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
-		return // Silently fail on absolute path error
+		return
 	}
 	if !addedDllDirs[absDir] {
 		if err := platform.AddDllDirectory(absDir); err == nil {
@@ -103,7 +102,6 @@ func addDllSearchPath(dir string) {
 	}
 }
 
-// findLibrary is the Windows-specific library search logic.
 func findLibrary(name string) string {
 	if strings.ContainsRune(name, os.PathSeparator) || strings.ContainsRune(name, '/') {
 		if _, err := os.Stat(name); err == nil {
@@ -112,32 +110,26 @@ func findLibrary(name string) string {
 		}
 	}
 
-	// --- Proactive Dependency Path Loading Logic ---
 	potentialRoots := make(map[string]bool)
-
-	// Identify potential root directories where a 'bin' folder might exist.
 	if exePath, err := os.Executable(); err == nil {
 		exeDir := filepath.Dir(exePath)
-		potentialRoots[exeDir] = true                 // Root could be the exe's own directory
-		potentialRoots[filepath.Dir(exeDir)] = true // Root could be the parent of the exe's directory
+		potentialRoots[exeDir] = true
+		potentialRoots[filepath.Dir(exeDir)] = true
 	}
 	if projectRoot, found := findProjectRoot(); found {
-		potentialRoots[projectRoot] = true // Root could be the project root for 'go run'
+		potentialRoots[projectRoot] = true
 	}
 
-	// From each potential root, look for a 'bin' directory and add all sub-paths to the DLL search path.
 	allPossibleDependencyPaths := []string{}
 	for root := range potentialRoots {
-		moduleBasePath := filepath.Join(root, "bin")
-		discoveredPaths := discoverDynamicPaths(moduleBasePath)
-		allPossibleDependencyPaths = append(allPossibleDependencyPaths, discoveredPaths...)
+		allPossibleDependencyPaths = append(allPossibleDependencyPaths, discoverDynamicPaths(filepath.Join(root, "bin"))...)
+		allPossibleDependencyPaths = append(allPossibleDependencyPaths, discoverDynamicPaths(filepath.Join(root, "lib"))...)
 	}
+	
 	for _, path := range allPossibleDependencyPaths {
 		addDllSearchPath(path)
 	}
-	// --- End Proactive Logic ---
 
-	// Now that all dependency paths are registered, search for the target library.
 	for _, searchDir := range allPossibleDependencyPaths {
 		possibleNames := []string{
 			name,
@@ -152,7 +144,6 @@ func findLibrary(name string) string {
 		}
 	}
 
-	// If not found in bundled paths, search system paths.
 	systemPaths := []string{
 		filepath.Join(os.Getenv("WINDIR"), "System32"),
 		filepath.Join(os.Getenv("WINDIR"), "SysWOW64"),
@@ -164,7 +155,6 @@ func findLibrary(name string) string {
 		}
 	}
 
-	// Final fallback to let the OS loader find it.
 	return name
 }
 

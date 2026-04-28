@@ -174,7 +174,7 @@ build_lib() {
             find build-$target -name "*pcre2-8.so*" -o -name "*pcre2-8.dll" -o -name "*pcre2-8.dylib*" | xargs -I {} cp {} "$out_dir/"
             ;;
         mbedtls)
-            cmake -B build-$target $cmake_flags -DUSE_SHARED_MBEDTLS_LIBRARY=ON -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF
+            cmake -B build-$target $cmake_flags -DUSE_SHARED_MBEDTLS_LIBRARY=ON -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF -DMBEDTLS_FATAL_WARNINGS=OFF
             cmake --build build-$target --parallel "$(nproc)"
             find build-$target/library -name "libmbed*.so*" -o -name "mbed*.dll" -o -name "libmbed*.dylib*" | xargs -I {} cp {} "$out_dir/"
             ;;
