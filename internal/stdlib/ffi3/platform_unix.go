@@ -39,7 +39,6 @@ func findProjectRoot() (string, bool) {
 	}
 }
 
-// discoverDynamicPaths recursively scans up to 3 levels deep to find library folders
 func discoverDynamicPaths(baseDir string) []string {
 	var paths []string
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
@@ -73,27 +72,24 @@ func discoverDynamicPaths(baseDir string) []string {
 
 func findLibrary(name string) string {
 	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
-		if _, err := os.Stat(name); err == nil {
+		if info, err := os.Stat(name); err == nil && !info.IsDir() {
 			return name
 		}
 	}
 
 	var allSearchPaths []string
 
-	// Discover dynamic paths relative to the executable
 	if exePath, err := os.Executable(); err == nil {
 		exeDir := filepath.Dir(exePath)
 		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(exeDir, "bin"))...)
 		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(exeDir, "lib"))...)
 	}
 
-	// Discover dynamic paths relative to the project root (for 'go run')
 	if projectRoot, found := findProjectRoot(); found {
 		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "bin"))...)
 		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "lib"))...)
 	}
 
-	// Search all collected bundled paths
 	for _, searchDir := range allSearchPaths {
 		possibleNames := []string{
 			name,
@@ -102,20 +98,20 @@ func findLibrary(name string) string {
 		}
 		for _, libName := range possibleNames {
 			fullPath := filepath.Join(searchDir, libName)
-			if _, err := os.Stat(fullPath); err == nil {
+			// FIX: Ensure it is a file, not a directory!
+			if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
 				return fullPath
 			}
 		}
 	}
 
-	// If not found in bundled paths, search system paths
 	systemPaths := []string{"/lib", "/usr/lib", "/usr/local/lib", "/lib/x86_64-linux-gnu", "/usr/lib/x86_64-linux-gnu"}
 	possibleNames := []string{name, "lib" + name + libManager.LibraryExtension()}
 
 	for _, sysPath := range systemPaths {
 		for _, libName := range possibleNames {
 			fullPath := filepath.Join(sysPath, libName)
-			if _, err := os.Stat(fullPath); err == nil {
+			if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
 				return fullPath
 			}
 		}
@@ -134,18 +130,20 @@ func LoadLibrary(name string) (*Library, error) {
 
 	libPath := findLibrary(name)
 	handle, err := libManager.LoadLibrary(libPath)
+	
 	if err != nil {
+		originalErr := err
 		if strings.Contains(err.Error(), "invalid ELF header") {
 			handle, err = libManager.LoadLibrary(name)
 			if err != nil {
-				return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v", name, err)}
+				return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v (ELF error: %v)", name, err, originalErr)}
 			}
 		} else {
 			if libPath != name {
 				handle, err = libManager.LoadLibrary(name)
 			}
 			if err != nil {
-				return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v", name, err)}
+				return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v \n(Original path error: %v)", name, err, originalErr)}
 			}
 		}
 	}

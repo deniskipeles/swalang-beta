@@ -1,13 +1,16 @@
 import sqlite
+import os
 
 print("===========================================")
 print("🧪 Testing SQLite FFI Wrapper")
 print("===========================================")
 
-# Use an in-memory database for testing! (No file cleanup needed)
-db_path = ":memory:"
+db_path = "test_ffi.db"
+# Clean up before testing
+if db_path in os.listdir():
+    os.remove(db_path)
 
-# Connect to the database
+# Connect to the database (creates it if it doesn't exist)
 conn = sqlite.connect(db_path)
 print("✅ Database opened successfully.")
 
@@ -43,5 +46,9 @@ assert remaining_admins[0][2] is None
 # 4. Cleanup
 conn.close()
 print("✅ Connection closed.")
+
+if db_path in os.listdir():
+    os.remove(db_path)
+    print("✅ Cleanup complete.")
 
 print("\n🎉 SQLite FFI Wrapper tests passed successfully!")

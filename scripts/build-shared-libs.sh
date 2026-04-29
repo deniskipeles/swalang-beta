@@ -5,7 +5,9 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXT_DIR="$PROJECT_ROOT/.extensions"
 BIN_DIR="$PROJECT_ROOT/bin"
-TARGETS=("x86_64-linux" "x86_64-windows-gnu")
+
+# Targeting glibc 2.17 for Linux to ensure maximum portability with dlopen()
+TARGETS=("x86_64-linux-gnu.2.17" "x86_64-windows-gnu")
 
 mkdir -p "$EXT_DIR"
 cd "$EXT_DIR"
@@ -52,12 +54,9 @@ if [ ! -d "zstd" ]; then
     rm zstd-1.5.6.tar.gz
 fi
 
-# 6. MbedTLS
+# 6. MbedTLS (Must be git clone due to submodules)
 if [ ! -d "mbedtls" ]; then
-    wget -q "https://github.com/Mbed-TLS/mbedtls/archive/refs/tags/v3.6.0.tar.gz" -O mbedtls.tar.gz
-    tar -xf mbedtls.tar.gz
-    mv mbedtls-3.6.0 mbedtls
-    rm mbedtls.tar.gz
+    git clone --depth 1 --recurse-submodules https://github.com/Mbed-TLS/mbedtls.git mbedtls
 fi
 
 # 7. PCRE2
@@ -100,7 +99,11 @@ build_lib() {
     local lib_name=$1
     local target=$2
 
-    local out_dir="$BIN_DIR/$target/$lib_name"
+    # Map the internal Zig target names to our clean output folder names
+    local folder_target="x86_64-linux"
+    if [[ "$target" == *"windows"* ]]; then folder_target="x86_64-windows-gnu"; fi
+
+    local out_dir="$BIN_DIR/$folder_target/$lib_name"
     mkdir -p "$out_dir"
 
     # Skip if already built (checks for .so, .dll, .dylib)
@@ -113,12 +116,13 @@ build_lib() {
     pushd "$EXT_DIR/$lib_name" > /dev/null
 
     local cmake_flags="-DCMAKE_C_COMPILER=zig;cc;-target;$target -DCMAKE_CXX_COMPILER=zig;c++;-target;$target -DCMAKE_ASM_COMPILER=zig;cc;-target;$target -DCMAKE_BUILD_TYPE=MinSizeRel"
-    
-    # Extra flags for Windows (Socket linking, etc.)
     local extra_c_flags=""
+    
     if [[ "$target" == *"windows"* ]]; then
         cmake_flags="$cmake_flags -DCMAKE_SYSTEM_NAME=Windows"
-        extra_c_flags="-lws2_32" # Required for Windows sockets
+        extra_c_flags="-lws2_32" 
+    else
+        extra_c_flags="-pthread" 
     fi
 
     case $lib_name in
@@ -135,7 +139,7 @@ build_lib() {
         sqlite3)
             local out_file="libsqlite3.so"
             if [[ "$target" == *"windows"* ]]; then out_file="sqlite3.dll"; fi
-            zig cc -target "$target" -shared -o "$out_dir/$out_file" sqlite3.c -O3
+            zig cc -target "$target" -shared -o "$out_dir/$out_file" sqlite3.c -O3 $extra_c_flags
             ;;
         cjson)
             local out_file="libcjson.so"
@@ -144,10 +148,9 @@ build_lib() {
             ;;
         zlib)
             if [[ "$target" == *"windows"* ]]; then
-                sed -i 's/set(ZLIB_DLL_SRCS ${CMAKE_CURRENT_BINARY_DIR}\/zlib1rc.obj)//g' CMakeLists.txt || true
+                sed -i 's/if(MINGW)/if(FALSE)/g' CMakeLists.txt || true
             fi
             cmake -B build-$target $cmake_flags
-            # Use --target zlib to skip building minigzip/example executables
             cmake --build build-$target --target zlib --parallel "$(nproc)"
             find build-$target -name "libz.so*" -o -name "zlib.dll" -o -name "libz.dylib*" | xargs -I {} cp {} "$out_dir/"
             ;;
@@ -158,13 +161,10 @@ build_lib() {
             ;;
         xz)
             if [[ "$target" == *"windows"* ]]; then
-                # Erase all .rc mentions just in case.
-                # Use perl to handle multi-line blocks correctly and avoid broken syntax.
                 perl -0777 -i -pe 's/target_sources\([^)]*\.rc[^)]*\)//g' CMakeLists.txt || true
                 perl -0777 -i -pe 's/set_target_properties\([^)]*\.rc[^)]*\)//g' CMakeLists.txt || true
             fi
             cmake -B build-$target $cmake_flags -DBUILD_SHARED_LIBS=ON
-            # Use --target liblzma to skip building xz.exe and xzdec.exe
             cmake --build build-$target --target liblzma --parallel "$(nproc)"
             find build-$target -name "liblzma.so*" -o -name "liblzma.dll" -o -name "liblzma.dylib*" | xargs -I {} cp {} "$out_dir/"
             ;;
@@ -174,7 +174,12 @@ build_lib() {
             find build-$target -name "*pcre2-8.so*" -o -name "*pcre2-8.dll" -o -name "*pcre2-8.dylib*" | xargs -I {} cp {} "$out_dir/"
             ;;
         mbedtls)
-            cmake -B build-$target $cmake_flags -DUSE_SHARED_MBEDTLS_LIBRARY=ON -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF -DMBEDTLS_FATAL_WARNINGS=OFF
+            # Add force multiple flag back to MbedTLS explicitly via CMake
+            local mbed_cmake="$cmake_flags -DUSE_SHARED_MBEDTLS_LIBRARY=ON -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF -DMBEDTLS_FATAL_WARNINGS=OFF"
+            if [[ "$target" == *"windows"* ]]; then
+                mbed_cmake="$mbed_cmake -DCMAKE_SHARED_LINKER_FLAGS=-Wl,-allow-multiple-definition"
+            fi
+            cmake -B build-$target $mbed_cmake
             cmake --build build-$target --parallel "$(nproc)"
             find build-$target/library -name "libmbed*.so*" -o -name "mbed*.dll" -o -name "libmbed*.dylib*" | xargs -I {} cp {} "$out_dir/"
             ;;
@@ -185,9 +190,7 @@ build_lib() {
             ;;
     esac
     
-    # Cleanup: If Linux build created versioned files (e.g. .so.1.2.3), 
-    # ensure a base .so file exists so the FFI can find it.
-    if [[ "$target" == "x86_64-linux" ]]; then
+    if [[ "$target" == *"linux"* ]]; then
         cd "$out_dir"
         for f in *.so.*; do
             [ -e "$f" ] || continue
@@ -200,6 +203,9 @@ build_lib() {
 }
 
 LIBS=("mongoose" "yyjson" "sqlite3" "cjson" "zlib" "zstd" "xz" "pcre2" "mbedtls" "libuv")
+
+# FORCE a clean build
+rm -rf "$BIN_DIR"
 
 for target in "${TARGETS[@]}"; do
     for lib in "${LIBS[@]}"; do

@@ -12,30 +12,29 @@ import sys
 #  Platform-Aware Library Loading
 # ==============================================================================
 
-def _load_library_with_fallbacks(base_name):
+def _load_library():
     platform = sys.platform
     candidates = []
-    if platform == 'windows':
-        candidates = ['cjson.dll', 'libcjson.dll']
+    if platform == 'linux':
+        candidates = ["bin/x86_64-linux/cjson/libcjson.so", "libcjson.so"]
+    elif platform == 'windows':
+        candidates = ["bin/x86_64-windows-gnu/cjson/cjson.dll", "cjson.dll"]
     elif platform == 'darwin':
-        candidates = ['libcjson.dylib', 'cjson.dylib']
-    else: # Linux
-        candidates = ['libcjson.so', 'cjson.so']
-
+        candidates = ["libcjson.dylib"]
+    
     for name in candidates:
         try:
             return ffi.CDLL(name)
         except ffi.FFIError:
-            pass # Try the next candidate
-    raise ffi.FFIError(format_str("Could not find or load the '{base_name}' shared library."))
+            pass
+    raise ffi.FFIError("Could not load cjson shared library")
 
-_lib = None
+_lib = _load_library()
+
 CJSON_AVAILABLE = False
-try:
-    _lib = _load_library_with_fallbacks("cjson")
+if _lib:
     CJSON_AVAILABLE = True
-except ffi.FFIError as e:
-    print(format_str("Warning: Failed to load cJSON library: {e}"))
+else:
     print("JSON functionality in the 'cjson' module will not be available.")
 
 # ==============================================================================

@@ -1,24 +1,13 @@
+# pylearn/stdlib/mongoose/__init__.py
+
 import ffi
-import sys
 
-def _load_library():
-    platform = sys.platform
-    candidates = []
-    if platform == 'linux':
-        candidates = ["bin/x86_64-linux/mongoose/libmongoose.so", "libmongoose.so"]
-    elif platform == 'windows':
-        candidates = ["bin/x86_64-windows-gnu/mongoose/mongoose.dll", "mongoose.dll"]
-    elif platform == 'darwin':
-        candidates = ["libmongoose.dylib"]
-    
-    for name in candidates:
-        try:
-            return ffi.CDLL(name)
-        except ffi.FFIError:
-            pass
+try:
+    # Let FFI Auto-discover the library!
+    _lib = ffi.CDLL("mongoose")
+except ffi.FFIError as e:
+    print(format_str("Debug FFI Load Error: {e}"))
     raise ffi.FFIError("Could not load mongoose shared library")
-
-_lib = _load_library()
 
 # --- Mongoose C Function Signatures ---
 
@@ -55,11 +44,7 @@ class Manager:
         Starts an HTTP server on the given URL.
         handler_func should accept: (connection_ptr, event_id, event_data_ptr)
         """
-        # Mongoose event handler signature: 
-        # void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data)
-        
         def c_handler(c_ptr, ev, ev_data, fn_data):
-            # We wrap the user's Python function inside this C callback
             handler_func(c_ptr, ev, ev_data)
 
         # Create the C callback pointer using our FFI
@@ -68,11 +53,8 @@ class Manager:
             None, # return type (void)
             [ffi.c_void_p, ffi.c_int32, ffi.c_void_p, ffi.c_void_p] # arg types
         )
-        
-        # Store the callback so Go's Garbage Collector doesn't delete it
         self.callbacks.append(cb)
 
-        # Tell mongoose to start listening
         conn_ptr = _mg_http_listen(self.mgr_ptr, url, cb, None)
         if not conn_ptr or conn_ptr.Address == 0:
             raise Exception(format_str("Failed to listen on {url}"))
@@ -89,15 +71,9 @@ class Manager:
             self.callbacks = []
 
 def http_reply(conn_ptr, status_code, headers, body):
-    """
-    Helper to send an HTTP response back to the client.
-    """
-    # If no headers provided, pass empty string. Add \r\n at the end of headers.
     if headers:
         headers = headers + "\r\n"
     else:
         headers = ""
 
-    # Use the variadic C function to send the response. 
-    # We pass %s as the format, and the body as the variadic argument.
     _mg_http_reply(conn_ptr, status_code, headers, "%s", body)

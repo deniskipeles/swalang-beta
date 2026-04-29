@@ -56,7 +56,6 @@ func findProjectRoot() (string, bool) {
 	}
 }
 
-// discoverDynamicPaths recursively scans up to 3 levels deep to find library folders
 func discoverDynamicPaths(baseDir string) []string {
 	var paths []string
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
@@ -104,7 +103,7 @@ func addDllSearchPath(dir string) {
 
 func findLibrary(name string) string {
 	if strings.ContainsRune(name, os.PathSeparator) || strings.ContainsRune(name, '/') {
-		if _, err := os.Stat(name); err == nil {
+		if info, err := os.Stat(name); err == nil && !info.IsDir() {
 			addDllSearchPath(filepath.Dir(name))
 			return name
 		}
@@ -138,7 +137,8 @@ func findLibrary(name string) string {
 		}
 		for _, libName := range possibleNames {
 			fullPath := filepath.Join(searchDir, libName)
-			if _, err := os.Stat(fullPath); err == nil {
+			// FIX: Ensure it is a file!
+			if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
 				return fullPath
 			}
 		}
@@ -150,7 +150,7 @@ func findLibrary(name string) string {
 	}
 	for _, sysPath := range systemPaths {
 		fullPath := filepath.Join(sysPath, name+libManager.LibraryExtension())
-		if _, err := os.Stat(fullPath); err == nil {
+		if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
 			return fullPath
 		}
 	}
@@ -170,11 +170,12 @@ func LoadLibrary(name string) (*Library, error) {
 	
 	handle, err := libManager.LoadLibrary(libPath)
 	if err != nil {
+		originalErr := err
 		if libPath != name {
 			handle, err = libManager.LoadLibrary(name)
 		}
 		if err != nil {
-			return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v", name, err)}
+			return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v \n(Original path error: %v)", name, err, originalErr)}
 		}
 	}
 

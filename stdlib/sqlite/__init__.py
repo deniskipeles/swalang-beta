@@ -12,7 +12,7 @@ def _load_library():
     platform = sys.platform
     candidates = []
     if platform == 'linux':
-        candidates = ["bin/x86_64-linux/sqlite3/libsqlite3.so", "libsqlite3.so"]
+        candidates = ["bin/x86_64-linux/sqlite3/libsqlite33.so", "libsqlite3.so"]
     elif platform == 'windows':
         candidates = ["bin/x86_64-windows-gnu/sqlite3/sqlite3.dll", "sqlite3.dll"]
     elif platform == 'darwin':

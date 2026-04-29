@@ -28,8 +28,8 @@ mgr = mongoose.Manager()
 
 try:
     # Start the server
-    mgr.http_listen("http://0.0.0.0:8000", my_http_handler)
-    print("👉 Open your browser and go to http://localhost:8000")
+    mgr.http_listen("http://0.0.0.0:5000", my_http_handler)
+    print("👉 Open your browser and go to http://localhost:5000")
     print("Press Ctrl+C to stop.")
     
     # Run the event loop forever
