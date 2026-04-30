@@ -3,7 +3,7 @@ name: Build and Release Swalang
 on:
   push:
     tags:
-      - 'v*' # Triggers workflow when a tag starting with 'v' is pushed (e.g., v1.0.0)
+      - 'v*'
 
 permissions:
   contents: write
@@ -30,12 +30,17 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential curl tar zip
+          sudo apt-get install -y cmake build-essential curl tar zip perl
 
-      - name: Build Shared Extensions (C Libraries)
+      - name: Build Shared Extensions (Standard)
         run: |
           chmod +x scripts/build-shared-libs.sh
           bash scripts/build-shared-libs.sh
+
+      - name: Build MbedTLS Extension
+        run: |
+          chmod +x scripts/build-mbedtls.sh
+          bash scripts/build-mbedtls.sh
 
       - name: Build Swalang Interpreter
         run: |
