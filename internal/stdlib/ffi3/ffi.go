@@ -89,23 +89,32 @@ func (p *CPrimitiveType) Size() uintptr           { return p.size }
 func (p *CPrimitiveType) Alignment() uintptr      { return p.size }
 
 func (p *CPrimitiveType) ToC(val object.Object, dest unsafe.Pointer) error {
+    // FIX: Safely type-assert. If the user passed None (Null) or a string to an int, throw a nice Pylearn error.
 	switch p.ffiType {
 	case &C.ffi_type_sint8:
-		*(*C.schar)(dest) = C.schar(val.(*object.Integer).Value)
+        i, ok := val.(*object.Integer); if !ok { return fmt.Errorf("expected int, got %s", val.Type()) }
+		*(*C.schar)(dest) = C.schar(i.Value)
 	case &C.ffi_type_uint8:
-		*(*C.uchar)(dest) = C.uchar(val.(*object.Integer).Value)
+        i, ok := val.(*object.Integer); if !ok { return fmt.Errorf("expected int, got %s", val.Type()) }
+		*(*C.uchar)(dest) = C.uchar(i.Value)
 	case &C.ffi_type_sint32:
-		*(*C.int)(dest) = C.int(val.(*object.Integer).Value)
+        i, ok := val.(*object.Integer); if !ok { return fmt.Errorf("expected int, got %s", val.Type()) }
+		*(*C.int)(dest) = C.int(i.Value)
 	case &C.ffi_type_uint32:
-		*(*C.uint)(dest) = C.uint(val.(*object.Integer).Value)
+        i, ok := val.(*object.Integer); if !ok { return fmt.Errorf("expected int, got %s", val.Type()) }
+		*(*C.uint)(dest) = C.uint(i.Value)
 	case &C.ffi_type_sint64:
-		*(*C.longlong)(dest) = C.longlong(val.(*object.Integer).Value)
+        i, ok := val.(*object.Integer); if !ok { return fmt.Errorf("expected int, got %s", val.Type()) }
+		*(*C.longlong)(dest) = C.longlong(i.Value)
 	case &C.ffi_type_uint64:
-		*(*C.ulonglong)(dest) = C.ulonglong(val.(*object.Integer).Value)
+        i, ok := val.(*object.Integer); if !ok { return fmt.Errorf("expected int, got %s", val.Type()) }
+		*(*C.ulonglong)(dest) = C.ulonglong(i.Value)
 	case &C.ffi_type_float:
-		*(*C.float)(dest) = C.float(val.(*object.Float).Value)
+        f, ok := val.(*object.Float); if !ok { return fmt.Errorf("expected float, got %s", val.Type()) }
+		*(*C.float)(dest) = C.float(f.Value)
 	case &C.ffi_type_double:
-		*(*C.double)(dest) = C.double(val.(*object.Float).Value)
+        f, ok := val.(*object.Float); if !ok { return fmt.Errorf("expected float, got %s", val.Type()) }
+		*(*C.double)(dest) = C.double(f.Value)
 	default:
 		return fmt.Errorf("unsupported primitive type for marshalling: %s", p.name)
 	}
@@ -188,12 +197,6 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) error {
 				return &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for fixed array"}
 			}
 			defer func() {
-				// *** CRITICAL: Who frees this? ***
-				// This allocated memory is stored in 'dest' (a pointer location).
-				// The caller (e.g., Function.Call preparing args) is responsible for freeing
-				// the memory pointed to by 'dest' after the call.
-				// Alternatively, return the Pointer object holding arrayPtr.
-				// For now, storing the pointer. Caller must free *dest.
 			}()
 			*(*unsafe.Pointer)(dest) = arrayPtr // Store the pointer to the array
 
@@ -220,11 +223,6 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) error {
 		case *Callback:
 			*(*unsafe.Pointer)(dest) = v.codePtr
 		case *object.Bytes:
-			// Handle converting a Pylearn bytes object to a C char* (or void*).
-			// This is crucial for things like POST data.
-			// C.CBytes allocates C memory and copies the slice content.
-			// The memory allocated by C.CBytes must be freed by the caller,
-			// which our FFI's callFixed/callVariadic function already does.
 			if p.Pointee == C_CHAR || p.Pointee == nil { // Handle char* and void*
 				*(*unsafe.Pointer)(dest) = C.CBytes(v.Value)
 			} else {
@@ -232,14 +230,11 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) error {
 			}
 		case *object.String:
 			// Determine string type based on Pointee
-			if p.Pointee == C_CHAR { // Assuming C_CHAR is defined for 'char'
+			if p.Pointee == C_CHAR || p.Pointee == nil { 
 				*(*unsafe.Pointer)(dest) = unsafe.Pointer(C.CString(v.Value))
-			} else if p.Pointee == C_WCHAR_T { // Assuming C_WCHAR_T is defined
-				// Use the logic from the previous example for wchar_t*
-				// Simplified (and potentially incorrect) placeholder:
+			} else if p.Pointee == C_WCHAR_T { 
 				utf16Codes := utf16.Encode([]rune(v.Value))
 				numWChars := len(utf16Codes) + 1
-				// Assume wchar_t is 2 bytes for this example (Windows)
 				if C_WCHAR_T.Size() == 2 { // Check determined size
 					totalSize := C.size_t(numWChars) * 2
 					cWStringPtr := C.malloc(totalSize)
@@ -254,12 +249,10 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) error {
 					*(*unsafe.Pointer)(dest) = cWStringPtr
 					return nil // Indicate pointer was stored
 				} else {
-					// Handle 4-byte wchar_t (Unix) or error
 					return fmt.Errorf("wchar_t* ToC not fully implemented for size %d", C_WCHAR_T.Size())
 				}
-				// *** CRITICAL: The allocated cWStringPtr must be freed by Pylearn code ***
 			} else {
-				// Generic pointer to string? Treat as char*?
+				// Generic pointer to string? Treat as char*
 				*(*unsafe.Pointer)(dest) = unsafe.Pointer(C.CString(v.Value))
 			}
 		case *object.Null:
@@ -398,17 +391,12 @@ func (w *wcharType) Inspect() string         { return fmt.Sprintf("<ffi_type %s>
 
 // GetFFIType dynamically determines the ffi_type based on the runtime size of C.wchar_t
 func (w *wcharType) GetFFIType() *C.ffi_type {
-	// This logic should ideally be in init() after sizes are determined,
-	// but since GetFFIType is a method, we determine it here based on size.
-	// A more robust way in init is shown below for C_LONG/C_ULONG.
 	switch w.size {
 	case 2:
 		return &C.ffi_type_sint16 // Assuming signed, common for 2-byte wchar_t (Windows)
 	case 4:
 		return &C.ffi_type_sint32 // Assuming signed, common for 4-byte wchar_t (Unix)
-	// Add case for 8 if needed, though less common for wchar_t
 	default:
-		// This should ideally not happen if determined correctly in init
 		panic(fmt.Sprintf("Unsupported wchar_t size: %d", w.size))
 	}
 }
@@ -416,9 +404,6 @@ func (w *wcharType) GetFFIType() *C.ffi_type {
 func (w *wcharType) Size() uintptr      { return w.size }
 func (w *wcharType) Alignment() uintptr { return w.size }
 
-// ToC converts a Pylearn object to a C wchar_t value or allocates a wchar_t string.
-// For single wchar_t value: expects Integer or String (first rune).
-// For wchar_t* (handled by CPointerType{Pointee: C_WCHAR_T}), this is called by the Pointer's ToC.
 func (w *wcharType) ToC(val object.Object, dest unsafe.Pointer) error {
 	switch v := val.(type) {
 	case *object.Integer:
@@ -433,31 +418,14 @@ func (w *wcharType) ToC(val object.Object, dest unsafe.Pointer) error {
 		}
 		return nil
 	case *object.String:
-		// This case is primarily for when wchar_t* is used.
-		// Convert Go UTF-8 string to C wide string (UTF-16 on Windows, UCS-4 on Unix typically)
-		// This is complex and platform-dependent.
-		// Simplified approach: Convert to UTF-16, then to C.wchar_t array.
-		// Note: This allocates C memory that needs to be freed by the caller/user.
-		// A more robust solution might involve a custom Pointer wrapper or registry.
-
-		// Convert Go string to UTF-16 code units
 		utf16Codes := utf16.Encode([]rune(v.Value))
-
-		// Calculate number of C.wchar_t needed (including null terminator)
 		numWChars := len(utf16Codes) + 1 // +1 for null terminator
-
-		// Allocate memory for C.wchar_t array
-		// We need to allocate based on the actual size of C.wchar_t
 		totalSize := C.size_t(numWChars) * C.size_t(w.size)
 		cWStringPtr := C.malloc(totalSize)
 		if cWStringPtr == nil {
 			return &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for wchar_t string"}
 		}
 
-		// Copy UTF-16 codes to the allocated C memory
-		// This assumes C.wchar_t can hold a UTF-16 code unit (true on Windows, not on Unix if wchar_t is 32-bit)
-		// This is a simplification. A full implementation needs platform-specific handling.
-		// For demonstration, let's assume 16-bit wchar_t (Windows style)
 		if w.size == 2 {
 			wcharSlice := (*[1 << 30]C.wchar_t)(cWStringPtr)[:numWChars:numWChars]
 			for i, code := range utf16Codes {
@@ -465,9 +433,6 @@ func (w *wcharType) ToC(val object.Object, dest unsafe.Pointer) error {
 			}
 			wcharSlice[len(utf16Codes)] = 0 // Null terminator
 		} else if w.size == 4 {
-			// If wchar_t is 32-bit (Unix style), copy runes directly (lossless for BMP, surrogate pairs need handling)
-			// This is also a simplification as it doesn't handle all UTF-16 surrogate complexities for 32-bit wchar_t directly from utf16 codes.
-			// A better way is to iterate runes of the original string.
 			runes := []rune(v.Value)
 			wcharSlice := (*[1 << 30]C.wchar_t)(cWStringPtr)[: len(runes)+1 : len(runes)+1]
 			for i, r := range runes {
@@ -479,11 +444,6 @@ func (w *wcharType) ToC(val object.Object, dest unsafe.Pointer) error {
 			return fmt.Errorf("unsupported wchar_t size for string conversion: %d", w.size)
 		}
 
-		// Store the pointer to the allocated C string in dest.
-		// This is typically used when passing a wchar_t*.
-		// The caller (e.g., CPointerType.ToC) is responsible for managing this pointer's lifetime.
-		// *** CRITICAL: The allocated memory (cWStringPtr) must be explicitly freed by Pylearn code ***
-		// using a mechanism like the `free_c_resource` function we'll add.
 		*(*unsafe.Pointer)(dest) = cWStringPtr
 		return nil // Indicate that a pointer was stored, not a value
 	default:
@@ -505,16 +465,7 @@ func (w *wcharType) FromC(src unsafe.Pointer) (object.Object, error) {
 	default:
 		return nil, fmt.Errorf("unsupported wchar_t size for reading: %d", w.size)
 	}
-	// Convert C.wchar_t to Go rune/string
-	// This is lossy if the C.wchar_t representation isn't a full Unicode code point.
-	// Simplified: treat as a single code unit/point.
-	// A robust implementation would need to know if it's a single value or a null-terminated string.
-	// For now, assume it's a single value.
 	return &object.String{Value: string(rune(cWCharValue))}, nil
-	// For string conversion from wchar_t*, the CPointerType would handle reading the pointer,
-	// and then a separate function or logic would be needed to traverse the C string
-	// and convert it back to a Go string, freeing the C memory if necessary.
-	// This is complex and often handled outside the basic FromC for the *value* type.
 }
 
 // --- MEMORY MANAGEMENT FOR ALLOCATED C RESOURCES ---
@@ -528,13 +479,10 @@ func pyFreeCResource(ctx object.ExecutionContext, args ...object.Object) object.
 	switch ptrObj := args[0].(type) {
 	case *Pointer:
 		if ptrObj.Address != nil {
-			// Free the C memory pointed to by the Pointer's Address.
-			// This is the standard way to free memory allocated by C.malloc or ToC.
 			C.free(ptrObj.Address)
 			ptrObj.Address = nil // Prevent accidental double-free if the Pointer object persists
 		}
 		return object.NULL
-	// Add cases for other types that might hold C resources if needed in the future
 	default:
 		return object.NewError("TypeError", "arg must be a Pointer holding a C resource")
 	}
@@ -545,9 +493,6 @@ type StructField struct {
 	Name   string
 	Type   FFIType
 	Offset uintptr // Offset in bytes from the start of the struct
-	// For Bitfields (optional, complex):
-	// BitOffset uint // Offset in bits within the byte at Offset
-	// BitSize   uint // Size in bits
 }
 
 type CStructType struct {
@@ -594,8 +539,6 @@ func (s *CStructType) GetFFIType() *C.ffi_type {
 	if cElements == nil {
 		panic("FFI: failed to malloc for struct elements") // Or handle error gracefully
 	}
-	// Note: This C memory is associated with the ffi_type and should live as long as it does.
-	// It's effectively leaked unless we add a Free() method to CStructType.
 
 	cElementsSlice := (*[1 << 30]*C.ffi_type)(unsafe.Pointer(cElements))[: numFields+1 : numFields+1]
 	for i, field := range s.Fields {
@@ -621,15 +564,8 @@ func (s *CStructType) GetFFIType() *C.ffi_type {
 		s.size = uintptr(ffiType.size)
 		s.alignment = uintptr(ffiType.alignment)
 	} else {
-		// This is a fallback, less accurate but better than nothing.
-		// A real implementation would now calculate offsets based on alignment.
-		// For now, we'll let libffi handle it during the actual call prep.
 		fmt.Fprintf(os.Stderr, "FFI Warning: could not pre-calculate layout for struct %s\n", s.Name)
 	}
-
-	// To get individual field offsets, we'd need a more complex C helper.
-	// However, libffi itself doesn't need them; it computes the layout internally.
-	// Our ToC/FromC methods DO need them. This is the hard part.
 
 	s.ffiType = ffiType
 	return s.ffiType
@@ -645,8 +581,6 @@ func (s *CStructType) Size() uintptr {
 
 // ToC marshals a Pylearn object (e.g., Dict) into a C struct memory block.
 func (s *CStructType) ToC(val object.Object, dest unsafe.Pointer) error {
-	// Assume val is a Dictionary-like object with keys matching field names
-	// This is a simplified assumption; real implementation might be more flexible
 	dict, ok := val.(interface {
 		Get(key string) (object.Object, bool)
 	}) // Hypothetical interface
@@ -657,8 +591,6 @@ func (s *CStructType) ToC(val object.Object, dest unsafe.Pointer) error {
 	for _, field := range s.Fields {
 		fieldVal, found := dict.Get(field.Name)
 		if !found {
-			// Handle missing fields? Set to zero? Error?
-			// For now, skip if not found. Maybe zero-initialize memory first.
 			continue // Or return an error
 		}
 		fieldDest := unsafe.Pointer(uintptr(dest) + field.Offset)
@@ -681,22 +613,18 @@ func (s *CStructType) FromC(src unsafe.Pointer) (object.Object, error) {
 		}
 		fields[field.Name] = fieldVal
 	}
-	// Return a struct-like object. Using Dictionary for now.
 	return &object.Dict{Pairs: ToHashDictPairs(fields)}, nil // Or a custom StructObject
 }
 
 func ToHashDictPairs(m map[string]object.Object) map[object.HashKey]object.DictPair {
 	out := make(map[object.HashKey]object.DictPair, len(m))
 	for k, v := range m {
-		// We know all keys are strings, so wrap them
 		keyObj := &object.String{Value: k}
 		hashKey, _ := keyObj.HashKey()
 		out[hashKey] = object.DictPair{Key: keyObj, Value: v}
 	}
 	return out
 }
-
-// internal/stdlib/ffi3/ffi.go
 
 // =============================================================================
 // UNION TYPE
@@ -787,25 +715,14 @@ func (u *CUnionType) GetFFIType() *C.ffi_type {
 		panic("FFI: failed to malloc for ffi_type union")
 	}
 
-	// =======================================================================
-	//  THE FIX: Use C.FFI_TYPE_STRUCT. libffi handles union layout correctly
-	//  when given this type. It calculates the size as the max of its
-	//  elements and alignment as the max alignment, which is what we want.
-	// =======================================================================
 	ffiType.size = 0
 	ffiType.alignment = 0
 	ffiType._type = C.FFI_TYPE_STRUCT
 	ffiType.elements = cElements
 
-	// Optional: We can force libffi to calculate the size/alignment now.
-	// This makes our Size() and Alignment() methods accurate without waiting for a call.
 	var dummyCif C.ffi_cif
 	if C.ffi_prep_cif(&dummyCif, C.FFI_DEFAULT_ABI, 0, ffiType, nil) == C.FFI_OK {
-		// This is a bit of a hack, but it's the official way to get libffi
-		// to populate the size and alignment fields of a complex type.
-		// NOTE: This will compute the layout as a UNION because all offsets are 0.
 	} else {
-		// This should not fail for a valid type definition.
 		fmt.Fprintf(os.Stderr, "FFI Warning: could not pre-calculate layout for union %s\n", u.Name)
 	}
 
@@ -1156,11 +1073,6 @@ func (l *Library) DefineFunction(name string, retType FFIType, argTypes []FFITyp
 		return nil, &FFIError{Code: ErrBadSignature, Message: fmt.Sprintf("libffi ffi_prep_cif failed: %d", ffiStatus)}
 	}
 
-	// fn := &Function{Name: name, Lib: l, ptr: procPtr, cif: cif, cArgTypesPtr: cArgTypesPtr, ReturnType: retType, ArgTypes: argTypes}
-	// l.mu.Lock()
-	// l.funcs[signatureKey] = fn
-	// l.mu.Unlock()
-	// return fn, nil
 	fn := &Function{
 		Name: name, Lib: l, ptr: procPtr, cif: cif, cArgTypesPtr: cArgTypesPtr,
 		ReturnType: retType, ArgTypes: argTypes, IsVariadic: false, FixedArgCount: numArgs,
@@ -1290,10 +1202,8 @@ func (f *Function) callVariadic(pylearnArgs ...object.Object) (object.Object, er
 			allArgTypes[i] = C_FLOAT64 // Floats are promoted to double
 		case *object.String:
 			allArgTypes[i] = C_CHAR_P // Assumed to be a C-style string
-		// <<< START: ADDED FIX >>>
 		case *object.Bytes:
 			allArgTypes[i] = C_CHAR_P // Treat bytes as a C-style string (char*)
-		// <<< END: ADDED FIX >>>
 		case *Pointer:
 			allArgTypes[i] = C_VOID_P // Pointers are passed as-is
 		case *Callback:
@@ -1412,11 +1322,6 @@ func (p *Pointer) Inspect() string {
 	return fmt.Sprintf("<ffi.Pointer at %p>", p.Address)
 }
 
-// =======================================================================
-//
-//	ADD THIS METHOD and the INTERFACE IMPLEMENTATION
-//
-// =======================================================================
 func (p *Pointer) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
 	if name == "Address" {
 		// Expose the raw memory address as a Pylearn Integer.
@@ -1426,8 +1331,6 @@ func (p *Pointer) GetObjectAttribute(ctx object.ExecutionContext, name string) (
 }
 
 var _ object.AttributeGetter = (*Pointer)(nil)
-
-// =======================================================================
 
 func pyMalloc(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
@@ -1647,10 +1550,6 @@ func (cb *Callback) GetObjectAttribute(ctx object.ExecutionContext, name string)
 	if name == "is_callback" {
 		return object.TRUE, true
 	}
-	// You could also expose the codePtr as an integer for debugging if you want
-	// if name == "address" {
-	//     return &object.Integer{Value: int64(uintptr(cb.codePtr))}, true
-	// }
 	return nil, false
 }
 
@@ -1741,29 +1640,21 @@ func NewCallback(pylearnFunc object.Object, retType FFIType, argTypes []FFIType,
 	return cb, nil
 }
 
-// Update goCallbackHandler to use the stored context
-//
-//export goCallbackHandler
-//export goCallbackHandler
 //export goCallbackHandler
 func goCallbackHandler(cif *C.ffi_cif, ret unsafe.Pointer, args unsafe.Pointer, user_data unsafe.Pointer) {
-	// Defer a recover to catch any Go panics within the callback.
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintf(os.Stderr, "\n--- FFI FATAL: Panic in callback function ---\n%v\n", r)
 		}
 	}()
 
-	// Get the specific callback object from user_data.
 	cb := (*Callback)(unsafe.Pointer(*(*uintptr)(user_data)))
 
-	// Use the execution context that was stored when the callback was created.
 	if cb.execCtx == nil {
 		fmt.Fprintln(os.Stderr, "FFI FATAL: Callback is missing its ExecutionContext")
 		return
 	}
 
-	// Unmarshal C arguments into Pylearn objects.
 	numArgs := int(cif.nargs)
 	pylearnArgs := make([]object.Object, numArgs)
 	cArgsArray := (*[1 << 30]unsafe.Pointer)(args)
@@ -1771,21 +1662,17 @@ func goCallbackHandler(cif *C.ffi_cif, ret unsafe.Pointer, args unsafe.Pointer, 
 		pylearnObj, err := cb.argTypes[i].FromC(cArgsArray[i])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "FFI ERROR: Failed to unmarshal arg %d: %v\n", i, err)
-			pylearnArgs[i] = object.NULL // Use NULL as a fallback.
+			pylearnArgs[i] = object.NULL
 		} else {
 			pylearnArgs[i] = pylearnObj
 		}
 	}
 
-	// --- START OF THE FIX ---
-	// Execute the Pylearn function and check for a returned error.
 	resultObj := cb.execCtx.Execute(cb.pylearnFunc, pylearnArgs...)
 
 	if object.IsError(resultObj) {
-		// An exception occurred inside the Pylearn callback. We MUST report it.
 		fmt.Fprintln(os.Stderr, "\n--- Unhandled exception in FFI callback ---")
 		if err, ok := resultObj.(*object.Error); ok {
-			// Try to create a helpful, albeit simplified, traceback.
 			funcName := "<unknown>"
 			if cb.pylearnFunc != nil {
 				funcName = cb.pylearnFunc.Inspect()
@@ -1793,17 +1680,12 @@ func goCallbackHandler(cif *C.ffi_cif, ret unsafe.Pointer, args unsafe.Pointer, 
 			fmt.Fprintf(os.Stderr, "  File \"<c_callback>\", in %s\n", funcName)
 			fmt.Fprintf(os.Stderr, "%s: %s\n", err.ErrorClass.Name, err.Message)
 		} else {
-			// Fallback for other error types like StopIteration.
 			fmt.Fprintln(os.Stderr, resultObj.Inspect())
 		}
 		fmt.Fprintln(os.Stderr, "--- End of FFI callback exception ---")
-
-		// Do not proceed to marshal a return value if an error occurred.
 		return
 	}
-	// --- END OF THE FIX ---
 
-	// If no error, marshal the return value back to C.
 	if cb.retType != nil {
 		if err := cb.retType.ToC(resultObj, ret); err != nil {
 			fmt.Fprintf(os.Stderr, "FFI ERROR: Failed to marshal return value: %v\n", err)
@@ -1812,7 +1694,7 @@ func goCallbackHandler(cif *C.ffi_cif, ret unsafe.Pointer, args unsafe.Pointer, 
 }
 
 // =============================================================================
-// MAIN FFI FUNCTIONS (from ffi.go)
+// MAIN FFI FUNCTIONS
 // =============================================================================
 
 func pyLoadLibrary(ctx object.ExecutionContext, args ...object.Object) object.Object {
@@ -1833,7 +1715,6 @@ func pyLoadLibrary(ctx object.ExecutionContext, args ...object.Object) object.Ob
 	return lib
 }
 func pyDefineFunction(ctx object.ExecutionContext, args ...object.Object) object.Object {
-	// Allow 3 or 4 arguments: (library, name, restype, argtypes, [is_variadic])
 	if len(args) < 4 || len(args) > 5 {
 		return object.NewError("TypeError", "define_function() takes 4 or 5 arguments")
 	}
@@ -1863,9 +1744,6 @@ func pyDefineFunction(ctx object.ExecutionContext, args ...object.Object) object
 		}
 	}
 
-	// =======================================================================
-	// THE FIX: Handle the optional 'is_variadic' boolean argument
-	// =======================================================================
 	isVariadic := false
 	if len(args) == 5 {
 		if b, ok := args[4].(*object.Boolean); ok {
@@ -1875,9 +1753,7 @@ func pyDefineFunction(ctx object.ExecutionContext, args ...object.Object) object
 		}
 	}
 
-	// Call the updated DefineFunction with the isVariadic flag
 	fn, err := lib.DefineFunction(name.Value, retType, argTypes, isVariadic)
-	// =======================================================================
 
 	if err != nil {
 		if ffiErr, ok := err.(*FFIError); ok {
@@ -1933,7 +1809,6 @@ func pyCreateCallback(ctx object.ExecutionContext, args ...object.Object) object
 			return object.NewError("TypeError", "item in argtypes not a valid FFI type")
 		}
 	}
-	// Pass the CURRENT execution context when creating the callback
 	cb, err := NewCallback(pylearnFunc, retType, argTypes, ctx)
 	if err != nil {
 		return object.NewError("FFIError", err.Error())
@@ -1954,11 +1829,9 @@ func pyStringAt(ctx object.ExecutionContext, args ...object.Object) object.Objec
 	}
 
 	if len(args) == 1 {
-		// Read until null terminator
 		return &object.String{Value: C.GoString((*C.char)(ptr.Address))}
 	}
 
-	// Read a specific length
 	length, ok := args[1].(*object.Integer)
 	if !ok {
 		return object.NewError("TypeError", "arg 2 (length) must be an Integer")
@@ -1971,15 +1844,6 @@ func pyStringAt(ctx object.ExecutionContext, args ...object.Object) object.Objec
 	return &object.String{Value: string(goBytes)}
 }
 
-// pyCreateStructType is the Pylearn builtin for defining a new C struct type.
-// It takes a name and a list of [field_name, field_type] pairs.
-// Example usage in Pylearn:
-// MyStruct = _ffi.create_struct_type("MyStruct", [
-//
-//	["tag", _ffi.c_char],
-//	["value", _ffi.c_int32]
-//
-// ])
 func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 2 {
 		return object.NewError("TypeError", "create_struct_type() takes 2 arguments (name, fields_list)")
@@ -1995,8 +1859,6 @@ func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) obje
 		return object.NewError("TypeError", "argument 2 (fields) must be a list")
 	}
 
-	// 1. Parse the Pylearn list of fields into a Go slice of StructField.
-	// At this stage, offsets are unknown.
 	var fields []StructField
 	for i, fieldItem := range fieldsListObj.Elements {
 		fieldList, ok := fieldItem.(*object.List)
@@ -2017,22 +1879,19 @@ func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) obje
 		fields = append(fields, StructField{
 			Name:   fieldNameObj.Value,
 			Type:   fieldTypeObj,
-			Offset: 0, // Placeholder, will be calculated next.
+			Offset: 0, 
 		})
 	}
 
-	// 2. Call our layout calculation logic.
 	totalSize, totalAlignment, offsets, err := calculateLayout(fields)
 	if err != nil {
 		return object.NewError("FFIError", "failed to calculate struct layout: %v", err)
 	}
 
-	// 3. Populate the correct offsets into our Go slice of fields.
 	for i := range fields {
 		fields[i].Offset = offsets[i]
 	}
 
-	// 4. Create and return the final CStructType object with all correct information.
 	structType := &CStructType{
 		Name:      nameObj.Value,
 		Fields:    fields,
@@ -2043,43 +1902,34 @@ func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) obje
 	return structType
 }
 
-// pyGetOrCreatePointerType creates a standard T* pointer type.
 func pyGetOrCreatePointerType(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return object.NewError("TypeError", "_get_or_create_pointer_type() takes 1 argument (pointee_type)")
 	}
 
-	// <<< START FIX >>>
-	// Allow Pylearn classes to be used as opaque pointer types.
 	if _, ok := args[0].(*object.Class); ok {
-		// This allows `ffi.POINTER(MyClass)` where MyClass is a forward declaration.
-		// It's treated as an opaque pointer, equivalent to c_void_p in terms of FFI type.
 		return &CPointerType{
 			Pointee:   nil, // Represents void*
 			ArraySize: 0,
 		}
 	}
-	// <<< END FIX >>>
 
 	pointee, ok := args[0].(FFIType)
 	if !ok {
 		return object.NewError("TypeError", "argument must be a valid FFI type")
 	}
 
-	// Create a new pointer type with no array size.
 	return &CPointerType{
 		Pointee:   pointee,
 		ArraySize: 0,
 	}
 }
 
-// pyCreatePointerType creates a pointer type, which can also represent a fixed-size array.
 func pyCreatePointerType(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 2 {
 		return object.NewError("TypeError", "_create_pointer_type() takes 2 arguments (pointee_type, array_size)")
 	}
 
-	// The pointee can be NULL for void pointers
 	var pointee FFIType
 	if args[0] != object.NULL {
 		var ok bool
@@ -2105,14 +1955,12 @@ func pyCreatePointerType(ctx object.ExecutionContext, args ...object.Object) obj
 }
 
 func init() {
-	// --- DETERMINE PLATFORM-SPECIFIC SIZES ---
 	longSize := unsafe.Sizeof(C.long(0))
 	wcharSize := unsafe.Sizeof(C.wchar_t(0))
 	boolSize := unsafe.Sizeof(C._Bool(false))
 	charSize := unsafe.Sizeof(C.char(0))
 	shortSize := unsafe.Sizeof(C.short(0))
 
-	// --- CREATE C TYPE INSTANCES ---
 	if charSize != 1 {
 		panic(fmt.Sprintf("Unsupported C char size: %d", charSize))
 	}
@@ -2147,15 +1995,16 @@ func init() {
 
 	C_WCHAR_T = &wcharType{name: "c_wchar_t", size: wcharSize}
 
-	// Initialize common pointer types now that base types are defined
 	C_CHAR_P = &CPointerType{Pointee: C_CHAR}
 	C_WCHAR_P = &CPointerType{Pointee: C_WCHAR_T}
 
-	// Platform-dependent aliases (simplified for now)
 	C_PID_T = C_INT32
 	C_TIME_T = C_INT64
 
-	// --- REGISTER MODULE ENVIRONMENT ---
+	C_FILE_P = &CPointerType{Pointee: nil} 
+	C_DIR_P  = &CPointerType{Pointee: nil} 
+	C_HANDLE = &CPointerType{Pointee: nil} 
+
 	env := object.NewEnvironment()
 	env.Set("load_library", &object.Builtin{Name: "_ffi.load_library", Fn: pyLoadLibrary})
 	env.Set("define_function", &object.Builtin{Name: "_ffi.define_function", Fn: pyDefineFunction})
@@ -2171,28 +2020,18 @@ func init() {
 	env.Set("callback", &object.Builtin{Name: "_ffi.callback", Fn: pyCreateCallback})
 	env.Set("buffer_to_bytes", &object.Builtin{Name: "_ffi.buffer_to_bytes", Fn: pyBufferToBytes})
 
-	// =======================================================================
-	// THE FIX: Register the new pointer creation functions
-	// =======================================================================
 	env.Set("_get_or_create_pointer_type", &object.Builtin{Name: "_ffi._get_or_create_pointer_type", Fn: pyGetOrCreatePointerType})
 	env.Set("_create_pointer_type", &object.Builtin{Name: "_ffi._create_pointer_type", Fn: pyCreatePointerType})
-	// =======================================================================
 
 	env.Set("create_struct_type", &object.Builtin{Name: "_ffi.create_struct_type", Fn: pyCreateStructType})
 	env.Set("create_union_type", &object.Builtin{Name: "_ffi.create_union_type", Fn: pyCreateUnionType})
 	env.Set("free_callback", &object.Builtin{Name: "_ffi.free_callback", Fn: pyFreeCallback})
 	env.Set("string_at", &object.Builtin{Name: "_ffi.string_at", Fn: pyStringAt})
 
-	// =======================================================================
-	// THE FIX: Call the platform-specific registration function.
-	// =======================================================================
 	registerPlatformSpecifics(env)
-	// =======================================================================
 
-	// <<< ADD THE MEMORY FREEING FUNCTION >>>
 	env.Set("free_c_resource", &object.Builtin{Name: "_ffi.free_c_resource", Fn: pyFreeCResource})
 
-	// Register all base types
 	env.Set("c_int8", C_INT8)
 	env.Set("c_uint8", C_UINT8)
 	env.Set("c_int32", C_INT32)
@@ -2203,7 +2042,6 @@ func init() {
 	env.Set("c_double", C_FLOAT64)
 	env.Set("c_void_p", C_VOID_P)
 
-	// Register new types
 	env.Set("c_char", C_CHAR)
 	env.Set("c_uchar", C_UCHAR)
 	env.Set("c_short", C_SHORT)
@@ -2217,7 +2055,6 @@ func init() {
 	env.Set("c_char_p", C_CHAR_P)
 	env.Set("c_wchar_p", C_WCHAR_P)
 
-	// Register system types
 	env.Set("c_file_p", C_FILE_P)
 	env.Set("c_dir_p", C_DIR_P)
 	env.Set("c_pid_t", C_PID_T)
