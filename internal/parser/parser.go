@@ -436,67 +436,32 @@ func (p *Parser) parseTernaryExpression(valueIfTrue ast.Expression) ast.Expressi
 	return expr
 }
 
-// New parsing function for 'with' statements
 func (p *Parser) parseWithStatement() *ast.WithStatement {
-	stmt := &ast.WithStatement{Token: p.curToken} // curToken is WITH
+	stmt := &ast.WithStatement{Token: p.curToken} 
 
-	p.nextToken() // Consume WITH
-
-	// Parse the context manager expression
-	// The precedence for the context expression should be low enough to allow
-	// complex expressions but not things like assignments without parentheses.
-	// Let's use a precedence similar to what's used for 'if' conditions or 'return' values.
-	stmt.ContextManager = p.parseExpression(LOWEST) // Or perhaps OR or ASSIGN-1
+	p.nextToken() 
+	stmt.ContextManager = p.parseExpression(LOWEST) 
 	if stmt.ContextManager == nil {
 		p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedExpressionAfterWith, p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 
-	// Check for optional 'as target_var'
 	if p.peekTokenIs(lexer.AS) {
-		p.nextToken() // Consume expression, curToken is AS
-		p.nextToken() // Consume AS, curToken should be IDENT
+		p.nextToken() 
+		p.nextToken() 
 
 		if !p.curTokenIs(lexer.IDENT) {
 			p.errorExpected(constants.ParserIdentifierAfterAs, p.curToken.String())
 			return nil
 		}
 		stmt.TargetVariable = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-		// p.curToken is now on the target IDENT
 	}
 
-	// Expect a colon
-	// After parsing context_expr or target_var, p.curToken is on its last token.
-	// So, we expectPeek for COLON.
-	if !p.expectPeek(lexer.COLON) {
-		// peekError already called by expectPeek
-		return nil
-	}
-	// After expectPeek(COLON), p.curToken is COLON.
+	if !p.expectPeek(lexer.COLON) { return nil }
 
-	// Expect an indented block for the body
-	// Allow 'pass' on the same line: with cm: pass
-	if p.peekTokenIs(lexer.PASS) && (p.l.PeekChar() == constants.NewlineRune || p.l.PeekChar() == 0 || p.l.PeekChar() == constants.HashRune) {
-		p.nextToken() // Consume COLON, curToken is PASS
-		passStmt := p.parsePassStatement()
-		stmt.Body = &ast.BlockStatement{
-			Token:      passStmt.Token,
-			Statements: []ast.Statement{passStmt},
-		}
-	} else {
-		if !p.expectPeek(lexer.INDENT) {
-			p.errorExpectedNext(constants.ParserIndentedBlockForWithStatement, p.peekToken.String())
-			return nil
-		}
-		// After expectPeek(INDENT), p.curToken is INDENT.
-		stmt.Body = p.parseBlockStatement()
-		if stmt.Body == nil {
-			return nil
-		}
-		// parseBlockStatement leaves p.curToken on DEDENT.
-	}
-	// The main parseStatement loop will call nextToken() to consume the DEDENT
-	// or the PASS token's implicit newline/semicolon.
+	stmt.Body = p.parseSuite()
+	if stmt.Body == nil { return nil }
+	
 	return stmt
 }
 
@@ -506,50 +471,41 @@ func (p *Parser) parseTryStatement() ast.Statement {
 	if !p.expectPeek(lexer.COLON) {
 		return nil
 	}
-	if !p.expectPeek(lexer.INDENT) {
-		p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedIndentedBlockTry, p.curToken.Line, p.curToken.Column+1))
-		return nil
-	}
 
-	stmt.Body = p.parseBlockStatement()
+	stmt.Body = p.parseSuite()
 	if stmt.Body == nil {
 		return nil
 	}
-	// After parseBlockStatement, curToken is on DEDENT
 
 	hasHandlers := false
 	stmt.Handlers = []*ast.ExceptHandler{}
+	
+	// FIX: We do NOT skip DEDENTs here. parseSuite() leaves p.curToken exactly on the DEDENT.
+	// If the next logical block is an except block, p.peekToken will naturally be EXCEPT.
 	for p.peekTokenIs(lexer.EXCEPT) {
 		hasHandlers = true
-		p.nextToken() // Consume DEDENT, curToken is now EXCEPT
+		p.nextToken() // Move to EXCEPT
 		handler := p.parseExceptHandler()
 		if handler == nil {
 			return nil
 		}
 		stmt.Handlers = append(stmt.Handlers, handler)
-		// After parseExceptHandler, curToken is on its DEDENT
 	}
 
-	// --- THIS IS THE NEW LOGIC FOR `finally` ---
 	hasFinally := false
 	if p.peekTokenIs(lexer.FINALLY) {
 		hasFinally = true
-		p.nextToken() // Consume DEDENT, curToken is now FINALLY
+		p.nextToken() // Move to FINALLY
 
 		if !p.expectPeek(lexer.COLON) {
 			return nil
 		}
-		if !p.expectPeek(lexer.INDENT) {
-			p.errorExpectedNext("indented block for 'finally' statement", p.peekToken.String())
-			return nil
-		}
 
-		stmt.Finally = p.parseBlockStatement()
+		stmt.Finally = p.parseSuite()
 		if stmt.Finally == nil {
 			return nil
 		}
 	}
-	// --- END OF NEW LOGIC ---
 
 	if !hasHandlers && !hasFinally {
 		p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedExceptOrFinally, p.curToken.Line, p.curToken.Column))
@@ -559,26 +515,21 @@ func (p *Parser) parseTryStatement() ast.Statement {
 }
 
 func (p *Parser) parseExceptHandler() *ast.ExceptHandler {
-	handler := &ast.ExceptHandler{Token: p.curToken} // curToken is EXCEPT
-	p.nextToken()                                    // Consume EXCEPT
+	handler := &ast.ExceptHandler{Token: p.curToken} 
+	p.nextToken()                                    
 
-	// If the current token is not COLON, then there must be a type expression.
 	if !p.curTokenIs(lexer.COLON) {
 		handler.Type = p.parseExpression(LOWEST)
-		if handler.Type == nil {
-			return nil
-		} // Error in parsing type
+		if handler.Type == nil { return nil } 
 	}
 
-	// Now, after parsing the type (if any), check for an optional 'as' clause.
-	// The 'AS' token would be the peek token.
 	if p.peekTokenIs(lexer.AS) {
 		if handler.Type == nil {
 			p.errors = append(p.errors, fmt.Sprintf(constants.ParserBareExceptCannotUseAs, handler.Token.Line, handler.Token.Column))
 			return nil
 		}
-		p.nextToken() // Consume the type expression's last token. curToken is now AS.
-		p.nextToken() // Consume AS. curToken is now the variable name (IDENT).
+		p.nextToken() 
+		p.nextToken() 
 
 		if !p.curTokenIs(lexer.IDENT) {
 			p.errorExpected(constants.ParserIdentifierAfterAsExcept, p.curToken.String())
@@ -587,22 +538,11 @@ func (p *Parser) parseExceptHandler() *ast.ExceptHandler {
 		handler.Var = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
 
-	// After the optional type and 'as' clause, we expect a COLON.
-	// We use expectPeek because the current token is on the last part of what was just parsed.
-	if !p.expectPeek(lexer.COLON) {
-		return nil
-	}
+	if !p.expectPeek(lexer.COLON) { return nil }
 
-	// Now expect an indented block.
-	if !p.expectPeek(lexer.INDENT) {
-		p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedIndentedBlockExcept, p.curToken.Line, p.curToken.Column+1))
-		return nil
-	}
-
-	handler.Body = p.parseBlockStatement()
-	if handler.Body == nil {
-		return nil
-	}
+	handler.Body = p.parseSuite()
+	if handler.Body == nil { return nil }
+	
 	return handler
 }
 
@@ -881,45 +821,23 @@ func (p *Parser) parseClassStatement() ast.Statement {
 	}
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	// >>> PARSE SUPERCLASS LIST <<<
 	if p.peekTokenIs(lexer.LPAREN) {
-		p.nextToken() // Consume IDENT (class name), curToken is LPAREN
-
-		// The parseIdentifierList helper you already have is perfect for this.
-		// It expects the current token to be LPAREN.
+		p.nextToken() 
 		stmt.Superclasses = p.parseIdentifierList(lexer.RPAREN)
-		if stmt.Superclasses == nil && len(p.errors) > 0 { // Check if parsing superclasses failed
+		if stmt.Superclasses == nil && len(p.errors) > 0 { 
 			return nil
 		}
-		// parseIdentifierList leaves curToken on RPAREN if successful
 		if !p.curTokenIs(lexer.RPAREN) {
 			p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedCloseParenSuperclassList, p.curToken.Line, p.curToken.Column, p.curToken.Type))
 			return nil
 		}
 	} else {
-		stmt.Superclasses = []*ast.Identifier{} // No explicit superclasses
+		stmt.Superclasses = []*ast.Identifier{}
 	}
 
-	if !p.expectPeek(lexer.COLON) {
-		return nil
-	}
+	if !p.expectPeek(lexer.COLON) { return nil }
 
-	if !p.peekTokenIs(lexer.INDENT) {
-		if p.peekTokenIs(lexer.PASS) && (p.l.PeekChar() == constants.NewlineRune || p.l.PeekChar() == 0 || p.l.PeekChar() == constants.HashRune) {
-			p.nextToken() // Consume COLON, curToken is PASS
-			passStmt := p.parsePassStatement()
-			stmt.Body = &ast.BlockStatement{
-				Token:      passStmt.Token,
-				Statements: []ast.Statement{passStmt},
-			}
-			return stmt
-		}
-		p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedIndentedBlockOrPassClass, p.peekToken.Line, p.peekToken.Column))
-		return nil
-	}
-
-	p.nextToken() // Consume COLON, curToken is INDENT
-	stmt.Body = p.parseBlockStatement()
+	stmt.Body = p.parseSuite()
 	if stmt.Body == nil {
 		return nil
 	}
@@ -1016,27 +934,40 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	return block
 }
 
+// parseSuite parses an indented block or a single-line statement suite.
+// It assumes p.curToken is the COLON preceding the suite.
+func (p *Parser) parseSuite() *ast.BlockStatement {
+	colonToken := p.curToken
+	
+	if p.peekTokenIs(lexer.INDENT) {
+		p.nextToken() // Consume COLON, move to INDENT
+		return p.parseBlockStatement() // Parses until DEDENT
+	}
+	
+	// It's a single-line suite.
+	p.nextToken() // Consume COLON, move to the first token of the statement
+	stmt := p.parseStatement()
+	if stmt == nil {
+		return nil
+	}
+	
+	return &ast.BlockStatement{
+		Token:      colonToken,
+		Statements: []ast.Statement{stmt},
+	}
+}
+
 func (p *Parser) parseIfStatement() ast.Statement {
 	stmt := &ast.IfStatement{Token: p.curToken}
 	p.nextToken()
 
 	stmt.Condition = p.parseExpression(LOWEST)
-	if stmt.Condition == nil {
-		return nil
-	}
+	if stmt.Condition == nil { return nil }
 
-	if !p.expectPeek(lexer.COLON) {
-		return nil
-	}
-	if !p.expectPeek(lexer.INDENT) {
-		p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedIndentedBlockIfCondition, p.curToken.Line, p.curToken.Column+1))
-		return nil
-	}
+	if !p.expectPeek(lexer.COLON) { return nil }
 
-	stmt.Consequence = p.parseBlockStatement()
-	if stmt.Consequence == nil {
-		return nil
-	}
+	stmt.Consequence = p.parseSuite()
+	if stmt.Consequence == nil { return nil }
 
 	stmt.ElifBlocks = []*ast.ElifBlock{}
 	for p.peekTokenIs(lexer.ELIF) {
@@ -1044,22 +975,13 @@ func (p *Parser) parseIfStatement() ast.Statement {
 		elifToken := p.curToken
 		p.nextToken()
 		condition := p.parseExpression(LOWEST)
-		if condition == nil {
-			return nil
-		}
+		if condition == nil { return nil }
 
-		if !p.expectPeek(lexer.COLON) {
-			return nil
-		}
-		if !p.expectPeek(lexer.INDENT) {
-			p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedIndentedBlockElifCondition, p.curToken.Line, p.curToken.Column+1))
-			return nil
-		}
+		if !p.expectPeek(lexer.COLON) { return nil }
 
-		body := p.parseBlockStatement()
-		if body == nil {
-			return nil
-		}
+		body := p.parseSuite()
+		if body == nil { return nil }
+		
 		stmt.ElifBlocks = append(stmt.ElifBlocks, &ast.ElifBlock{Token: elifToken, Condition: condition, Consequence: body})
 	}
 
@@ -1069,18 +991,10 @@ func (p *Parser) parseIfStatement() ast.Statement {
 			p.errors = append(p.errors, fmt.Sprintf(constants.ParserInternalErrorExpectedElse, p.curToken.Type))
 			return nil
 		}
-		if !p.expectPeek(lexer.COLON) {
-			return nil
-		}
-		if !p.expectPeek(lexer.INDENT) {
-			p.errors[len(p.errors)-1] = fmt.Sprintf(constants.ParserExpectedIndentedBlockElse,
-				p.curToken.Line, p.curToken.Column+1, string(p.peekToken.Type))
-			return nil
-		}
-		stmt.Alternative = p.parseBlockStatement()
-		if stmt.Alternative == nil {
-			return nil
-		}
+		if !p.expectPeek(lexer.COLON) { return nil }
+		
+		stmt.Alternative = p.parseSuite()
+		if stmt.Alternative == nil { return nil }
 	}
 	return stmt
 }
@@ -1090,75 +1004,47 @@ func (p *Parser) parseWhileStatement() ast.Statement {
 	p.nextToken()
 
 	stmt.Condition = p.parseExpression(LOWEST)
-	if stmt.Condition == nil {
-		return nil
-	}
+	if stmt.Condition == nil { return nil }
 
-	if !p.expectPeek(lexer.COLON) {
-		return nil
-	}
-	if !p.expectPeek(lexer.INDENT) {
-		p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedIndentedBlockWhileCondition, p.curToken.Line, p.curToken.Column+1))
-		return nil
-	}
+	if !p.expectPeek(lexer.COLON) { return nil }
 
-	stmt.Body = p.parseBlockStatement()
-	if stmt.Body == nil {
-		return nil
-	}
+	stmt.Body = p.parseSuite()
+	if stmt.Body == nil { return nil }
+	
 	return stmt
 }
 
 func (p *Parser) parseForStatement() ast.Statement {
 	stmt := &ast.ForStatement{Token: p.curToken}
 
-	if !p.expectPeek(lexer.IDENT) {
-		return nil
-	}
+	if !p.expectPeek(lexer.IDENT) { return nil }
 
-	// Parse the variable(s) - could be single identifier or tuple unpacking
 	variables := []*ast.Identifier{}
 	variables = append(variables, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
 
-	// Check for comma-separated variables (tuple unpacking)
 	for p.peekToken.Type == lexer.COMMA {
-		p.nextToken() // consume the comma
-		if !p.expectPeek(lexer.IDENT) {
-			return nil
-		}
+		p.nextToken() 
+		if !p.expectPeek(lexer.IDENT) { return nil }
 		variables = append(variables, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
 	}
 
-	// Set the variable(s) on the statement
 	if len(variables) == 1 {
 		stmt.Variable = variables[0]
 	} else {
-		// For multiple variables, we need to store them as a tuple target
 		stmt.Variables = variables
 	}
 
-	if !p.expectPeek(lexer.IN) {
-		return nil
-	}
+	if !p.expectPeek(lexer.IN) { return nil }
 	p.nextToken()
 
 	stmt.Iterable = p.parseExpression(LOWEST)
-	if stmt.Iterable == nil {
-		return nil
-	}
+	if stmt.Iterable == nil { return nil }
 
-	if !p.expectPeek(lexer.COLON) {
-		return nil
-	}
-	if !p.expectPeek(lexer.INDENT) {
-		p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedIndentedBlockForStatement, p.curToken.Line, p.curToken.Column+1))
-		return nil
-	}
+	if !p.expectPeek(lexer.COLON) { return nil }
 
-	stmt.Body = p.parseBlockStatement()
-	if stmt.Body == nil {
-		return nil
-	}
+	stmt.Body = p.parseSuite()
+	if stmt.Body == nil { return nil }
+	
 	return stmt
 }
 
@@ -1184,6 +1070,15 @@ func (p *Parser) parseIdentifier() ast.Expression {
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
 	lit := &ast.IntegerLiteral{Token: p.curToken}
+	
+	// Try parsing as uint64 first to allow values up to 18446744073709551615
+	uval, err := strconv.ParseUint(p.curToken.Literal, 0, 64)
+	if err == nil {
+		lit.Value = int64(uval) // Safely wrap to signed int64
+		return lit
+	}
+	
+	// Fallback to ParseInt for standard negative numbers
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
 		msg := fmt.Sprintf(constants.ParserCouldNotParseAsInteger, p.curToken.Line, p.curToken.Column, p.curToken.Literal, err)
@@ -1811,26 +1706,18 @@ func (p *Parser) parseFunctionParameters() ([]*ast.Parameter, *ast.Identifier, *
 	return params, varArgParam, kwArgParam
 }
 
-// Modify parseDefStatement to accept isAsync boolean
 func (p *Parser) parseDefStatement(isAsync bool) ast.Statement {
-	// p.curToken is FUNCTION ('def') when this is called
-
 	funcLit := &ast.FunctionLiteral{
 		Token:   p.curToken, // Token is 'def'
-		IsAsync: isAsync,    // <-- SET BASED ON ARGUMENT
+		IsAsync: isAsync,
 	}
 
-	if !p.expectPeek(lexer.IDENT) { // Function name
-		return nil
-	}
+	if !p.expectPeek(lexer.IDENT) { return nil }
 	funcLit.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	if !p.expectPeek(lexer.LPAREN) { // Opening parenthesis for parameters
-		return nil
-	}
-	// After expectPeek(LPAREN), p.curToken is LPAREN
+	if !p.expectPeek(lexer.LPAREN) { return nil }
 
-	params, varArgParam, kwArgParam := p.parseFunctionParameters() // This call expects curToken to be LPAREN
+	params, varArgParam, kwArgParam := p.parseFunctionParameters() 
 	if len(p.errors) > 0 && params == nil && varArgParam == nil && kwArgParam == nil {
 		return nil
 	}
@@ -1839,45 +1726,23 @@ func (p *Parser) parseDefStatement(isAsync bool) ast.Statement {
 	funcLit.VarArgParam = varArgParam
 	funcLit.KwArgParam = kwArgParam
 
-	// parseFunctionParameters should leave p.curToken on RPAREN
-	if !p.curTokenIs(lexer.RPAREN) { // Ensure we are on RPAREN after parsing params
+	if !p.curTokenIs(lexer.RPAREN) { 
 		p.errorExpected(constants.ParserCloseParenParamList, p.curToken.String())
 		return nil
 	}
 
-	if !p.expectPeek(lexer.COLON) { // Colon after parameters
+	if !p.expectPeek(lexer.COLON) { return nil }
+	
+	// Parse the function body using the new suite logic
+	funcLit.Body = p.parseSuite()
+	if funcLit.Body == nil {
 		return nil
 	}
-	// After expectPeek(COLON), p.curToken is COLON
 
-	// Handle function body (INDENT + statements + DEDENT)
-	// Check for 'pass' on the same line: def foo(): pass
-	if p.peekTokenIs(lexer.PASS) && (p.l.PeekChar() == constants.NewlineRune || p.l.PeekChar() == 0 || p.l.PeekChar() == constants.HashRune) {
-		p.nextToken() // Consume COLON, curToken is PASS
-		passStmt := p.parsePassStatement()
-		funcLit.Body = &ast.BlockStatement{
-			Token:      passStmt.Token, // Or funcLit.Token
-			Statements: []ast.Statement{passStmt},
-		}
-	} else {
-		if !p.expectPeek(lexer.INDENT) {
-			p.errorExpectedNext(constants.ParserExpectedIndentedBlockFunctionBody, p.peekToken.String())
-			return nil
-		}
-		// After expectPeek(INDENT), p.curToken is INDENT
-		funcLit.Body = p.parseBlockStatement()
-		if funcLit.Body == nil {
-			return nil
-		}
-		// parseBlockStatement leaves p.curToken on DEDENT
-	}
-
-	// Create a LetStatement to assign the FunctionLiteral (which is an expression)
-	// to the function's name in the environment.
 	assignStmt := &ast.LetStatement{
-		Token: funcLit.Name.Token, // Token of the function name identifier
+		Token: funcLit.Name.Token,
 		Name:  funcLit.Name,
-		Value: funcLit, // The FunctionLiteral AST node itself
+		Value: funcLit, 
 	}
 	return assignStmt
 }
@@ -2240,88 +2105,75 @@ func (p *Parser) parseAssignExpression(left ast.Expression) ast.Expression {
 }
 
 // This function now correctly and always delegates to parseIndexOrSlice.
-// This function now correctly handles both simple index and all slice variations.
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
-	lBracketToken := p.curToken // The '[' token.
+	lBracketToken := p.curToken
+	p.nextToken() // consume '['
 
-	p.nextToken() // Consume '['. curToken is now the start of the index/slice.
+	var start, stop, step ast.Expression
+	isSlice := false
 
-	// --- Check for an empty `start` in a slice, e.g., `[:stop]` ---
+	// 1. Check for empty start (e.g., `[:...]`)
 	if p.curTokenIs(lexer.COLON) {
-		// This is definitely a slice, starting with a colon.
-		p.nextToken() // Consume the first ':'.
-
-		slice := &ast.SliceExpression{Token: lBracketToken, Left: left, Start: nil}
-
-		// Parse the `stop` part. It's optional.
-		if !p.curTokenIs(lexer.RBRACKET) && !p.curTokenIs(lexer.COLON) {
-			slice.Stop = p.parseExpression(LOWEST)
+		isSlice = true
+	} else {
+		// Parse start
+		start = p.parseExpression(LOWEST)
+		if start == nil {
+			return nil
 		}
-
-		// Check for the optional `step` part.
+		// After parsing start, p.curToken is the last token of start.
 		if p.peekTokenIs(lexer.COLON) {
-			p.nextToken() // Move to ':'
-			p.nextToken() // Consume the second ':'
-			if !p.curTokenIs(lexer.RBRACKET) {
-				slice.Step = p.parseExpression(LOWEST)
-			}
+			isSlice = true
+			p.nextToken() // move to ':'
 		}
+	}
 
-		// Handle the closing bracket
-		if p.curTokenIs(lexer.RBRACKET) {
-			return slice
-		}
+	if !isSlice {
+		// It's a simple index: obj[start]
 		if !p.expectPeek(lexer.RBRACKET) {
 			return nil
 		}
-
-		return slice
+		return &ast.IndexExpression{Token: lBracketToken, Left: left, Index: start}
 	}
 
-	// --- We have an expression at the start. It could be `index` or `start`. ---
-	startOrIndexExpr := p.parseExpression(LOWEST)
+	// --- SLICE PARSING ---
+	// Currently, p.curToken is on the FIRST ':'
+	p.nextToken() // Consume the first ':'. curToken is now what follows.
 
-	// If the next token is ']', it was a simple index.
-	if p.peekTokenIs(lexer.RBRACKET) {
-		p.nextToken() // Move to ']'
-		return &ast.IndexExpression{Token: lBracketToken, Left: left, Index: startOrIndexExpr}
-	}
-
-	// If the next token is ':', it's a slice.
-	if p.peekTokenIs(lexer.COLON) {
-		p.nextToken() // Move to ':'
-		p.nextToken() // Consume the ':'
-
-		slice := &ast.SliceExpression{Token: lBracketToken, Left: left, Start: startOrIndexExpr}
-
-		// Parse the `stop` part. It's optional - check if we're already at ] or :
-		if !p.curTokenIs(lexer.RBRACKET) && !p.curTokenIs(lexer.COLON) {
-			slice.Stop = p.parseExpression(LOWEST)
-		}
-
-		// Check for the optional `step` part.
-		if p.peekTokenIs(lexer.COLON) {
-			p.nextToken() // Move to ':'
-			p.nextToken() // Consume the second ':'
-			if !p.curTokenIs(lexer.RBRACKET) {
-				slice.Step = p.parseExpression(LOWEST)
-			}
-		}
-
-		// Handle the closing bracket
-		if p.curTokenIs(lexer.RBRACKET) {
-			return slice
-		}
-		if !p.expectPeek(lexer.RBRACKET) {
+	// 2. Parse stop (if not ':' and not ']')
+	if !p.curTokenIs(lexer.COLON) && !p.curTokenIs(lexer.RBRACKET) {
+		stop = p.parseExpression(LOWEST)
+		if stop == nil {
 			return nil
 		}
-
-		return slice
+		p.nextToken() // Move past the stop expression
 	}
 
-	// If we get here, the syntax is wrong
-	p.peekError(lexer.RBRACKET)
-	return nil
+	// 3. Parse step (if we are on ':')
+	if p.curTokenIs(lexer.COLON) {
+		p.nextToken() // Consume the second ':'. curToken is now what follows.
+		if !p.curTokenIs(lexer.RBRACKET) {
+			step = p.parseExpression(LOWEST)
+			if step == nil {
+				return nil
+			}
+			p.nextToken() // Move past the step expression
+		}
+	}
+
+	// 4. Expect ']'
+	if !p.curTokenIs(lexer.RBRACKET) {
+		p.errorExpected("]", p.curToken.String())
+		return nil
+	}
+
+	return &ast.SliceExpression{
+		Token: lBracketToken,
+		Left:  left,
+		Start: start,
+		Stop:  stop,
+		Step:  step,
+	}
 }
 
 func (p *Parser) curTokenIs(t lexer.TokenType) bool {

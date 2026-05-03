@@ -1,56 +1,42 @@
-# pylearn/examples/test_uv.py
-
 import uv
 import time
 
-# Counter for our one-shot timer
-one_shot_fired = False
+print("===========================================")
+print("⏱️ Testing libuv (Asyncio Engine) Wrapper")
+print("===========================================")
 
-def on_repeat_timer():
-    """This function is called every second."""
-    print(format_str("Repeating timer fired at: {time.time()}"))
+# 1. Create the Event Loop
+loop = uv.Loop()
 
-def on_one_shot_timer():
-    """This function is called once after 3 seconds, then stops the loop."""
-    global one_shot_fired
-    print("One-shot timer fired! Stopping the event loop.")
-    one_shot_fired = True
-    # We need a way to stop the loop. A clean way is to close the handles.
-    # When all handles are closed, uv_run will exit.
-    repeating_timer.close()
-    one_shot_timer.close()
+counter = 0
 
-# --- Main application logic ---
-if not uv.UV_AVAILABLE:
-    print("libuv is not available, cannot run the example.")
-else:
-    print("libuv event loop example started.")
-    
-    # 1. Create a new event loop
-    main_loop = uv.Loop()
+def on_interval():
+    global counter
+    counter = counter + 1
+    print(format_str("[{time.time()}] 🔄 Interval ticked! ({counter})"))
 
-    # 2. Create a repeating timer
-    repeating_timer = uv.Timer(main_loop)
-    # Start it to fire every 1000ms (1 second)
-    repeating_timer.start(on_repeat_timer, 1000, 1000)
-    print("Started a timer that repeats every second.")
+def on_timeout():
+    print(format_str("\n[{time.time()}] 🛑 Timeout reached! Stopping interval timer..."))
+    interval_timer.stop()
 
-    # 3. Create a one-shot timer to stop the loop after 3 seconds
-    one_shot_timer = uv.Timer(main_loop)
-    # Start it to fire once after 3000ms
-    one_shot_timer.start(on_one_shot_timer, 3000, 0)
-    print("Started a one-shot timer that will fire in 3 seconds and stop the loop.")
+# 2. Create Timers attached to the loop
+interval_timer = uv.Timer(loop)
+timeout_timer = uv.Timer(loop)
 
-    # 4. Run the event loop. This will block until all timers are closed.
-    main_loop.run()
-    
-    # 5. Clean up the loop itself
-    main_loop.close()
+# 3. Start timers (Non-blocking!)
+print("Starting a 500ms repeating interval...")
+interval_timer.start(on_interval, 500, 500)
 
-    print("\nEvent loop finished.")
+print("Starting a 2.5 second timeout...")
+timeout_timer.start(on_timeout, 2500, 0)
 
-    # Simple assertion to verify the test ran correctly
-    assert one_shot_fired, "The one-shot timer did not fire!"
-    print("Test successful.")
+print("\n🚀 Entering libuv event loop. Pylearn is now async!")
+# 4. Run the loop. It blocks here until all active handles (timers) are stopped.
+loop.run()
 
-    
+print("✅ Event loop exited gracefully.")
+
+# 5. Clean up C memory
+interval_timer.close()
+timeout_timer.close()
+loop.close()

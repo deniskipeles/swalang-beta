@@ -1,7 +1,5 @@
 //go:build linux || darwin || windows
 
-// internal/stdlib/ffi3/ffi.go
-
 package ffi3
 
 /*
@@ -224,7 +222,11 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) error {
 			*(*unsafe.Pointer)(dest) = v.codePtr
 		case *object.Bytes:
 			if p.Pointee == C_CHAR || p.Pointee == nil { // Handle char* and void*
-				*(*unsafe.Pointer)(dest) = C.CBytes(v.Value)
+				// C.CBytes does not add a null terminator. For C strings, we must guarantee it.
+				b := make([]byte, len(v.Value)+1)
+				copy(b, v.Value)
+				b[len(v.Value)] = 0
+				*(*unsafe.Pointer)(dest) = C.CBytes(b)
 			} else {
 				return fmt.Errorf("cannot automatically convert Pylearn bytes to pointer of type %s", p.Pointee.Inspect())
 			}
@@ -1817,8 +1819,8 @@ func pyCreateCallback(ctx object.ExecutionContext, args ...object.Object) object
 }
 
 func pyStringAt(ctx object.ExecutionContext, args ...object.Object) object.Object {
-	if len(args) != 1 && len(args) != 2 {
-		return object.NewError("TypeError", "string_at() takes 1 or 2 arguments")
+	if len(args) < 1 || len(args) > 3 {
+		return object.NewError("TypeError", "string_at() takes 1 to 3 arguments")
 	}
 	ptr, ok := args[0].(*Pointer)
 	if !ok {
@@ -1828,20 +1830,47 @@ func pyStringAt(ctx object.ExecutionContext, args ...object.Object) object.Objec
 		return object.NewError("ValueError", "cannot read from NULL pointer")
 	}
 
-	if len(args) == 1 {
-		return &object.String{Value: C.GoString((*C.char)(ptr.Address))}
+	// Base address
+	targetAddr := ptr.Address
+
+	// Optional length and offset
+	var length int64 = -1
+	var offset int64 = 0
+
+	if len(args) >= 2 && args[1] != object.NULL {
+		lenObj, ok := args[1].(*object.Integer)
+		if !ok {
+			return object.NewError("TypeError", "arg 2 (length) must be an Integer")
+		}
+		length = lenObj.Value
+		if length < 0 && length != -1 {
+			return object.NewError("ValueError", "length cannot be negative")
+		}
 	}
 
-	length, ok := args[1].(*object.Integer)
-	if !ok {
-		return object.NewError("TypeError", "arg 2 (length) must be an Integer")
-	}
-	if length.Value < 0 {
-		return object.NewError("ValueError", "length cannot be negative")
+	if len(args) == 3 && args[2] != object.NULL {
+		offObj, ok := args[2].(*object.Integer)
+		if !ok {
+			return object.NewError("TypeError", "arg 3 (offset) must be an Integer")
+		}
+		offset = offObj.Value
+		targetAddr = unsafe.Pointer(uintptr(targetAddr) + uintptr(offset))
 	}
 
-	goBytes := C.GoBytes(ptr.Address, C.int(length.Value))
-	return &object.String{Value: string(goBytes)}
+	if length == -1 {
+		// Read until null terminator
+		return &object.String{Value: C.GoString((*C.char)(targetAddr))}
+	}
+
+	// Read a specific length
+	goBytes := C.GoBytes(targetAddr, C.int(length))
+	// If reading a struct buffer that happens to contain a null-terminated string, 
+	// strip everything after the first null byte.
+	strVal := string(goBytes)
+	if nullIdx := strings.IndexByte(strVal, 0); nullIdx != -1 {
+		strVal = strVal[:nullIdx]
+	}
+	return &object.String{Value: strVal}
 }
 
 func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) object.Object {

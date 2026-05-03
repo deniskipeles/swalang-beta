@@ -1,5 +1,3 @@
-// pylearn/internal/interpreter/eval_statements.go
-
 package interpreter
 
 import (
@@ -220,12 +218,12 @@ func evalForStatement(fs *ast.ForStatement, ctx *InterpreterContext) object.Obje
             }
             ctx.ActiveIterators[fs] = iterator
             nextItem, stop = iterator.Next()
-            if object.IsError(nextItem) {
-                return nextItem
-            }
             if stop {
                 delete(ctx.ActiveIterators, fs)
                 return object.NULL
+            }
+            if object.IsError(nextItem) {
+                return nextItem
             }
         }
 
@@ -236,12 +234,12 @@ func evalForStatement(fs *ast.ForStatement, ctx *InterpreterContext) object.Obje
         } else {
             // Should not happen, but fallback
             nextItem, stop = iterator.Next()
-            if object.IsError(nextItem) {
-                return nextItem
-            }
             if stop {
                 delete(ctx.ActiveIterators, fs)
                 return object.NULL
+            }
+            if object.IsError(nextItem) {
+                return nextItem
             }
         }
     } else {
@@ -253,36 +251,33 @@ func evalForStatement(fs *ast.ForStatement, ctx *InterpreterContext) object.Obje
         }
         ctx.ActiveIterators[fs] = iterator
         nextItem, stop = iterator.Next()
-        if object.IsError(nextItem) {
-            return nextItem
-        }
         if stop {
             delete(ctx.ActiveIterators, fs)
             return object.NULL
+        }
+        if object.IsError(nextItem) {
+            return nextItem
         }
     }
 
     var loopResult object.Object = object.NULL
 loop:
     for {
-        // Set up loop environment
-        loopEnv := object.NewEnclosedEnvironment(ctx.Env)
-        loopCtx := ctx.NewChildContext(loopEnv).(*InterpreterContext)
+        // In Python, for loops do not create a new scope.
+        // We use the current context and environment directly.
+        loopCtx := ctx
 
         // Bind loop variable(s)
         if len(fs.Variables) > 1 {
             tuple, ok := nextItem.(*object.Tuple)
             if !ok {
-				// Raise a ValueError, not an error named after the token.
                 return object.NewError(constants.ValueError, constants.InterpreterEvalStatementsUnpackTooManyValues, len(fs.Variables))
-                // return object.NewError(fs.Token.String(), constants.InterpreterEvalStatementsUnpackTooManyValues, len(fs.Variables))
             }
             if len(tuple.Elements) != len(fs.Variables) {
-				return object.NewError(constants.ValueError, constants.InterpreterEvalStatementsUnpackingError, len(fs.Variables), len(tuple.Elements))
-                // return object.NewError(fs.Token.String(), constants.InterpreterEvalStatementsUnpackingError, len(fs.Variables), len(tuple.Elements))
+                return object.NewError(constants.ValueError, constants.InterpreterEvalStatementsUnpackingError, len(fs.Variables), len(tuple.Elements))
             }
             for i, ident := range fs.Variables {
-                loopEnv.Set(ident.Value, tuple.Elements[i])
+                ctx.Env.Set(ident.Value, tuple.Elements[i])
             }
         } else {
             varName := ""
@@ -293,34 +288,36 @@ loop:
             } else {
                 return object.NewError(fs.Token.String(), constants.InterpreterEvalStatementsNoLoopVariableSpecified)
             }
-            loopEnv.Set(varName, nextItem)
+            ctx.Env.Set(varName, nextItem)
         }
 
         // Evaluate body
         bodyResult := Eval(fs.Body, loopCtx)
         if bodyResult != nil {
             if _, isYield := bodyResult.(*object.YieldValue); isYield {
-                // Save the current item so we can resume with it
                 ctx.PendingForItem[fs] = nextItem
                 return bodyResult
             }
             rt := bodyResult.Type()
-            if rt == object.ERROR_OBJ || rt == object.RETURN_VALUE_OBJ || rt == object.STOP_ITER_OBJ {
+
+            // FIX: If a generator nested inside the loop naturally finishes (StopIteration),
+            // it is NOT an error. We simply break out of the current loop iteration.
+            if rt == object.STOP_ITER_OBJ {
+                // Ignore StopIteration from inner calls, it just means the inner generator is done
+            } else if rt == object.ERROR_OBJ || rt == object.RETURN_VALUE_OBJ {
                 loopResult = bodyResult
                 break loop
-            }
-            if rt == object.BREAK_OBJ {
+            } else if rt == object.BREAK_OBJ {
                 break loop
-            }
-            if rt == object.CONTINUE_OBJ {
+            } else if rt == object.CONTINUE_OBJ {
                 // Skip to next iteration
                 nextItem, stop = iterator.Next()
-                if object.IsError(nextItem) {
-                    loopResult = nextItem
-                    break loop
-                }
                 if stop {
                     delete(ctx.ActiveIterators, fs)
+                    break loop
+                }
+                if object.IsError(nextItem) {
+                    loopResult = nextItem
                     break loop
                 }
                 continue loop
@@ -329,12 +326,12 @@ loop:
 
         // Body completed normally → move to next item
         nextItem, stop = iterator.Next()
-        if object.IsError(nextItem) {
-            loopResult = nextItem
-            break loop
-        }
         if stop {
             delete(ctx.ActiveIterators, fs)
+            break loop
+        }
+        if object.IsError(nextItem) {
+            loopResult = nextItem
             break loop
         }
 
@@ -731,13 +728,6 @@ func evalContinueStatement(node *ast.ContinueStatement, ctx *InterpreterContext)
 	return object.CONTINUE
 }
 
-
-
-
-
-
-// =========================== START: Add this to internal/interpreter/eval_statements.go ===========================
-
 // applyInfixOperation is a helper function to perform an in-place operation (like +=).
 // It's needed by evalAssignStatement. It reuses the infix evaluation logic.
 func applyInfixOperation(op string, left, right object.Object, token lexer.Token, ctx *InterpreterContext) object.Object {
@@ -859,5 +849,3 @@ func evalAssignStatement(node *ast.AssignStatement, ctx *InterpreterContext) obj
 
 	return object.NULL // Assignments are statements and return NULL
 }
-
-// =========================== END: Add this to internal/interpreter/eval_statements.go ===========================

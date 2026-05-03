@@ -109,21 +109,23 @@ func applyFunctionOrClass(
 		}
 		// --- End of Argument Binding Logic ---
 
-		// First, check if the function being called is a generator.
-		// We'll determine this by a quick scan of its AST body.
-		// A more efficient implementation would do this once in the parser.
-		isGenerator := astContainsYield(fn.Body)
+		// Both explicit yields AND async functions are treated as stateful generators
+		isGenerator := astContainsYield(fn.Body) || fn.IsAsync
 		if isGenerator {
 			generatorCtx := ctx.NewChildContext(extendedEnv).(*InterpreterContext)
 
-			// The SendFn is the heart of the generator's execution.
-			// It maintains its state via the captured `generatorCtx`.
 			genSendFn := func(valueToSend object.Object) (object.Object, bool) {
 				generatorCtx.SentInValue = valueToSend
 			
 				for {
 					if generatorCtx.InstructionPtr >= len(fn.Body.Statements) {
-						return object.STOP_ITERATION, true // End of function
+						// Reached end of function without explicit return. Raise StopIteration(None).
+						stopIter := object.NewError(constants.StopIteration, "generator return")
+						if stopIter.Instance == nil {
+							stopIter.Instance = &object.Instance{Class: stopIter.ErrorClass, Env: object.NewEnvironment()}
+						}
+						stopIter.Instance.Env.Set("value", object.NULL)
+						return stopIter, true // End of function
 					}
 			
 					stmt := fn.Body.Statements[generatorCtx.InstructionPtr]
@@ -134,59 +136,38 @@ func applyFunctionOrClass(
 						return yv.Value, false
 					}
 			
-					// The statement completed.
-					// We only advance the instruction pointer if it was NOT a continue.
 					isContinue := false
 					if _, ok := result.(*object.ContinueObject); ok {
 						isContinue = true
 					}
 			
-					// --- THIS IS THE FIX ---
-					// Only advance to the next statement if the loop body didn't 'continue'.
-					// If it was a 'continue', we stay on the current statement (the for/while loop)
-					// so it can be re-evaluated to get the next iteration.
 					if !isContinue {
 						generatorCtx.InstructionPtr++
 					}
-					// --- END OF FIX ---
 			
 					generatorCtx.IsResuming = false
 			
 					if object.IsError(result) {
 						return result, true
 					}
-					if _, isReturn := result.(*object.ReturnValue); isReturn {
-						return object.STOP_ITERATION, true
+					if retVal, isReturn := result.(*object.ReturnValue); isReturn {
+						// Reached a return statement. Raise StopIteration(Return_Value).
+						stopIter := object.NewError(constants.StopIteration, "generator return")
+						if stopIter.Instance == nil {
+							stopIter.Instance = &object.Instance{Class: stopIter.ErrorClass, Env: object.NewEnvironment()}
+						}
+						stopIter.Instance.Env.Set("value", retVal.Value)
+						return stopIter, true
 					}
 				}
 			}
 
 			gen := &object.Generator{
-				Name:   fn.Name,
+				Name:   funcName,
 				SendFn: genSendFn,
 			}
 			return gen
 		}
-
-		// --- THIS IS THE FIX ---
-		if fn.IsAsync {
-			// This is an async function call. We do NOT execute the body.
-			// Instead, we return a "coroutine" object, which is a new Function
-			// instance that has captured the arguments in its environment.
-			coroutine := &object.Function{
-				Name:          fn.Name,
-				Parameters:    fn.Parameters, // Parameters definition can be shared
-				VarArgParam:   fn.VarArgParam,
-				KwArgParam:    fn.KwArgParam,
-				Body:          fn.Body,     // The AST body can be shared
-				Env:           extendedEnv, // CRUCIAL: Use the new env with bound arguments
-				IsAsync:       true,
-				OriginalClass: fn.OriginalClass, // For methods
-				IsAMethod:     fn.IsAMethod,
-			}
-			return coroutine
-		}
-		// --- END OF FIX ---
 
 		// For regular synchronous functions, execute the body as before.
 		bodyEvalCtx := ctx.NewChildContext(extendedEnv).(*InterpreterContext)

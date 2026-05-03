@@ -4,15 +4,16 @@ print("===========================================")
 print("🚀 Testing yyjson Fast FFI Wrapper")
 print("===========================================")
 
+# FIX: Changed `True` to `true` and `None` to `null` to make it valid JSON!
 json_string = """
 {
     "project": "Swalang",
     "version": 1.0,
-    "is_awesome": True,
-    "features": ["FFI", "JSON", "Async"],
+    "is_awesome": true,
+    "features":["FFI", "JSON", "Async"],
     "stats": {
         "speed": 99.9,
-        "bugs": None
+        "bugs": null
     }
 }
 """

@@ -2,52 +2,35 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/deniskipeles/pylearn/internal/asyncruntime"
 	"github.com/deniskipeles/pylearn/internal/builtins"
-	"github.com/deniskipeles/pylearn/internal/constants" // Import the constants package
+	"github.com/deniskipeles/pylearn/internal/constants"
 	"github.com/deniskipeles/pylearn/internal/interpreter"
 	"github.com/deniskipeles/pylearn/internal/lexer"
 	"github.com/deniskipeles/pylearn/internal/object"
 	"github.com/deniskipeles/pylearn/internal/parser"
-	"github.com/deniskipeles/pylearn/internal/stdlib/pyimportlib"
 	"github.com/deniskipeles/pylearn/internal/package_manager"
+	"github.com/deniskipeles/pylearn/internal/stdlib/pyimportlib"
 	pysys_init "github.com/deniskipeles/pylearn/internal/stdlib/pysys"
 
 	"github.com/deniskipeles/pylearn/internal/stdlib/ffi3"
-	_ "github.com/deniskipeles/pylearn/internal/stdlib/pyos"
-
 )
-
-var PylearnAsyncRuntime *asyncruntime.Runtime // Global instance
-
-// InitAsyncRuntime is a placeholder and not used by the corrected code.
-// The real initialization happens in interpreter.InitAsyncRuntime.
-func InitAsyncRuntime() {
-	if PylearnAsyncRuntime == nil {
-		PylearnAsyncRuntime = asyncruntime.NewRuntime()
-	}
-}
 
 func main() {
 	goArgs := os.Args
 
-	// --- THIS IS THE NEW COMMAND DISPATCHER ---
 	if len(goArgs) > 1 && goArgs[1] == "get" {
-		package_manager.HandleGetCommand(goArgs[2:]) // Pass the remaining args (the URL)
-		return // Exit after handling the 'get' command
+		package_manager.HandleGetCommand(goArgs[2:])
+		return
 	}
-	interpreter.InitAsyncRuntime()
 
 	pyimportlib.SetLoadModuleFunc(interpreter.GetPyLoadModuleFromPathFn())
 
-	// goArgs := os.Args
 	pylearnArgv := make([]object.Object, len(goArgs))
 	for i, arg := range goArgs {
 		pylearnArgv[i] = &object.String{Value: arg}
@@ -79,7 +62,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create the top-level environment
 	env := object.NewEnvironment()
 	for name, builtin := range builtins.Builtins {
 		env.Set(name, builtin)
@@ -89,77 +71,34 @@ func main() {
 	}
 	env.Set(constants.DunderName, &object.String{Value: constants.DunderMain})
 
-	// Evaluate the AST *using the persistent environment*
-	// OLD: mainCtx := &interpreter.InterpreterContext{Env: env}
-	// NEW: Use the constructor
 	mainCtx := interpreter.NewInterpreterContext(env)
 	ffi3.SetGlobalExecutionContext(mainCtx)
 
-	// Evaluate the program. This will define functions, including 'main_program'.
-	evaluated := interpreter.Eval(program, mainCtx) // <<< FIX: Pass mainCtx
+	evaluated := interpreter.Eval(program, mainCtx)
 
-	// --- Async Main Program Handling ---
+	// --- Asyncio Auto-Bootloader ---
 	mainFuncObj, mainFound := env.Get("main_program")
 	if mainFound {
 		if mainPylFunc, isPylFunc := mainFuncObj.(*object.Function); isPylFunc {
 			if mainPylFunc.IsAsync {
-				fmt.Println(constants.CmdInterpreterMainFoundAsyncMainProgram)
-
-				if interpreter.PylearnAsyncRuntime == nil || interpreter.PylearnAsyncRuntime.EventLoop == nil {
-					fmt.Fprintln(os.Stderr, constants.CmdInterpreterMainFatalAsyncRuntimeNotInitialized)
+				fmt.Println("⚡ Found async main_program. Booting Swalang asyncio engine...")
+				
+				// Inject the asyncio launch code directly into the environment!
+				bootCode := "import asyncio\nasyncio.run(main_program())\n"
+				bootL := lexer.New(bootCode)
+				bootP := parser.New(bootL)
+				bootProg := bootP.ParseProgram()
+				
+				evalResult := interpreter.Eval(bootProg, mainCtx)
+				if object.IsError(evalResult) {
+					errObj := evalResult.(*object.Error)
+					fmt.Fprintf(os.Stderr, "Asyncio Crash: %s\n", errObj.Message)
 					os.Exit(1)
-				}
-
-				asyncResult := interpreter.PylearnAsyncRuntime.EventLoop.CreateCoroutine(
-					func(goCtx context.Context) (interface{}, error) {
-						if mainPylFunc.Body == nil {
-							return nil, fmt.Errorf(constants.CmdInterpreterMainAsyncFunctionHasNoBody, mainPylFunc.Name)
-						}
-
-						var callEnv *object.Environment
-						if mainPylFunc.Env != nil {
-							callEnv = object.NewEnclosedEnvironment(mainPylFunc.Env)
-						} else {
-							fmt.Fprintf(os.Stderr, constants.CmdInterpreterMainAsyncFunctionNilClosureEnv, mainPylFunc.Name)
-							callEnv = object.NewEnclosedEnvironment(env)
-						}
-
-						// <<< FIX: Create a new context for the async function's execution
-						asyncEvalCtx := &interpreter.InterpreterContext{Env: callEnv}
-						evalResult := interpreter.Eval(mainPylFunc.Body, asyncEvalCtx)
-
-						if retVal, isRet := evalResult.(*object.ReturnValue); isRet {
-							return retVal.Value, nil
-						}
-						if errObj, isErr := evalResult.(*object.Error); isErr {
-							return nil, fmt.Errorf(constants.CmdInterpreterMainPylearnErrorFormat, errObj.Message, errObj.Line, errObj.Column)
-						}
-						return object.NULL, nil
-					},
-				)
-
-				finalValInterface, finalErr := interpreter.PylearnAsyncRuntime.Await(asyncResult)
-				interpreter.PylearnAsyncRuntime.EventLoop.Stop()
-
-				if finalErr != nil {
-					fmt.Fprintf(os.Stderr, constants.CmdInterpreterMainAsyncMainProgramError, finalErr)
-					os.Exit(1)
-				}
-
-				if finalPyObj, ok := finalValInterface.(object.Object); ok {
-					if finalPyObj.Type() != object.NULL_OBJ {
-						fmt.Println(constants.CmdInterpreterMainAsyncMainProgramResult, finalPyObj.Inspect())
-					}
-				} else if finalValInterface != nil {
-					fmt.Println(constants.CmdInterpreterMainAsyncMainProgramReturnedNonPylearn, finalValInterface)
 				}
 				os.Exit(0)
-
 			} else {
-				fmt.Println(constants.CmdInterpreterMainFoundMainProgramNotAsync)
+				fmt.Println("Found 'main_program' but it's not async. Script will exit.")
 			}
-		} else {
-			fmt.Printf(constants.CmdInterpreterMainFoundMainProgramNotFunction, mainFuncObj.Type())
 		}
 	}
 
@@ -170,13 +109,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, constants.CmdInterpreterMainFileAndLineFormat, scriptName, errObj.Line)
 		}
 		fmt.Fprintf(os.Stderr, constants.CmdInterpreterMainErrorMessageFormat, errObj.Message)
-		if interpreter.PylearnAsyncRuntime != nil && interpreter.PylearnAsyncRuntime.EventLoop != nil {
-			interpreter.PylearnAsyncRuntime.EventLoop.Stop()
-		}
 		os.Exit(1)
-	}
-	if interpreter.PylearnAsyncRuntime != nil && interpreter.PylearnAsyncRuntime.EventLoop != nil {
-		interpreter.PylearnAsyncRuntime.EventLoop.Stop()
 	}
 	os.Exit(0)
 }
