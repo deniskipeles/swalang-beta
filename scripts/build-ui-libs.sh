@@ -17,20 +17,33 @@ cd "$EXT_DIR"
 # The shim reorders arguments. Cleaned up automatically on EXIT.
 # ---------------------------------------------------------------------------
 ZIG_RC_SHIM="$(mktemp /tmp/zig-rc-XXXXXX.sh)"
-chmod +x "$ZIG_RC_SHIM"
 cat > "$ZIG_RC_SHIM" << 'EOF'
 #!/bin/bash
-output=""; input=""; flags=()
+set -euo pipefail
+
+out=""
+in=""
+args=()
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -fo|-o) output="$2"; shift 2 ;;
-        -D*|-I*) flags+=("$1"); shift ;;
-        *.rc|*.RC) input="$1"; shift ;;
-        *) shift ;;
+        /fo|/Fo|-fo|-Fo)
+            out="${2:?missing output}"
+            shift 2
+            ;;
+        *)
+            in="$1"
+            shift
+            ;;
     esac
 done
-exec zig rc "${flags[@]}" "$input" -o "$output"
+
+# Convert .res → .obj
+obj="${out%.res}.obj"
+
+exec zig rc /fo"$obj" -- "$in"
 EOF
+chmod +x "$ZIG_RC_SHIM"
 trap 'rm -f "$ZIG_RC_SHIM"' EXIT
 
 echo "================================================="
@@ -68,6 +81,9 @@ if [ ! -d "sdl2" ]; then
     tar -xf "SDL2-${SDL_VER}.tar.gz"
     mv "SDL2-${SDL_VER}" sdl2
     rm "SDL2-${SDL_VER}.tar.gz"
+
+    find sdl2 -name "version.rc" -delete
+    find sdl2 -name "CMakeLists.txt" -exec sed -i '/version.rc/d' {} \;
 fi
 
 echo "✔️ UI Sources downloaded and prepared."
