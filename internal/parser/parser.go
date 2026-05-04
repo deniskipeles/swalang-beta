@@ -65,6 +65,8 @@ var precedences = map[lexer.TokenType]int{
 	lexer.AND:         AND,
 	lexer.OR:          OR,
 	lexer.BITWISE_AND: BITWISE,
+	lexer.BITWISE_OR:  BITWISE,
+	lexer.BITWISE_XOR: BITWISE,
 }
 
 // Type definitions for parsing functions
@@ -131,6 +133,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.PLUS_EQ, p.parseAssignExpression)
 	p.registerInfix(lexer.MINUS_EQ, p.parseAssignExpression)
 	p.registerInfix(lexer.BITWISE_AND, p.parseInfixExpression)
+	p.registerInfix(lexer.BITWISE_OR, p.parseInfixExpression)
+	p.registerInfix(lexer.BITWISE_XOR, p.parseInfixExpression)
+	p.registerPrefix(lexer.BITWISE_NOT, p.parsePrefixExpression)
 	p.registerInfix(lexer.LSHIFT, p.parseInfixExpression)
 	p.registerInfix(lexer.RSHIFT, p.parseInfixExpression)
 	p.registerInfix(lexer.COMMA, p.parseTupleLiteralInfix)

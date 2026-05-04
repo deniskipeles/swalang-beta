@@ -80,9 +80,9 @@ const (
 	BITWISE_AND TokenType = "&"
 	LSHIFT      TokenType = "<<"
 	RSHIFT      TokenType = ">>"
-	// BITWISE_OR  TokenType = "|"
-	// BITWISE_XOR TokenType = "^"
-	// BITWISE_NOT TokenType = "~"
+	BITWISE_OR  TokenType = "|"
+	BITWISE_XOR TokenType = "^"
+	BITWISE_NOT TokenType = "~"
 
 	// Delimiters
 	COMMA     TokenType = ","

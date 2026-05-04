@@ -1,5 +1,3 @@
-// pylearn/internal/interpreter/eval_expressions.go
-
 package interpreter
 
 import (
@@ -96,6 +94,13 @@ func evalPrefixExpression(node *ast.PrefixExpression, ctx *InterpreterContext) o
 			return right
 		default:
 			return object.NewErrorWithLocation(token, constants.TypeError, constants.EvalExpressionsBadOperandTypeUnaryPlus, right.Type())
+		}
+	case "~":
+		switch r := right.(type) {
+		case *object.Integer:
+			return &object.Integer{Value: ^r.Value}
+		default:
+			return object.NewErrorWithLocation(token, constants.TypeError, "bad operand type for unary ~: '%s'", right.Type())
 		}
 	default:
 		return object.NewErrorWithLocation(token, constants.SyntaxError, constants.EvalExpressionsUnknownPrefixOperator, op)
@@ -473,6 +478,10 @@ func evalIntegerInfixExpression(op string, left, right object.Object, token lexe
 		return object.NativeBoolToBooleanObject(lVal >= rVal)
 	case "&":
 		return &object.Integer{Value: lVal & rVal}
+	case "|":
+		return &object.Integer{Value: lVal | rVal}
+	case "^":
+		return &object.Integer{Value: lVal ^ rVal}
 	default:
 		return object.NewErrorWithToken(constants.EmptyString, token, constants.TypeError, constants.EvalExpressionsTypeErrorUnsupportedOperandType, op, left.Type(), right.Type())
 	}

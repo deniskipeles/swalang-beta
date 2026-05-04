@@ -549,6 +549,12 @@ func (l *Lexer) NextToken() Token {
 		tok = makeToken(AT, string(l.ch))
 	case '&':
         tok = makeToken(BITWISE_AND, string(l.ch))
+	case '|':
+        tok = makeToken(BITWISE_OR, string(l.ch))
+	case '^':
+        tok = makeToken(BITWISE_XOR, string(l.ch))
+	case '~':
+        tok = makeToken(BITWISE_NOT, string(l.ch))
 
 	// --- Updated String Handling ---
 	case constants.DoubleQuoteRune, constants.SingleQuoteRune:

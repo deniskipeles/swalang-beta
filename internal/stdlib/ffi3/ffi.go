@@ -882,15 +882,24 @@ func pyCreateUnionType(ctx object.ExecutionContext, args ...object.Object) objec
 	var maxSize, maxAlignment uintptr = 0, 0
 
 	for i, fieldItem := range fieldsListObj.Elements {
-		fieldList, ok := fieldItem.(*object.List)
-		if !ok || len(fieldList.Elements) != 2 {
-			return object.NewError("TypeError", "field %d must be a list of [name, type]", i)
+		var elements []object.Object
+		if fieldList, ok := fieldItem.(*object.List); ok {
+			elements = fieldList.Elements
+		} else if fieldTuple, ok := fieldItem.(*object.Tuple); ok {
+			elements = fieldTuple.Elements
+		} else {
+			return object.NewError("TypeError", "field %d must be a list or tuple of (name, type)", i)
 		}
-		fieldNameObj, ok := fieldList.Elements[0].(*object.String)
+
+		if len(elements) != 2 {
+			return object.NewError("TypeError", "field %d must have exactly 2 elements: (name, type)", i)
+		}
+		
+		fieldNameObj, ok := elements[0].(*object.String)
 		if !ok {
 			return object.NewError("TypeError", "field %d name must be a string", i)
 		}
-		fieldTypeObj, ok := fieldList.Elements[1].(FFIType)
+		fieldTypeObj, ok := elements[1].(FFIType)
 		if !ok {
 			return object.NewError("TypeError", "field %d type must be a valid FFI type", i)
 		}
@@ -1890,17 +1899,25 @@ func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) obje
 
 	var fields []StructField
 	for i, fieldItem := range fieldsListObj.Elements {
-		fieldList, ok := fieldItem.(*object.List)
-		if !ok || len(fieldList.Elements) != 2 {
-			return object.NewError("TypeError", "field %d must be a list of [name, type]", i)
+		var elements []object.Object
+		if fieldList, ok := fieldItem.(*object.List); ok {
+			elements = fieldList.Elements
+		} else if fieldTuple, ok := fieldItem.(*object.Tuple); ok {
+			elements = fieldTuple.Elements
+		} else {
+			return object.NewError("TypeError", "field %d must be a list or tuple of (name, type)", i)
 		}
 
-		fieldNameObj, ok := fieldList.Elements[0].(*object.String)
+		if len(elements) != 2 {
+			return object.NewError("TypeError", "field %d must have exactly 2 elements: (name, type)", i)
+		}
+
+		fieldNameObj, ok := elements[0].(*object.String)
 		if !ok {
 			return object.NewError("TypeError", "field %d name must be a string", i)
 		}
 
-		fieldTypeObj, ok := fieldList.Elements[1].(FFIType)
+		fieldTypeObj, ok := elements[1].(FFIType)
 		if !ok {
 			return object.NewError("TypeError", "field %d type must be a valid FFI type", i)
 		}

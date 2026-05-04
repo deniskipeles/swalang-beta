@@ -1,5 +1,3 @@
-# pylearn/stdlib/ffi/__init__.py
-
 """
 A ctypes-like Foreign Function Interface for Pylearn.
 
@@ -64,6 +62,7 @@ string_at = _ffi_native.string_at
 # --- Resource Cleanup ---
 free_c_resource = _ffi_native.free_c_resource
 free_callback = _ffi_native.free_callback
+create_struct_type = _ffi_native.create_struct_type
 
 # --- Callback Constructor ---
 callback = _ffi_native.callback
