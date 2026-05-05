@@ -142,7 +142,7 @@ class Struct:
     Example:
     @ffi.Struct
     class Point:
-        _fields_ = [
+        _fields_ =[
             ('x', ffi.c_int32),
             ('y', ffi.c_int32)
         ]
@@ -177,7 +177,7 @@ class Union:
     Example:
     @ffi.Union
     class Data:
-        _fields_ = [
+        _fields_ =[
             ('i', ffi.c_int64),
             ('f', ffi.c_double),
             ('c', ffi.c_char * 8) # Assuming array support
@@ -300,11 +300,6 @@ if libc:
     printf = libc.printf([c_char_p], c_int32, is_variadic=True)
     memset = libc.memset([c_void_p, c_int32, c_int64], c_void_p)
     puts = libc.puts([c_char_p], c_int32)
-    
-    # Example usage
-    puts(b"Hello from C via Pylearn FFI!")
-    printf(b"Formatting a number: %d and a string: %s\n", 123, b"pylearn")
-
 else:
     def _unavail(*args, **kwargs):
         raise FFIError("Standard C library (libc) could not be loaded.")

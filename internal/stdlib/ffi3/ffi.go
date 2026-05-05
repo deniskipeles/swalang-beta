@@ -581,6 +581,14 @@ func (s *CStructType) Size() uintptr {
 	return s.size
 }
 
+// Alignment() now returns the correctly calculated alignment.
+func (s *CStructType) Alignment() uintptr {
+	if s.alignment == 0 {
+		s.GetFFIType() // This will populate the alignment
+	}
+	return s.alignment
+}
+
 // ToC marshals a Pylearn object (e.g., Dict) into a C struct memory block.
 func (s *CStructType) ToC(val object.Object, dest unsafe.Pointer) error {
 	dict, ok := val.(interface {

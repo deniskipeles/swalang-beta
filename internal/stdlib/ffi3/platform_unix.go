@@ -77,36 +77,40 @@ func findLibrary(name string) string {
 		}
 	}
 
-	var allSearchPaths []string
+	var allSearchPaths[]string
 
+	// 1. Production Layout: Resolve relative to the Swalang executable
 	if exePath, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exePath)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(exeDir, "bin"))...)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(exeDir, "lib"))...)
+		exeDir := filepath.Dir(exePath) // e.g., root-folder/bin
+		rootDir := filepath.Dir(exeDir) // e.g., root-folder
+		
+		allSearchPaths = append(allSearchPaths, exeDir)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, "lib"))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, "bin"))...)
 	}
 
+	// 2. Development Layout: Resolve via go.mod
 	if projectRoot, found := findProjectRoot(); found {
 		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "bin"))...)
 		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "lib"))...)
 	}
 
 	for _, searchDir := range allSearchPaths {
-		possibleNames := []string{
+		possibleNames :=[]string{
 			name,
 			"lib" + name + libManager.LibraryExtension(),
 			name + libManager.LibraryExtension(),
 		}
 		for _, libName := range possibleNames {
 			fullPath := filepath.Join(searchDir, libName)
-			// FIX: Ensure it is a file, not a directory!
 			if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
 				return fullPath
 			}
 		}
 	}
 
-	systemPaths := []string{"/lib", "/usr/lib", "/usr/local/lib", "/lib/x86_64-linux-gnu", "/usr/lib/x86_64-linux-gnu"}
-	possibleNames := []string{name, "lib" + name + libManager.LibraryExtension()}
+	systemPaths :=[]string{"/lib", "/usr/lib", "/usr/local/lib", "/lib/x86_64-linux-gnu", "/usr/lib/x86_64-linux-gnu"}
+	possibleNames :=[]string{name, "lib" + name + libManager.LibraryExtension()}
 
 	for _, sysPath := range systemPaths {
 		for _, libName := range possibleNames {

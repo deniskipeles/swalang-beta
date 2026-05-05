@@ -583,6 +583,7 @@ func evalSetLiteral(node *ast.SetLiteral, ctx *InterpreterContext) object.Object
 	}
 	return set
 }
+
 func evalDictLiteral(node *ast.DictLiteral, ctx *InterpreterContext) object.Object {
 	pairs := make(map[object.HashKey]object.DictPair)
 	for keyNode, valueNode := range node.Pairs {
@@ -606,6 +607,7 @@ func evalDictLiteral(node *ast.DictLiteral, ctx *InterpreterContext) object.Obje
 	}
 	return &object.Dict{Pairs: pairs}
 }
+
 func evalIndexExpression(node *ast.IndexExpression, ctx *InterpreterContext) object.Object {
 	left := Eval(node.Left, ctx)
 	if object.IsError(left) {
@@ -617,11 +619,17 @@ func evalIndexExpression(node *ast.IndexExpression, ctx *InterpreterContext) obj
 	}
 	token := node.Token
 	if inst, ok := left.(*object.Instance); ok && inst.Class != nil {
-		if getItemMethodObj, methodOk := inst.Class.Methods[constants.DunderGetItem]; methodOk {
-			// <<< FIX: Type assert that the method is a function >>>
+		var getItemMethodObj object.Object
+		for _, cls := range inst.Class.MRO {
+			if method, ok := cls.Methods[constants.DunderGetItem]; ok {
+				getItemMethodObj = method
+				break
+			}
+		}
+		if getItemMethodObj != nil {
 			if getItemMethod, isFunc := getItemMethodObj.(*object.Function); isFunc {
 				boundGetItem := &object.BoundMethod{Instance: inst, Method: getItemMethod}
-				return object.ApplyBoundMethod(ctx, boundGetItem, []object.Object{index}, token)
+				return object.ApplyBoundMethod(ctx, boundGetItem,[]object.Object{index}, token)
 			}
 		}
 	}
@@ -709,6 +717,7 @@ func evalStringIndexExpression(str *object.String, index *object.Integer, token 
 	}
 	return &object.String{Value: string(runes[idx])}
 }
+
 func evalDictIndexExpressionRevised(dict *object.Dict, index object.Object, token lexer.Token) object.Object {
 	hashableKey, ok := index.(object.Hashable)
 	if !ok {
@@ -724,13 +733,20 @@ func evalDictIndexExpressionRevised(dict *object.Dict, index object.Object, toke
 	}
 	return pair.Value
 }
+
 func evalIndexAssignment(collection, index, value object.Object, token lexer.Token, ctx *InterpreterContext) object.Object {
 	if inst, ok := collection.(*object.Instance); ok && inst.Class != nil {
-		if setItemMethodObj, methodOk := inst.Class.Methods[constants.DunderSetItem]; methodOk {
-			// <<< FIX: Type assert that the method is a function >>>
+		var setItemMethodObj object.Object
+		for _, cls := range inst.Class.MRO {
+			if method, ok := cls.Methods[constants.DunderSetItem]; ok {
+				setItemMethodObj = method
+				break
+			}
+		}
+		if setItemMethodObj != nil {
 			if setItemMethod, isFunc := setItemMethodObj.(*object.Function); isFunc {
 				boundSetItem := &object.BoundMethod{Instance: inst, Method: setItemMethod}
-				result := object.ApplyBoundMethod(ctx, boundSetItem, []object.Object{index, value}, token)
+				result := object.ApplyBoundMethod(ctx, boundSetItem,[]object.Object{index, value}, token)
 				if object.IsError(result) {
 					return result
 				}
@@ -891,7 +907,6 @@ func evalTernaryExpression(node *ast.TernaryExpression, ctx *InterpreterContext)
 }
 
 // evalDotExpression handles `object.attribute` access.
-// evalDotExpression handles `object.attribute` access.
 func evalDotExpression(node *ast.DotExpression, ctx *InterpreterContext) object.Object {
 	left := Eval(node.Left, ctx)
 	if object.IsError(left) {
@@ -915,11 +930,18 @@ func evalDotExpression(node *ast.DotExpression, ctx *InterpreterContext) object.
 	// --- Fallback to __getattr__ for Pylearn instances ---
 	// In Python, __getattr__ is only called if the attribute is not found through normal mechanisms.
 	if inst, isInst := left.(*object.Instance); isInst && inst.Class != nil {
-		if getattrDunderObj, hasDunder := inst.Class.Methods[constants.DunderGetAttr]; hasDunder {
+		var getattrDunderObj object.Object
+		for _, cls := range inst.Class.MRO {
+			if method, ok := cls.Methods[constants.DunderGetAttr]; ok {
+				getattrDunderObj = method
+				break
+			}
+		}
+		if getattrDunderObj != nil {
 			if getattrMethod, isFunc := getattrDunderObj.(*object.Function); isFunc {
 				boundGetattr := &object.BoundMethod{Instance: inst, Method: getattrMethod}
 				attrNameObj := &object.String{Value: attrName}
-				return applyFunctionOrClass(ctx, boundGetattr, []object.Object{attrNameObj}, nil, token)
+				return applyFunctionOrClass(ctx, boundGetattr,[]object.Object{attrNameObj}, nil, token)
 			}
 		}
 	}
@@ -931,8 +953,6 @@ func evalDotExpression(node *ast.DotExpression, ctx *InterpreterContext) object.
 	}
 	return object.NewErrorWithLocation(token, constants.AttributeError, constants.ErrNoAttribute, typeName, attrName)
 }
-
-
 
 func evalBytesInfixExpression(op string, left, right object.Object, token lexer.Token) object.Object {
 	lVal := left.(*object.Bytes).Value
