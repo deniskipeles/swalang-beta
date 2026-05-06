@@ -1,4 +1,3 @@
-// pylearn/internal/object/dictionary_object.go
 package object
 
 import (
@@ -17,7 +16,7 @@ type DictPair struct{ Key, Value Object }
 func (d *Dict) Type() ObjectType { return DICT_OBJ }
 func (d *Dict) Inspect() string {
 	var out bytes.Buffer
-	pairs := []string{}
+	pairs :=[]string{}
 	keys := make([]HashKey, 0, len(d.Pairs))
 	for k := range d.Pairs {
 		keys = append(keys, k)
@@ -54,7 +53,7 @@ func (d *Dict) Get(key string) (Object, bool) {
 	return pair.Value, true
 }
 
-// GetObjectItem and SetObjectItem remain the same (used for d[key] and d[key]=value)
+// GetObjectItem and SetObjectItem (used for d[key] and d[key]=value)
 func (d *Dict) GetObjectItem(key Object) Object {
 	hashableKey, ok := key.(Hashable)
 	if !ok {
@@ -86,6 +85,8 @@ func (d *Dict) SetObjectItem(key Object, value Object) Object {
 	d.Pairs[hashKeyVal] = DictPair{Key: key, Value: value}
 	return nil
 }
+
+// Note: DeleteObjectItem is defined in del_object.go
 
 // --- Go functions for Dict methods ---
 
@@ -131,15 +132,11 @@ func pyDictKeysFn(ctx ExecutionContext, args ...Object) Object {
 		return NewError(constants.TypeError, constants.DICT_METHOD_KEYS_ON_DICT_ERROR)
 	}
 
-	// keysList := make([]Object, 0, len(self.Pairs))
-	itemsList := make([]Object, 0, len(self.Pairs))
+	keysList := make([]Object, 0, len(self.Pairs))
 	for _, pair := range self.Pairs {
-		itemPair := &Tuple{Elements: []Object{pair.Key, pair.Value}}
-		// keysList = append(keysList, pair.Key)
-		itemsList = append(itemsList, itemPair)
+		keysList = append(keysList, pair.Key)
 	}
-	// return &List{Elements: keysList}
-	return &List{Elements: itemsList}
+	return &List{Elements: keysList}
 }
 
 func pyDictValuesFn(ctx ExecutionContext, args ...Object) Object {
@@ -169,9 +166,8 @@ func pyDictItemsFn(ctx ExecutionContext, args ...Object) Object {
 
 	itemsList := make([]Object, 0, len(self.Pairs))
 	for _, pair := range self.Pairs {
-		// Using List for (key, value) pairs. Replace with Tuple if available.
-		itemPair := &List{Elements: []Object{pair.Key, pair.Value}}
-		// itemPair := &Tuple{Elements: []Object{pair.Key, pair.Value}} // If Tuple is ready
+		// Use Tuple so it can be unpacked by the 'for x, y in dict.items()' loop
+		itemPair := &Tuple{Elements:[]Object{pair.Key, pair.Value}}
 		itemsList = append(itemsList, itemPair)
 	}
 	return &List{Elements: itemsList}

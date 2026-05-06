@@ -4,7 +4,7 @@ import sdl2
 
 def _load_library():
     platform = sys.platform
-    candidates = []
+    candidates =[]
     if platform == 'linux':
         candidates =["bin/x86_64-linux/nuklear/libnuklear.so", "libnuklear.so"]
     elif platform == 'windows':
@@ -37,7 +37,11 @@ BUTTON_RIGHT  = 2
 # Structs
 # =============================================================================
 
-nk_rect = ffi.create_struct_type("nk_rect", [['x', ffi.c_float], ['y', ffi.c_float], ['w', ffi.c_float],['h', ffi.c_float]])
+nk_rect = ffi.create_struct_type("nk_rect",[
+    ['x', ffi.c_float],
+    ['y', ffi.c_float],['w', ffi.c_float],
+    ['h', ffi.c_float]
+])
 
 # =============================================================================
 # C Signatures
@@ -63,19 +67,30 @@ _nk_input_end = _lib.nk_input_end([ffi.c_void_p], None)
 class Context:
     def __init__(self):
         # Allocation for the context and a working buffer
-        self.ptr = ffi.malloc(4096) 
-        self.memory = ffi.malloc(32768) 
+        self.ptr = ffi.malloc(65536) 
+        self.memory = ffi.malloc(131072) 
         
-        # Setup dummy font to prevent crash
-        self.font_ptr = ffi.malloc(32)
+        # Setup dummy font. Size increased to 128 bytes to prevent heap corruption!
+        self.font_ptr = ffi.malloc(128)
+        
         def _dummy_text_width(handle_ptr, h, text_ptr, length):
             return float(length * 8)
-        self._width_cb = ffi.callback(_dummy_text_width, ffi.c_float,[ffi.c_void_p, ffi.c_float, ffi.c_char_p, ffi.c_int32])
+            
+        # FIX: Changed ffi.c_char_p to ffi.c_void_p for text_ptr!
+        # Nuklear does NOT null-terminate strings passed to this callback.
+        # If FFI tries to read it as a string, it will scan memory forever and freeze!
+        self._width_cb = ffi.callback(
+            _dummy_text_width, 
+            ffi.c_float,[ffi.c_void_p, ffi.c_float, ffi.c_void_p, ffi.c_int32]
+        )
         
-        ffi.write_memory_with_offset(self.font_ptr, 16, ffi.c_void_p, self._width_cb)
+        # Initialize font properties
+        ffi.write_memory_with_offset(self.font_ptr, 0, ffi.c_void_p, None) # userdata
+        ffi.write_memory_with_offset(self.font_ptr, 8, ffi.c_float, 14.0)  # height
+        ffi.write_memory_with_offset(self.font_ptr, 16, ffi.c_void_p, self._width_cb) # width callback
         
         # Initialize
-        _nk_init_fixed(self.ptr, self.memory, 32768, self.font_ptr)
+        _nk_init_fixed(self.ptr, self.memory, 131072, self.font_ptr)
 
     def input_begin(self):
         _nk_input_begin(self.ptr)
@@ -99,11 +114,20 @@ class Context:
         rect = {"x": float(x), "y": float(y), "w": float(w), "h": float(h)}
         return _nk_begin(self.ptr, title.encode('utf-8'), rect, flags)
 
-    def end(self): _nk_end(self.ptr)
-    def layout_row_dynamic(self, h, cols): _nk_layout_row_dynamic(self.ptr, float(h), cols)
-    def label(self, text, align=TEXT_LEFT): _nk_label(self.ptr, text.encode('utf-8'), align)
-    def button_label(self, text): return _nk_button_label(self.ptr, text.encode('utf-8'))
-    def clear(self): _nk_clear(self.ptr)
+    def end(self): 
+        _nk_end(self.ptr)
+        
+    def layout_row_dynamic(self, h, cols): 
+        _nk_layout_row_dynamic(self.ptr, float(h), cols)
+        
+    def label(self, text, align=TEXT_LEFT): 
+        _nk_label(self.ptr, text.encode('utf-8'), align)
+        
+    def button_label(self, text): 
+        return _nk_button_label(self.ptr, text.encode('utf-8'))
+        
+    def clear(self): 
+        _nk_clear(self.ptr)
 
     def free(self):
         ffi.free(self.ptr)

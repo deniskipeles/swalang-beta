@@ -26,7 +26,7 @@ def run_cjson_tests():
         "version": 1,
         "libs": ["uv", "zlib", "cjson"]
     }
-    json_output = cjson.dumps(pylearn_obj)
+    json_output = cjson.dumps(pylearn_obj, True)
     
     # We load it back to verify the content, as key order is not guaranteed
     reloaded_obj = cjson.loads(json_output)
