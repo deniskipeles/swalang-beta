@@ -295,10 +295,17 @@ func pyGetAttrFn(ctx object.ExecutionContext, args ...object.Object) object.Obje
 	// --- Handle __getattr__ if attribute not found by AttributeGetter ---
 	if foundValue == nil {
 		if inst, isInst := obj.(*object.Instance); isInst && inst.Class != nil {
-			if getattrDunderObj, hasGetattrDunder := inst.Class.Methods[constants.DunderGetAttr]; hasGetattrDunder {
-				if getattrDunder, isFunc := getattrDunderObj.(*object.Function); isFunc { // <<< TYPE ASSERTION
+			var getattrDunderObj object.Object
+			for _, cls := range inst.Class.MRO {
+				if method, ok := cls.Methods[constants.DunderGetAttr]; ok {
+					getattrDunderObj = method
+					break
+				}
+			}
+			if getattrDunderObj != nil {
+				if getattrDunder, isFunc := getattrDunderObj.(*object.Function); isFunc {
 					boundGetattr := &object.BoundMethod{Instance: inst, Method: getattrDunder}
-					resultFromDunder := object.ApplyBoundMethod(ctx, boundGetattr, []object.Object{nameObj}, errReportingToken)
+					resultFromDunder := object.ApplyBoundMethod(ctx, boundGetattr,[]object.Object{nameObj}, errReportingToken)
 					if object.IsError(resultFromDunder) {
 						if errObj, isActualError := resultFromDunder.(*object.Error); isActualError {
 							isSpecificAttributeError := strings.Contains(errObj.Message, constants.AttributeErrorColon) ||

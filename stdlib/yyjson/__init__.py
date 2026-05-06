@@ -29,70 +29,74 @@ class YYJSONError(Exception):
     pass
 
 # --- C Function Signatures ---
-# Read API (Immutable)
 # We must use yyjson_read_opts because yyjson_read is static inline in the C header
 _yyjson_read_opts = _lib.yyjson_read_opts([ffi.c_char_p, ffi.c_uint64, ffi.c_uint32, ffi.c_void_p, ffi.c_void_p], ffi.c_void_p)
-
-# We CANNOT bind to yyjson_doc_free because it is static inline.
-# However, yyjson_read_opts allocates a single contiguous block using the
-# default allocator (libc malloc) when we pass NULL for the allocator.
-# Therefore, we can safely use ffi.free() to clean it up!
 
 # --- Memory Parsing Logic (loads) ---
 def _parse_val(root_ptr, offset):
     """
     Directly reads a yyjson_val struct from memory.
     yyjson_val is exactly 16 bytes.
-    Offset 0: tag (uint64)
-    Offset 8: union data (8 bytes)
+    Returns: (parsed_value, offset_of_next_sibling)
     """
-    tag = ffi.read_memory_with_offset(root_ptr, offset, ffi.c_uint64)
-    typ = tag & 0xFF
+    tag_obj = ffi.read_memory_with_offset(root_ptr, offset, ffi.c_uint64)
+    tag = int(str(tag_obj))
+    
+    # 3 bits for type
+    typ = tag & 7 
+    # 5 bits for subtype
+    subtype = (tag >> 3) & 31 
+    
+    # By default, primitive values take exactly 16 bytes
+    next_off = offset + 16
+    
+    # For Collections (Array/Object), yyjson stores the total byte size
+    # of the collection (including children) in the union field at offset + 8
+    if typ == 6 or typ == 7:
+        ofs_obj = ffi.read_memory_with_offset(root_ptr, offset + 8, ffi.c_uint64)
+        next_off = offset + int(str(ofs_obj))
     
     if typ == 2: # NULL
-        return None, 1
+        return None, next_off
     elif typ == 3: # BOOL
-        subtype = (tag >> 8) & 0xFF
-        return (subtype == 1), 1
+        return (subtype == 1), next_off
     elif typ == 4: # NUM
-        subtype = (tag >> 8) & 0xFF
         if subtype == 0:   # uint
-            return ffi.read_memory_with_offset(root_ptr, offset + 8, ffi.c_uint64), 1
+            num_obj = ffi.read_memory_with_offset(root_ptr, offset + 8, ffi.c_uint64)
+            return int(str(num_obj)), next_off
         elif subtype == 1: # sint
-            return ffi.read_memory_with_offset(root_ptr, offset + 8, ffi.c_int64), 1
+            num_obj = ffi.read_memory_with_offset(root_ptr, offset + 8, ffi.c_int64)
+            return int(str(num_obj)), next_off
         elif subtype == 2: # real
-            return ffi.read_memory_with_offset(root_ptr, offset + 8, ffi.c_double), 1
+            num_obj = ffi.read_memory_with_offset(root_ptr, offset + 8, ffi.c_double)
+            return float(str(num_obj)), next_off
     elif typ == 5: # STR
         str_ptr = ffi.read_memory_with_offset(root_ptr, offset + 8, ffi.c_void_p)
-        str_len = (tag >> 8) & 0xFFFFFF # Length is 24 bits
-        return ffi.string_at(str_ptr, str_len), 1
+        # Length is stored in the upper 56 bits
+        str_len = tag >> 8
+        str_val = ffi.string_at(str_ptr, str_len)
+        return str_val if isinstance(str_val, str) else "", next_off
     elif typ == 6: # ARR
-        count = (tag >> 8) & 0xFFFFFF
-        total_nodes = tag >> 32 # Number of struct blocks this collection occupies
-        arr =[]
+        # Number of elements is stored in the upper 56 bits
+        count = tag >> 8
+        arr = []
         curr_off = offset + 16 # First element immediately follows the array header
         for _ in range(count):
-            val, nodes = _parse_val(root_ptr, curr_off)
+            val, curr_off = _parse_val(root_ptr, curr_off)
             arr.append(val)
-            curr_off = curr_off + (nodes * 16) # Skip past this element and all its children
-        return arr, total_nodes
+        return arr, next_off
     elif typ == 7: # OBJ
-        count = (tag >> 8) & 0xFFFFFF
-        total_nodes = tag >> 32
+        count = tag >> 8
         obj = {}
         curr_off = offset + 16
         for _ in range(count):
             # Keys and values alternate sequentially in memory
-            key, knodes = _parse_val(root_ptr, curr_off)
-            curr_off = curr_off + (knodes * 16)
-            
-            val, vnodes = _parse_val(root_ptr, curr_off)
-            curr_off = curr_off + (vnodes * 16)
-            
+            key, curr_off = _parse_val(root_ptr, curr_off)
+            val, curr_off = _parse_val(root_ptr, curr_off)
             obj[key] = val
-        return obj, total_nodes
+        return obj, next_off
         
-    raise YYJSONError(format_str("Unknown yyjson type tag: {typ}"))
+    raise YYJSONError(format_str("Unknown yyjson type tag: {typ} (Full tag: {tag})"))
 
 def loads(json_string):
     if not isinstance(json_string, str):
@@ -102,13 +106,13 @@ def loads(json_string):
     
     # Call yyjson_read_opts instead of yyjson_read
     doc_ptr = _yyjson_read_opts(json_bytes, len(json_bytes), 0, None, None)
-    if not doc_ptr or doc_ptr.Address == 0:
+    if not doc_ptr or not getattr(doc_ptr, "Address", None):
         raise YYJSONError("Failed to parse JSON string")
         
     try:
         # The root yyjson_val pointer is the first member (offset 0) of the doc struct
         root_val_ptr = ffi.read_memory_with_offset(doc_ptr, 0, ffi.c_void_p)
-        if not root_val_ptr or root_val_ptr.Address == 0:
+        if not root_val_ptr or not getattr(root_val_ptr, "Address", None):
             return None
             
         result, _ = _parse_val(root_val_ptr, 0)
@@ -119,7 +123,6 @@ def loads(json_string):
 
 # --- Tree Building Logic (dumps) ---
 # Since yyjson mutable API is largely static inline, we use a pure-Python string builder
-# which is fast enough for basic testing, avoiding inline C functions.
 def dumps(obj, indent=False, _level=0):
     if obj is None:
         return "null"
@@ -142,8 +145,10 @@ def dumps(obj, indent=False, _level=0):
         return "[" + ", ".join(items) + "]"
     elif isinstance(obj, dict):
         if len(obj) == 0: return "{}"
-        items =[]
-        for k, v in obj.items():
+        items = []
+        for pair in obj.items():
+            k = pair[0]
+            v = pair[1]
             if not isinstance(k, str):
                 k = str(k)
             k_esc = k.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')

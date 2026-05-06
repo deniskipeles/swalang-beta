@@ -109,42 +109,43 @@ func findLibrary(name string) string {
 		}
 	}
 
-	potentialRoots := make(map[string]bool)
+	var allSearchPaths[]string
+
+	// 1. Production Layout: Resolve relative to the Swalang executable
 	if exePath, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exePath)
-		potentialRoots[exeDir] = true
-		potentialRoots[filepath.Dir(exeDir)] = true
-	}
-	if projectRoot, found := findProjectRoot(); found {
-		potentialRoots[projectRoot] = true
+		exeDir := filepath.Dir(exePath) // e.g., root-folder/bin
+		rootDir := filepath.Dir(exeDir) // e.g., root-folder
+		
+		allSearchPaths = append(allSearchPaths, exeDir)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, "lib"))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, "bin"))...)
 	}
 
-	allPossibleDependencyPaths := []string{}
-	for root := range potentialRoots {
-		allPossibleDependencyPaths = append(allPossibleDependencyPaths, discoverDynamicPaths(filepath.Join(root, "bin"))...)
-		allPossibleDependencyPaths = append(allPossibleDependencyPaths, discoverDynamicPaths(filepath.Join(root, "lib"))...)
+	// 2. Development Layout: Resolve via go.mod
+	if projectRoot, found := findProjectRoot(); found {
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "bin"))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "lib"))...)
 	}
-	
-	for _, path := range allPossibleDependencyPaths {
+
+	for _, path := range allSearchPaths {
 		addDllSearchPath(path)
 	}
 
-	for _, searchDir := range allPossibleDependencyPaths {
-		possibleNames := []string{
+	for _, searchDir := range allSearchPaths {
+		possibleNames :=[]string{
 			name,
 			name + libManager.LibraryExtension(),
 			"lib" + name + libManager.LibraryExtension(),
 		}
 		for _, libName := range possibleNames {
 			fullPath := filepath.Join(searchDir, libName)
-			// FIX: Ensure it is a file!
 			if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
 				return fullPath
 			}
 		}
 	}
 
-	systemPaths := []string{
+	systemPaths :=[]string{
 		filepath.Join(os.Getenv("WINDIR"), "System32"),
 		filepath.Join(os.Getenv("WINDIR"), "SysWOW64"),
 	}

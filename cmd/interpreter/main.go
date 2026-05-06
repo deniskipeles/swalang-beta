@@ -1,4 +1,3 @@
-// cmd/interpreter/main.go
 package main
 
 import (

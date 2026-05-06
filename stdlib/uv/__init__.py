@@ -8,11 +8,11 @@ import sys
 
 def _load_library():
     platform = sys.platform
-    candidates = []
+    candidates =[]
     if platform == 'linux':
-        candidates = ["bin/x86_64-linux/libuv/libuv.so", "libuv.so", "libuv.so.1"]
+        candidates =["bin/x86_64-linux/libuv/libuv.so", "libuv.so", "libuv.so.1"]
     elif platform == 'windows':
-        candidates = ["bin/x86_64-windows-gnu/libuv/uv.dll", "libuv.dll", "uv.dll"]
+        candidates =["bin/x86_64-windows-gnu/libuv/uv.dll", "libuv.dll", "uv.dll"]
     elif platform == 'darwin':
         candidates = ["libuv.dylib"]
     
@@ -34,21 +34,17 @@ UV_RUN_NOWAIT = 2
 UV_TIMER = 14
 
 # --- C Function Signatures ---
-# Memory sizing
 _uv_loop_size = _lib.uv_loop_size([], ffi.c_uint64)
 _uv_handle_size = _lib.uv_handle_size([ffi.c_int32], ffi.c_uint64)
 
-# Loop functions
 _uv_loop_init = _lib.uv_loop_init([ffi.c_void_p], ffi.c_int32)
 _uv_loop_close = _lib.uv_loop_close([ffi.c_void_p], ffi.c_int32)
 _uv_run = _lib.uv_run([ffi.c_void_p, ffi.c_int32], ffi.c_int32)
 
-# Timer functions
 _uv_timer_init = _lib.uv_timer_init([ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
 _uv_timer_start = _lib.uv_timer_start([ffi.c_void_p, ffi.c_void_p, ffi.c_uint64, ffi.c_uint64], ffi.c_int32)
 _uv_timer_stop = _lib.uv_timer_stop([ffi.c_void_p], ffi.c_int32)
 
-# Handle functions
 _uv_close = _lib.uv_close([ffi.c_void_p, ffi.c_void_p], None)
 
 class Loop:
@@ -57,7 +53,7 @@ class Loop:
         size = _uv_loop_size()
         self.ptr = ffi.malloc(size)
         _uv_loop_init(self.ptr)
-        self.callbacks = []
+        self.callbacks =[]
 
     def run(self, mode=UV_RUN_DEFAULT):
         """Start the event loop."""
@@ -71,7 +67,7 @@ class Loop:
             self.ptr = None
             for cb in self.callbacks:
                 ffi.free_callback(cb)
-            self.callbacks = []
+            self.callbacks =[]
 
 class Timer:
     """An asynchronous timer using libuv."""
@@ -105,7 +101,5 @@ class Timer:
         """Close the handle and free memory."""
         if self.ptr:
             _uv_close(self.ptr, None)
-            # In a strict implementation, memory is freed in the close callback.
-            # We approximate it here for simplicity.
             ffi.free(self.ptr)
             self.ptr = None

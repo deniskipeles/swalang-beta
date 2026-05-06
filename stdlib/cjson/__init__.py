@@ -1,5 +1,3 @@
-# pylearn/stdlib/cjson.py
-
 """
 A high-performance Pylearn wrapper for the cJSON library, built using the Pylearn FFI.
 This module provides fast JSON encoding and decoding.
@@ -14,11 +12,11 @@ import sys
 
 def _load_library():
     platform = sys.platform
-    candidates = []
+    candidates =[]
     if platform == 'linux':
-        candidates = ["bin/x86_64-linux/cjson/libcjson.so", "libcjson.so"]
+        candidates =["bin/x86_64-linux/cjson/libcjson.so", "libcjson.so"]
     elif platform == 'windows':
-        candidates = ["bin/x86_64-windows-gnu/cjson/cjson.dll", "cjson.dll"]
+        candidates =["bin/x86_64-windows-gnu/cjson/cjson.dll", "cjson.dll"]
     elif platform == 'darwin':
         candidates = ["libcjson.dylib"]
     
@@ -62,7 +60,9 @@ cJSON_Object = (1 << 6)
 if CJSON_AVAILABLE:
     # --- Parsing and Printing ---
     _cJSON_Parse = _lib.cJSON_Parse([ffi.c_char_p], ffi.c_void_p)
-    _cJSON_PrintUnformatted = _lib.cJSON_PrintUnformatted([ffi.c_void_p], ffi.c_char_p)
+    # FIX: Ensure Print returns void_p so we get the raw pointer back to free it
+    _cJSON_PrintUnformatted = _lib.cJSON_PrintUnformatted([ffi.c_void_p], ffi.c_void_p)
+    _cJSON_Print = _lib.cJSON_Print([ffi.c_void_p], ffi.c_void_p)
     _cJSON_Delete = _lib.cJSON_Delete([ffi.c_void_p], None)
 
     # --- Object Creation ---
@@ -75,8 +75,9 @@ if CJSON_AVAILABLE:
     _cJSON_CreateObject = _lib.cJSON_CreateObject([], ffi.c_void_p)
 
     # --- Object Manipulation ---
-    _cJSON_AddItemToArray = _lib.cJSON_AddItemToArray([ffi.c_void_p, ffi.c_void_p], ffi.c_bool)
-    _cJSON_AddItemToObject = _lib.cJSON_AddItemToObject([ffi.c_void_p, ffi.c_char_p, ffi.c_void_p], ffi.c_bool)
+    # cJSON uses 32-bit ints for booleans inside its API.
+    _cJSON_AddItemToArray = _lib.cJSON_AddItemToArray([ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
+    _cJSON_AddItemToObject = _lib.cJSON_AddItemToObject([ffi.c_void_p, ffi.c_char_p, ffi.c_void_p], ffi.c_int32)
 
     # --- Object Traversal and Reading ---
     _cJSON_GetObjectItem = _lib.cJSON_GetObjectItem([ffi.c_void_p, ffi.c_char_p], ffi.c_void_p)
@@ -88,28 +89,12 @@ if CJSON_AVAILABLE:
 # ==============================================================================
 
 def _cjson_to_pylearn(item_ptr):
-    """
-    Recursively converts a cJSON C structure to a Pylearn object by reading its memory directly.
-    """
-    if not item_ptr or not item_ptr.Address:
+    if not item_ptr or getattr(item_ptr, "Address", 0) == 0:
         return None
 
-    # cJSON struct field offsets for a 64-bit system.
-    # struct cJSON {
-    #     cJSON *next;        // offset 0
-    #     cJSON *prev;        // offset 8
-    #     cJSON *child;       // offset 16
-    #     int type;           // offset 24
-    #     char *valuestring;  // offset 32
-    #     int valueint;       // offset 40 (value is in valuedouble)
-    #     double valuedouble; // offset 48
-    #     char *string;       // offset 56 (this is the key for object items)
-    # };
-    
-    # Read the 'type' field, which comes back as a Pylearn Integer object.
+    # Mask with 0xFF to remove extra cJSON flags (like cJSON_IsReference)
     item_type_obj = ffi.read_memory_with_offset(item_ptr, 24, ffi.c_int32)
-    # Convert the Pylearn Integer object to a primitive integer for comparison.
-    item_type = int(str(item_type_obj))
+    item_type = int(str(item_type_obj)) & 0xFF
 
     if item_type == cJSON_False:
         return False
@@ -118,18 +103,18 @@ def _cjson_to_pylearn(item_ptr):
     elif item_type == cJSON_NULL:
         return None
     elif item_type == cJSON_Number:
-        # Read 'valuedouble' and convert the Float object to a primitive.
         num_obj = ffi.read_memory_with_offset(item_ptr, 48, ffi.c_double)
         num = float(str(num_obj))
         if num == int(num):
             return int(num)
         return num
     elif item_type == cJSON_String:
-        # Read the 'valuestring' pointer, then get the string at that address.
-        str_ptr = ffi.read_memory_with_offset(item_ptr, 32, ffi.c_char_p)
-        return ffi.string_at(str_ptr)
+        str_val = ffi.read_memory_with_offset(item_ptr, 32, ffi.c_char_p)
+        if isinstance(str_val, str):
+            return str_val
+        return ""
     elif item_type == cJSON_Array:
-        arr = []
+        arr =[]
         size = _cJSON_GetArraySize(item_ptr)
         i = 0
         while i < size:
@@ -139,25 +124,19 @@ def _cjson_to_pylearn(item_ptr):
         return arr
     elif item_type == cJSON_Object:
         obj = {}
-        # Read the 'child' pointer to get the first item in the object's linked list.
         child_ptr = ffi.read_memory_with_offset(item_ptr, 16, ffi.c_void_p)
         
-        while child_ptr and child_ptr.Address:
-            # Read the key from the child's 'string' field.
-            key_ptr = ffi.read_memory_with_offset(child_ptr, 56, ffi.c_char_p)
-            key = ffi.string_at(key_ptr)
+        while child_ptr and getattr(child_ptr, "Address", 0) != 0:
+            key_val = ffi.read_memory_with_offset(child_ptr, 56, ffi.c_char_p)
+            key = key_val if isinstance(key_val, str) else ""
             
-            # The value is the child item itself.
             obj[key] = _cjson_to_pylearn(child_ptr)
-            
-            # Move to the next item in the linked list.
             child_ptr = ffi.read_memory_with_offset(child_ptr, 0, ffi.c_void_p)
         return obj
 
     return None
 
 def _pylearn_to_cjson(item):
-    """Recursively converts a Pylearn object to a cJSON C structure."""
     if item is None:
         return _cJSON_CreateNull()
     elif isinstance(item, bool):
@@ -165,7 +144,7 @@ def _pylearn_to_cjson(item):
     elif isinstance(item, (int, float)):
         return _cJSON_CreateNumber(float(item))
     elif isinstance(item, str):
-        return _cJSON_CreateString(item)
+        return _cJSON_CreateString(item.encode('utf-8'))
     elif isinstance(item, list):
         c_array = _cJSON_CreateArray()
         for elem in item:
@@ -174,11 +153,13 @@ def _pylearn_to_cjson(item):
         return c_array
     elif isinstance(item, dict):
         c_obj = _cJSON_CreateObject()
-        for key, value in item.items():
+        for pair in item.items(): # Safe unpack since Go backend was fixed
+            key = pair[0]
+            value = pair[1]
             if not isinstance(key, str):
-                raise CJSONError("JSON object keys must be strings.")
+                key = str(key)
             c_value = _pylearn_to_cjson(value)
-            _cJSON_AddItemToObject(c_obj, key, c_value)
+            _cJSON_AddItemToObject(c_obj, key.encode('utf-8'), c_value)
         return c_obj
     else:
         raise CJSONError(format_str("Object of type '{type(item)}' is not JSON serializable"))
@@ -188,51 +169,43 @@ def _pylearn_to_cjson(item):
 # ==============================================================================
 
 def loads(json_string):
-    """
-    Parse a JSON string, returning a Pylearn object.
-    """
     if not CJSON_AVAILABLE:
         raise CJSONError("cJSON library not available")
     if not isinstance(json_string, str):
         raise TypeError("the JSON object must be a string")
 
-    root_ptr = _cJSON_Parse(json_string)
-    if not root_ptr or not root_ptr.Address:
-        # A proper implementation would get the error pointer from cJSON_GetErrorPtr()
+    root_ptr = _cJSON_Parse(json_string.encode('utf-8'))
+    if not root_ptr or getattr(root_ptr, "Address", 0) == 0:
         raise CJSONError("Failed to parse JSON string.")
     
     try:
         pylearn_obj = _cjson_to_pylearn(root_ptr)
         return pylearn_obj
     finally:
-        # CRITICAL: Always free the memory allocated by cJSON_Parse
         _cJSON_Delete(root_ptr)
 
-def dumps(obj):
-    """
-    Serialize a Pylearn object to a JSON formatted string.
-    """
+def dumps(obj, indent=False):
     if not CJSON_AVAILABLE:
         raise CJSONError("cJSON library not available")
 
     cjson_obj_ptr = _pylearn_to_cjson(obj)
-    if not cjson_obj_ptr or not cjson_obj_ptr.Address:
+    if not cjson_obj_ptr or getattr(cjson_obj_ptr, "Address", 0) == 0:
         raise CJSONError("Failed to convert Pylearn object to cJSON structure.")
 
     try:
-        # This allocates a new string that we must free.
-        char_ptr = _cJSON_PrintUnformatted(cjson_obj_ptr)
-        if not char_ptr or not char_ptr.Address:
+        if indent:
+            char_ptr = _cJSON_Print(cjson_obj_ptr)
+        else:
+            char_ptr = _cJSON_PrintUnformatted(cjson_obj_ptr)
+            
+        if not char_ptr or getattr(char_ptr, "Address", 0) == 0:
             raise CJSONError("Failed to print cJSON structure to string.")
         
         try:
             result_string = ffi.string_at(char_ptr)
             return result_string
         finally:
-            # cJSON's print functions use the same malloc as the main library.
-            # We can use our ffi.free, which calls the standard C free().
             ffi.free(char_ptr)
             
     finally:
-        # CRITICAL: Always free the object structure we built.
         _cJSON_Delete(cjson_obj_ptr)

@@ -1,4 +1,3 @@
-// pylearn/internal/interpreter/stdlib_path.go
 package interpreter
 
 import (
@@ -7,22 +6,30 @@ import (
 )
 
 // GetStandardLibraryPath returns the path to the standard library
-// This should be implemented based on your project structure
 func GetStandardLibraryPath() string {
-	// This is a placeholder - implement based on your project structure
-	// For example, you might have a stdlib directory in your project
-	if stdPath := os.Getenv("_STDLIB_PATH"); stdPath != "" {
+	if stdPath := os.Getenv("PYLEARN_STDLIB_PATH"); stdPath != "" {
 		return stdPath
 	}
 
-	// Default locations to check
-	possiblePaths := []string{
-		"lib",
+	var possiblePaths[]string
+
+	// 1. Production Layout: Resolve relative to the Swalang executable
+	if exePath, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exePath)       // e.g., root-folder/bin
+		rootDir := filepath.Dir(exeDir)       // e.g., root-folder
+		
+		// Target: root-folder/stdlib
+		possiblePaths = append(possiblePaths, filepath.Join(rootDir, "stdlib"))
+		// Target: root-folder/bin/stdlib (in case it's bundled directly next to the binary)
+		possiblePaths = append(possiblePaths, filepath.Join(exeDir, "stdlib"))
+	}
+
+	// 2. Development Layout Fallbacks (Relative to CWD)
+	possiblePaths = append(possiblePaths,
 		"stdlib",
 		"lib/stdlib",
 		"internal/stdlib",
-		filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "deniskipeles", "pylearn", "stdlib"),
-	}
+	)
 
 	for _, path := range possiblePaths {
 		if info, err := os.Stat(path); err == nil && info.IsDir() {
