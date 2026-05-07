@@ -139,8 +139,8 @@ PYEOF
 
         echo "✅ libmbedtls.dll created."
     else
-        # Copy only real files (not symlinks) — we rebuild symlinks cleanly below.
-        # Include libtfpsa*.so* because libmbedcrypto.so.X.Y.Z symlinks into it.
+        # Step 1: copy only real .so files (not symlinks) — includes libtfpsa*
+        # because libmbedcrypto.so.X.Y.Z is a symlink into it in this mbedtls version
         find "$build_dir" \( \
             -name "libmbed*.so*" -o \
             -name "libmbed*.dylib*" -o \
@@ -149,15 +149,7 @@ PYEOF
 
         pushd "$out_dir" > /dev/null
 
-        # Pass 1: bare .so → real versioned file
-        for real in *.so.*.*; do
-            [ -f "$real" ] || continue
-            bare="${real%%.so*}.so"
-            [ -L "$bare" ] || ln -sf "$real" "$bare"
-        done
-
-        # Pass 2: intermediate SONAME symlink (e.g. libmbedcrypto.so.18 → libmbedcrypto.so.4.1.0)
-        # Read the SONAME embedded in each .so file and create that symlink if missing
+        # Step 2: SONAME intermediate symlinks (e.g. libmbedtls.so.23 → libmbedtls.so.4.1.0)
         for real in *.so.*.*; do
             [ -f "$real" ] || continue
             soname=$(readelf -d "$real" 2>/dev/null \
@@ -167,7 +159,28 @@ PYEOF
             fi
         done
 
+        # Step 3: bare .so symlinks (e.g. libmbedtls.so → libmbedtls.so.4.1.0)
+        for real in *.so.*.*; do
+            [ -f "$real" ] || continue
+            bare="${real%%.so*}.so"
+            [ -e "$bare" ] || ln -sf "$real" "$bare"
+        done
+
         popd > /dev/null
+
+        # Step 4: recreate libmbedcrypto.so* aliases — in this mbedtls version
+        # libmbedcrypto IS libtfpsacrypto. The build dir has libmbedcrypto.so*
+        # as symlinks into libtfpsacrypto, skipped by -not -type l above.
+        # We recreate every libmbedcrypto.so* name pointing at the real tfpsa file.
+        tfpsa_real=$(basename "$(ls "$out_dir"/libtfpsacrypto.so.*.* 2>/dev/null | head -1)")
+        if [[ -n "$tfpsa_real" ]]; then
+            pushd "$out_dir" > /dev/null
+            while IFS= read -r link; do
+                link_name=$(basename "$link")
+                [[ -e "$link_name" ]] || ln -sf "$tfpsa_real" "$link_name"
+            done < <(find "$build_dir" -name "libmbedcrypto.so*")
+            popd > /dev/null
+        fi
     fi
 
     echo "✅ Success for $target"

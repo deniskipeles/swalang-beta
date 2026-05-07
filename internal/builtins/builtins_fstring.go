@@ -1,10 +1,8 @@
-// internal/builtins/builtins_fstring.go
 package builtins
 
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/deniskipeles/pylearn/internal/ast"
@@ -55,7 +53,31 @@ func pyFormatStringFunction(ctx object.ExecutionContext, args ...object.Object) 
 			if exprEnd == -1 {
 				return object.NewError(constants.ValueError, constants.BuiltinsFstringUnterminatedExpression, exprStart-1)
 			}
-			expressionStr := strings.TrimSpace(inputString[exprStart:exprEnd])
+
+			// --- START OF FORMAT SPECIFIER EXTRACT ---
+			fullContent := inputString[exprStart:exprEnd]
+			expressionStr := fullContent
+			formatSpec := ""
+
+			colonPos := -1
+			innerBraceDepth := 0
+			for k := 0; k < len(fullContent); k++ {
+				if fullContent[k] == '{' {
+					innerBraceDepth++
+				} else if fullContent[k] == '}' {
+					innerBraceDepth--
+				} else if fullContent[k] == ':' && innerBraceDepth == 0 {
+					colonPos = k
+					break
+				}
+			}
+
+			if colonPos != -1 {
+				expressionStr = strings.TrimSpace(fullContent[:colonPos])
+				formatSpec = fullContent[colonPos+1:]
+			}
+			// --- END OF FORMAT SPECIFIER EXTRACT ---
+
 			if expressionStr == "" {
 				return object.NewError(constants.ValueError, constants.BuiltinsFstringEmptyExpressionNotAllowed)
 			}
@@ -78,25 +100,41 @@ func pyFormatStringFunction(ctx object.ExecutionContext, args ...object.Object) 
 			}
 
 			// Use the ExecutionContext to evaluate the AST node.
-			// The environment for evaluation is implicitly the one associated with the current context (caller's env).
-			// Pass 'nil' for env to use context's current environment.
 			evaluatedObj := ctx.EvaluateASTNode(astNodeToEvaluate, nil)
 
-			strBuiltin, strBuiltinFound := Builtins[constants.BuiltinsStrFuncName]
-			if !strBuiltinFound {
-				return object.NewError(constants.InternalError, constants.BuiltinsFstringStrBuiltinNotFound)
+			if object.IsError(evaluatedObj) {
+				return evaluatedObj
 			}
-			strRepresentationObj := ctx.Execute(strBuiltin, evaluatedObj)
-			if object.IsError(strRepresentationObj) {
-				errObj := strRepresentationObj.(*object.Error)
-				errObj.Message = fmt.Sprintf(constants.BuiltinsFstringErrorConvertingResult, expressionStr, errObj.Message)
-				return errObj
+
+			// --- APPLY FORMAT SPECIFIER ---
+			var finalStr string
+			if formatSpec != "" {
+				formatted, err := applyFormatSpec(evaluatedObj, formatSpec)
+				if err != nil {
+					return object.NewError(constants.ValueError, err.Error())
+				}
+				finalStr = formatted
+			} else {
+				// No format spec, just convert to string
+				strBuiltin, strBuiltinFound := Builtins[constants.BuiltinsStrFuncName]
+				if !strBuiltinFound {
+					return object.NewError(constants.InternalError, constants.BuiltinsFstringStrBuiltinNotFound)
+				}
+				strRepresentationObj := ctx.Execute(strBuiltin, evaluatedObj)
+				if object.IsError(strRepresentationObj) {
+					errObj := strRepresentationObj.(*object.Error)
+					errObj.Message = fmt.Sprintf(constants.BuiltinsFstringErrorConvertingResult, expressionStr, errObj.Message)
+					return errObj
+				}
+				strRepresentation, isStr := strRepresentationObj.(*object.String)
+				if !isStr {
+					return object.NewError(constants.InternalError, constants.BuiltinsFstringStrDidNotReturnString, strRepresentationObj.Type())
+				}
+				finalStr = strRepresentation.Value
 			}
-			strRepresentation, isStr := strRepresentationObj.(*object.String)
-			if !isStr {
-				return object.NewError(constants.InternalError, constants.BuiltinsFstringStrDidNotReturnString, strRepresentationObj.Type())
-			}
-			result.WriteString(strRepresentation.Value)
+			result.WriteString(finalStr)
+			// --- END APPLY FORMAT SPECIFIER ---
+
 			i = exprEnd + 1
 			lastIndex = i
 		} else if char == '}' {
@@ -119,20 +157,18 @@ func pyFormatStringFunction(ctx object.ExecutionContext, args ...object.Object) 
 }
 
 // applyFormatSpec applies a Python-style format specifier to a Pylearn object.
-// This is a simplified implementation.
+// This is a simplified implementation supporting standard format letters.
 func applyFormatSpec(obj object.Object, spec string) (string, error) {
 	if spec == "" {
-		// If no spec, just convert to string. This requires a context,
-		// but for this internal helper, we'll use Inspect() as a fallback.
-		// A full implementation would require passing the context here.
 		if strer, ok := obj.(interface{ String() string }); ok {
 			return strer.String(), nil
 		}
 		return obj.Inspect(), nil
 	}
 
-	// Example: .2f for floats
-	if strings.HasSuffix(spec, constants.BuiltinsFormatStrFuncName) {
+	lastChar := spec[len(spec)-1]
+	switch lastChar {
+	case 'f', 'F', 'e', 'E', 'g', 'G':
 		var floatVal float64
 		switch o := obj.(type) {
 		case *object.Float:
@@ -142,21 +178,22 @@ func applyFormatSpec(obj object.Object, spec string) (string, error) {
 		default:
 			return "", fmt.Errorf(constants.BuiltinFormatSpecifier_F_RequiresFloatOrIntegerNot_STRINGFORMATER, obj.Type())
 		}
-
-		// Parse precision, e.g., ".2" from ".2f"
-		precisionStr := strings.TrimSuffix(spec, constants.BuiltinsFormatStrFuncName)
-		if strings.HasPrefix(precisionStr, ".") {
-			precision, err := strconv.Atoi(precisionStr[1:])
-			if err == nil {
-				return fmt.Sprintf(fmt.Sprintf("%%.%df", precision), floatVal), nil
-			}
+		return fmt.Sprintf("%"+spec, floatVal), nil
+	case 'd', 'x', 'X', 'o', 'b', 'c':
+		var intVal int64
+		switch o := obj.(type) {
+		case *object.Integer:
+			intVal = o.Value
+		default:
+			return obj.Inspect(), nil
 		}
-		// Fallback for general 'f'
-		return fmt.Sprintf("%f", floatVal), nil
+		return fmt.Sprintf("%"+spec, intVal), nil
+	case 's':
+		if strObj, ok := obj.(*object.String); ok {
+			return fmt.Sprintf("%"+spec, strObj.Value), nil
+		}
+		return fmt.Sprintf("%"+spec, obj.Inspect()), nil
 	}
-
-	// Add more specifiers here as needed (e.g., 'd', 'x', 's')
-	// ...
 
 	// Default/unsupported: just return the inspection of the object
 	return obj.Inspect(), nil

@@ -1,7 +1,6 @@
 package interpreter
 
 import (
-	// "fmt"
 	"strings"
 
 	"github.com/deniskipeles/pylearn/internal/ast"
@@ -71,8 +70,7 @@ func evalLetStatement(node *ast.LetStatement, ctx *InterpreterContext) object.Ob
 	if object.IsError(valToAssign) {
 		return valToAssign
 	}
-	
-	// ... (decorator logic remains the same)
+
 	if fnLit, ok := node.Value.(*ast.FunctionLiteral); ok && len(fnLit.Decorators) > 0 {
 		decoratedFunc := valToAssign
 		for i := len(fnLit.Decorators) - 1; i >= 0; i-- {
@@ -190,158 +188,156 @@ func evalWhileStatement(node *ast.WhileStatement, ctx *InterpreterContext) objec
 	return object.NULL
 }
 
-
 func evalForStatement(fs *ast.ForStatement, ctx *InterpreterContext) object.Object {
-    iterableObj := Eval(fs.Iterable, ctx)
-    if object.IsError(iterableObj) {
-        return iterableObj
-    }
-    if _, isYield := iterableObj.(*object.YieldValue); isYield {
-        return iterableObj
-    }
+	iterableObj := Eval(fs.Iterable, ctx)
+	if object.IsError(iterableObj) {
+		return iterableObj
+	}
+	if _, isYield := iterableObj.(*object.YieldValue); isYield {
+		return iterableObj
+	}
 
-    var iterator object.Iterator
-    var nextItem object.Object
-    var stop bool
+	var iterator object.Iterator
+	var nextItem object.Object
+	var stop bool
 
-    // Check if we're resuming
-    if ctx.IsResuming {
-        // Try to get the active iterator
-        if iter, exists := ctx.ActiveIterators[fs]; exists {
-            iterator = iter
-        } else {
-            // No iterator → create one
-            var errObj object.Object
-            iterator, errObj = object.GetObjectIterator(ctx, iterableObj, fs.Token)
-            if errObj != nil {
-                return errObj
-            }
-            ctx.ActiveIterators[fs] = iterator
-            nextItem, stop = iterator.Next()
-            if stop {
-                delete(ctx.ActiveIterators, fs)
-                return object.NULL
-            }
-            if object.IsError(nextItem) {
-                return nextItem
-            }
-        }
+	// Check if we're resuming
+	if ctx.IsResuming {
+		// Try to get the active iterator
+		if iter, exists := ctx.ActiveIterators[fs]; exists {
+			iterator = iter
+		} else {
+			// No iterator → create one
+			var errObj object.Object
+			iterator, errObj = object.GetObjectIterator(ctx, iterableObj, fs.Token)
+			if errObj != nil {
+				return errObj
+			}
+			ctx.ActiveIterators[fs] = iterator
+			nextItem, stop = iterator.Next()
+			if stop {
+				delete(ctx.ActiveIterators, fs)
+				return object.NULL
+			}
+			if object.IsError(nextItem) {
+				return nextItem
+			}
+		}
 
-        // On resume, reuse the pending item
-        if pending, has := ctx.PendingForItem[fs]; has {
-            nextItem = pending
-            stop = false
-        } else {
-            // Should not happen, but fallback
-            nextItem, stop = iterator.Next()
-            if stop {
-                delete(ctx.ActiveIterators, fs)
-                return object.NULL
-            }
-            if object.IsError(nextItem) {
-                return nextItem
-            }
-        }
-    } else {
-        // First time: create iterator and get first item
-        var errObj object.Object
-        iterator, errObj = object.GetObjectIterator(ctx, iterableObj, fs.Token)
-        if errObj != nil {
-            return errObj
-        }
-        ctx.ActiveIterators[fs] = iterator
-        nextItem, stop = iterator.Next()
-        if stop {
-            delete(ctx.ActiveIterators, fs)
-            return object.NULL
-        }
-        if object.IsError(nextItem) {
-            return nextItem
-        }
-    }
+		// On resume, reuse the pending item
+		if pending, has := ctx.PendingForItem[fs]; has {
+			nextItem = pending
+			stop = false
+		} else {
+			// Should not happen, but fallback
+			nextItem, stop = iterator.Next()
+			if stop {
+				delete(ctx.ActiveIterators, fs)
+				return object.NULL
+			}
+			if object.IsError(nextItem) {
+				return nextItem
+			}
+		}
+	} else {
+		// First time: create iterator and get first item
+		var errObj object.Object
+		iterator, errObj = object.GetObjectIterator(ctx, iterableObj, fs.Token)
+		if errObj != nil {
+			return errObj
+		}
+		ctx.ActiveIterators[fs] = iterator
+		nextItem, stop = iterator.Next()
+		if stop {
+			delete(ctx.ActiveIterators, fs)
+			return object.NULL
+		}
+		if object.IsError(nextItem) {
+			return nextItem
+		}
+	}
 
-    var loopResult object.Object = object.NULL
+	var loopResult object.Object = object.NULL
 loop:
-    for {
-        // In Python, for loops do not create a new scope.
-        // We use the current context and environment directly.
-        loopCtx := ctx
+	for {
+		// In Python, for loops do not create a new scope.
+		// We use the current context and environment directly.
+		loopCtx := ctx
 
-        // Bind loop variable(s)
-        if len(fs.Variables) > 1 {
-            tuple, ok := nextItem.(*object.Tuple)
-            if !ok {
-                return object.NewError(constants.ValueError, constants.InterpreterEvalStatementsUnpackTooManyValues, len(fs.Variables))
-            }
-            if len(tuple.Elements) != len(fs.Variables) {
-                return object.NewError(constants.ValueError, constants.InterpreterEvalStatementsUnpackingError, len(fs.Variables), len(tuple.Elements))
-            }
-            for i, ident := range fs.Variables {
-                ctx.Env.Set(ident.Value, tuple.Elements[i])
-            }
-        } else {
-            varName := ""
-            if fs.Variable != nil {
-                varName = fs.Variable.Value
-            } else if len(fs.Variables) == 1 {
-                varName = fs.Variables[0].Value
-            } else {
-                return object.NewError(fs.Token.String(), constants.InterpreterEvalStatementsNoLoopVariableSpecified)
-            }
-            ctx.Env.Set(varName, nextItem)
-        }
+		// Bind loop variable(s)
+		if len(fs.Variables) > 1 {
+			tuple, ok := nextItem.(*object.Tuple)
+			if !ok {
+				return object.NewError(constants.ValueError, constants.InterpreterEvalStatementsUnpackTooManyValues, len(fs.Variables))
+			}
+			if len(tuple.Elements) != len(fs.Variables) {
+				return object.NewError(constants.ValueError, constants.InterpreterEvalStatementsUnpackingError, len(fs.Variables), len(tuple.Elements))
+			}
+			for i, ident := range fs.Variables {
+				ctx.Env.Set(ident.Value, tuple.Elements[i])
+			}
+		} else {
+			varName := ""
+			if fs.Variable != nil {
+				varName = fs.Variable.Value
+			} else if len(fs.Variables) == 1 {
+				varName = fs.Variables[0].Value
+			} else {
+				return object.NewError(fs.Token.String(), constants.InterpreterEvalStatementsNoLoopVariableSpecified)
+			}
+			ctx.Env.Set(varName, nextItem)
+		}
 
-        // Evaluate body
-        bodyResult := Eval(fs.Body, loopCtx)
-        if bodyResult != nil {
-            if _, isYield := bodyResult.(*object.YieldValue); isYield {
-                ctx.PendingForItem[fs] = nextItem
-                return bodyResult
-            }
-            rt := bodyResult.Type()
+		// Evaluate body
+		bodyResult := Eval(fs.Body, loopCtx)
+		if bodyResult != nil {
+			if _, isYield := bodyResult.(*object.YieldValue); isYield {
+				ctx.PendingForItem[fs] = nextItem
+				return bodyResult
+			}
+			rt := bodyResult.Type()
 
-            // FIX: If a generator nested inside the loop naturally finishes (StopIteration),
-            // it is NOT an error. We simply break out of the current loop iteration.
-            if rt == object.STOP_ITER_OBJ {
-                // Ignore StopIteration from inner calls, it just means the inner generator is done
-            } else if rt == object.ERROR_OBJ || rt == object.RETURN_VALUE_OBJ {
-                loopResult = bodyResult
-                break loop
-            } else if rt == object.BREAK_OBJ {
-                break loop
-            } else if rt == object.CONTINUE_OBJ {
-                // Skip to next iteration
-                nextItem, stop = iterator.Next()
-                if stop {
-                    delete(ctx.ActiveIterators, fs)
-                    break loop
-                }
-                if object.IsError(nextItem) {
-                    loopResult = nextItem
-                    break loop
-                }
-                continue loop
-            }
-        }
+			// FIX: If a generator nested inside the loop naturally finishes (StopIteration),
+			// it is NOT an error. We simply break out of the current loop iteration.
+			if rt == object.STOP_ITER_OBJ {
+				// Ignore StopIteration from inner calls, it just means the inner generator is done
+			} else if rt == object.ERROR_OBJ || rt == object.RETURN_VALUE_OBJ {
+				loopResult = bodyResult
+				break loop
+			} else if rt == object.BREAK_OBJ {
+				break loop
+			} else if rt == object.CONTINUE_OBJ {
+				// Skip to next iteration
+				nextItem, stop = iterator.Next()
+				if stop {
+					delete(ctx.ActiveIterators, fs)
+					break loop
+				}
+				if object.IsError(nextItem) {
+					loopResult = nextItem
+					break loop
+				}
+				continue loop
+			}
+		}
 
-        // Body completed normally → move to next item
-        nextItem, stop = iterator.Next()
-        if stop {
-            delete(ctx.ActiveIterators, fs)
-            break loop
-        }
-        if object.IsError(nextItem) {
-            loopResult = nextItem
-            break loop
-        }
+		// Body completed normally → move to next item
+		nextItem, stop = iterator.Next()
+		if stop {
+			delete(ctx.ActiveIterators, fs)
+			break loop
+		}
+		if object.IsError(nextItem) {
+			loopResult = nextItem
+			break loop
+		}
 
-        // Clear pending item after successful iteration
-        delete(ctx.PendingForItem, fs)
-        ctx.IsResuming = false
-    }
-    return loopResult
+		// Clear pending item after successful iteration
+		delete(ctx.PendingForItem, fs)
+		ctx.IsResuming = false
+	}
+	return loopResult
 }
-
 
 func evalDelStatement(node *ast.DelStatement, ctx *InterpreterContext) object.Object {
 	switch target := node.Target.(type) {
@@ -359,7 +355,7 @@ func evalDelStatement(node *ast.DelStatement, ctx *InterpreterContext) object.Ob
 		if !ok {
 			return object.NewError(constants.TypeError, constants.STRINGFORMATER_ObjectDoesNotSupportItemDeletion, collection.Type())
 		}
-		
+
 		return deleter.DeleteObjectItem(index)
 
 	default:
@@ -412,7 +408,6 @@ func evalAssertStatement(node *ast.AssertStatement, ctx *InterpreterContext) obj
 	// Create and return an AssertionError
 	return object.NewErrorWithLocation(node.Token, constants.AssertionError, message)
 }
-
 
 func evalClassStatement(stmt *ast.ClassStatement, ctx *InterpreterContext) object.Object {
 	className := stmt.Name.Value
@@ -584,8 +579,13 @@ func evalWithStatement(node *ast.WithStatement, ctx *InterpreterContext) object.
 
 func evalRaiseStatement(node *ast.RaiseStatement, ctx *InterpreterContext) object.Object {
 	if node.Exception == nil {
-		return object.NewError(constants.RuntimeError, constants.InterpreterEvalStatementsBareRaiseNotImplemented)
+		// BARE RAISE LOGIC
+		if ctx.ActiveException != nil {
+			return ctx.ActiveException
+		}
+		return object.NewError(constants.RuntimeError, "RuntimeError: No active exception to reraise")
 	}
+
 	raisedObj := Eval(node.Exception, ctx)
 	if object.IsError(raisedObj) {
 		return raisedObj
@@ -698,6 +698,9 @@ func evalTryStatement(ts *ast.TryStatement, ctx *InterpreterContext) object.Obje
 				}
 				handlerCtx := ctx.NewChildContext(handlerEnv).(*InterpreterContext)
 
+				// Bind the active exception to allow `raise` to work with no arguments
+				handlerCtx.ActiveException = tryResult
+
 				// The result of the handler block becomes the new final result.
 				finalResult = Eval(handler.Body, handlerCtx)
 				break // Stop checking other handlers
@@ -785,7 +788,7 @@ func evalAssignStatement(node *ast.AssignStatement, ctx *InterpreterContext) obj
 		if errObj != nil {
 			return errObj
 		}
-		
+
 		unpacked, err := object.UnpackIterator(iterator)
 		if err != nil {
 			return object.NewErrorFromGoErr(err)
@@ -825,19 +828,29 @@ func evalAssignStatement(node *ast.AssignStatement, ctx *InterpreterContext) obj
 			ctx.Env.Set(t.Value, val)
 		case *ast.IndexExpression:
 			collection := Eval(t.Left, ctx)
-			if object.IsError(collection) { return collection }
+			if object.IsError(collection) {
+				return collection
+			}
 			index := Eval(t.Index, ctx)
-			if object.IsError(index) { return index }
+			if object.IsError(index) {
+				return index
+			}
 			if setter, ok := collection.(object.ItemSetter); ok {
-				 if res := setter.SetObjectItem(index, val); res != nil { return res }
+				if res := setter.SetObjectItem(index, val); res != nil {
+					return res
+				}
 			} else {
 				return object.NewErrorWithLocation(t.Token, constants.TypeError, constants.STRINGFORMATER_ObectDoesNotSupportItemAssignment, collection.Type())
 			}
 		case *ast.DotExpression:
 			obj := Eval(t.Left, ctx)
-			if object.IsError(obj) { return obj }
+			if object.IsError(obj) {
+				return obj
+			}
 			if inst, ok := obj.(*object.Instance); ok {
-				if inst.Env == nil { inst.Env = object.NewEnvironment() }
+				if inst.Env == nil {
+					inst.Env = object.NewEnvironment()
+				}
 				inst.Env.Set(t.Identifier.Value, val)
 			} else {
 				return object.NewErrorWithLocation(t.Token, constants.AttributeError, constants.STRINGFORMATER_ObectHasNoAttribute_STRINGFORMATER_OrCannotBeAssignedTo, obj.Type(), t.Identifier.Value)

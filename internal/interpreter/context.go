@@ -1,4 +1,3 @@
-// pylearn/internal/interpreter/context.go
 package interpreter
 
 import (
@@ -31,7 +30,10 @@ type InterpreterContext struct {
 	// ActiveIterators maps a for-loop AST node to its active iterator.
 	// This is crucial for preserving iterator state across yield calls.
 	ActiveIterators map[*ast.ForStatement]object.Iterator
-	PendingForItem    map[*ast.ForStatement]object.Object // <<< NEW: store the item that was being processed when we yielded
+	PendingForItem  map[*ast.ForStatement]object.Object // <<< NEW: store the item that was being processed when we yielded
+
+	// ActiveException holds the currently active exception for bare 'raise' statements.
+	ActiveException object.Object
 }
 
 // SetSuperContext sets the context for a subsequent super() call.
@@ -50,40 +52,30 @@ func (ic *InterpreterContext) GetSuperClass() *object.Class {
 	return ic.superClass
 }
 
-// // NewChildContext creates a new InterpreterContext with a new environment,
-// // but carries over the super() and generator context from its parent.
-// func (ic *InterpreterContext) NewChildContext(env *object.Environment) object.ExecutionContext {
-// 	return &InterpreterContext{
-// 		Env:             env,
-// 		superSelf:       ic.superSelf,  // Carry forward
-// 		superClass:      ic.superClass, // Carry forward
-// 		IsResuming:      ic.IsResuming, // Carry forward generator state
-// 		InstructionPtr:  0,
-// 		ActiveIterators: make(map[*ast.ForStatement]object.Iterator), // <<< INITIALIZE THE MAP
-// 	}
-// }
-
 // NewInterpreterContext creates a new, properly initialized InterpreterContext.
 func NewInterpreterContext(env *object.Environment) *InterpreterContext {
 	return &InterpreterContext{
 		Env:             env,
 		ActiveIterators: make(map[*ast.ForStatement]object.Iterator),
-		PendingForItem:    make(map[*ast.ForStatement]object.Object), // <<< Initialize
+		PendingForItem:  make(map[*ast.ForStatement]object.Object), // <<< Initialize
 	}
 }
+
 func (ic *InterpreterContext) NewChildContext(env *object.Environment) object.ExecutionContext {
-    // Create the new context using the constructor
+	// Create the new context using the constructor
 	newCtx := NewInterpreterContext(env)
-	
-    // Carry over the necessary fields from the parent
+
+	// Carry over the necessary fields from the parent
 	newCtx.superSelf = ic.superSelf
 	newCtx.superClass = ic.superClass
 	newCtx.IsResuming = ic.IsResuming
+	newCtx.ActiveException = ic.ActiveException
 	// InstructionPtr starts at 0 for a new context.
 	// ActiveIterators is already initialized by the constructor.
 
 	return newCtx
 }
+
 // Execute implements the core.ExecutionContext interface for the interpreter.
 func (ic *InterpreterContext) Execute(callable object.Object, args ...object.Object) object.Object {
 	for {
