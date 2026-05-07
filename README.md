@@ -20,6 +20,10 @@ Comprehensive documentation can be found in the [docs/](docs/) directory:
 - [Async & Concurrency](docs/async_concurrency.md)
 - [FFI Guide](docs/ffi_guide.md)
 - [Standard Library Reference](docs/stdlib_reference.md)
+- [GUI Development](docs/gui_development.md)
+- [Web Services](docs/web_services.md)
+- [Data Persistence](docs/data_persistence.md)
+- [Building Applications](docs/building_applications.md)
 - [Contributing Guide](docs/contributing.md)
 
 ## Quick Start

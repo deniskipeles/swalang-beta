@@ -21,6 +21,15 @@ Originally conceived as "Pylearn," the project evolved into Swalang to better re
 - **Object System:** A Go-based representation of Swalang types (integers, strings, lists, classes, etc.).
 - **Standard Library:** A collection of modules, many of which are high-level wrappers around C libraries using the internal FFI.
 
+## Building Applications
+
+Swalang is designed for building modern, cross-platform applications. For detailed guides on specific domains, see:
+
+- [GUI Development](gui_development.md): Building interfaces with SDL2 and LVGL.
+- [Web Services](web_services.md): Creating web clients, servers, and WebSockets.
+- [Data Persistence](data_persistence.md): Working with SQLite and JSON.
+- [Building Applications](building_applications.md): Project structure and best practices.
+
 ## A Simple Example
 
 Here's a taste of Swalang:
