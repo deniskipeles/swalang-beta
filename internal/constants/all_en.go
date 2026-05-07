@@ -122,7 +122,7 @@ const (
 	MinusOperator   = "-"
 	Underscore      = "_"
 
-	PyExtension = ".py"
+	SwalangExtension = ".py"
 
 	SlashAsteriskComment = "/*...*/"
 	IndentLiteral        = "INDENT"
