@@ -35,6 +35,8 @@ c_char = _ffi_native.c_char
 c_uchar = _ffi_native.c_uchar
 c_short = _ffi_native.c_short
 c_ushort = _ffi_native.c_ushort
+c_int16 = _ffi_native.c_short
+c_uint16 = _ffi_native.c_ushort
 c_long = _ffi_native.c_long
 c_ulong = _ffi_native.c_ulong
 c_longlong = _ffi_native.c_longlong
@@ -213,6 +215,10 @@ class CDLL:
         self._lib = _ffi_native.load_library(name)
         if isinstance(self._lib, FFIError):
             raise self._lib
+
+    def get_address(self, name):
+        """Returns the memory address of an exported function as a Pointer."""
+        return _ffi_native.get_func_address(self._lib, name)
 
     def __getattr__(self, name):
         """

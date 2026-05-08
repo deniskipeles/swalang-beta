@@ -142,8 +142,11 @@ if CRYPTO_AVAILABLE:
          ffi.c_char_p, ffi.c_uint64], ffi.c_int32)
     _drbg_random  = _lib_crypto.mbedtls_ctr_drbg_random(
         [ffi.c_void_p, ffi.c_char_p, ffi.c_uint64], ffi.c_int32)
+    _drbg_random_ptr = _lib_crypto.get_address("mbedtls_ctr_drbg_random")
+    
     _entropy_func = _lib_crypto.mbedtls_entropy_func(
         [ffi.c_void_p, ffi.c_char_p, ffi.c_uint64], ffi.c_int32)
+    _entropy_ptr = _lib_crypto.get_address("mbedtls_entropy_func")
 
 if TLS_AVAILABLE:
     _ssl_init        = _lib_tls.mbedtls_ssl_init(        [ffi.c_void_p], None)
@@ -177,6 +180,13 @@ if TLS_AVAILABLE:
         [ffi.c_void_p], ffi.c_int32)
     _ssl_get_verify_result = _lib_tls.mbedtls_ssl_get_verify_result(
         [ffi.c_void_p], ffi.c_uint32)
+
+    try:
+        _net_send_ptr = _lib_tls.get_address("mbedtls_net_send")
+        _net_recv_ptr = _lib_tls.get_address("mbedtls_net_recv")
+    except Exception:
+        _net_send_ptr = None
+        _net_recv_ptr = None
 
 if X509_AVAILABLE:
     _x509_init      = _lib_x509.mbedtls_x509_crt_init(  [ffi.c_void_p], None)
@@ -250,12 +260,21 @@ class Hash:
         try:
             _md_init(self._ctx)
             _check(_md_setup(self._ctx, self._info, 0), "md_setup")
-            _check(_md_starts(self._ctx), "md_starts")
+            self._initial_starts() # Call new method to setup initial state
             if data:
                 self.update(data)
         except MbedError:
             self.free()
             raise
+
+    def _initial_starts(self):
+        # This method is for initial setup. Subsequent restarts should use _restart()
+        _check(_md_starts(self._ctx), "md_starts")
+
+    def _restart(self):
+        # This restarts the hash context to its initial empty state.
+        # It's called after digest() if reuse is intended.
+        _check(_md_starts(self._ctx), "md_starts (restart)")
 
     def update(self, data):
         if self._freed:
@@ -270,8 +289,7 @@ class Hash:
         try:
             _check(_md_finish(self._ctx, out), "md_finish")
             result = ffi.buffer_to_bytes(out, self.digest_size)
-            # Restart so the object is reusable
-            _check(_md_starts(self._ctx), "md_starts (restart)")
+            self._restart() # Automatically restart for reuse
             return result
         finally:
             ffi.free(out)
@@ -287,7 +305,9 @@ class Hash:
     def copy(self):
         """Return a new Hash with identical state by re-hashing is not
         supported; use the one-shot helpers for cloning patterns."""
-        raise MbedError("copy() not supported — use a new Hash instance")
+        # This is a limitation of the underlying mbedtls API for context cloning.
+        # The HMAC implementation below works around this.
+        raise MbedError("copy() not supported for Hash contexts directly")
 
     def free(self):
         if not self._freed and self._ctx:
@@ -317,27 +337,31 @@ class HMAC:
         self._freed = False
         key = _to_bytes(key)
 
+        # Determine block size based on algorithm
         if self.algorithm in ["SHA512", "SHA384"]:
-            self.block_size = 128
-        else:
-            self.block_size = 64
+            self.block_size = 128 # 1024 bits
+        else: # SHA256, SHA1, MD5
+            self.block_size = 64  # 512 bits
 
-        # Initialize hash context to get digest size and validate algorithm
+        # Initialize a temporary hash to get digest size and validate algorithm
         temp_hash = Hash(self.algorithm)
         self.digest_size = temp_hash.digest_size
         temp_hash.free()
 
-        # Format the key
+        # Step 1: Key processing
         if len(key) > self.block_size:
+            # Keys longer than block_size are hashed
             key_hash = Hash(self.algorithm, key)
             key = key_hash.digest()
             key_hash.free()
             
         if len(key) < self.block_size:
+            # Keys shorter than block_size are zero-padded
             pad_len = self.block_size - len(key)
             zero_pad = b'\x00' * pad_len
             key = key + zero_pad
 
+        # Step 2: Inner and Outer padded keys
         ipad_list = []
         opad_list = []
         for i in range(self.block_size):
@@ -347,9 +371,9 @@ class HMAC:
         self._ipad = bytes(ipad_list)
         self._opad = bytes(opad_list)
         
-        # Start the inner hash
+        # Step 3: Initialize the inner hash context
         self._inner_hash = Hash(self.algorithm)
-        self._inner_hash.update(self._ipad)
+        self._inner_hash.update(self._ipad) # Seed with inner pad
         
         if data:
             self.update(data)
@@ -363,17 +387,23 @@ class HMAC:
         if self._freed:
             raise MbedError("HMAC context already freed")
             
-        inner_digest = self._inner_hash.digest()
-        
+        # Get the digest of the current inner hash state: H(K_ipad || text)
+        inner_digest = self._inner_hash.digest() # This also resets _inner_hash to H(K_ipad)
+                                                  # for the next incremental use.
+
+        # Compute the outer hash: H(K_opad || inner_digest)
         outer_hash = Hash(self.algorithm)
         outer_hash.update(self._opad)
         outer_hash.update(inner_digest)
         result = outer_hash.digest()
         outer_hash.free()
         
-        # Restart the inner hash for subsequent uses (matching MbedTLS behavior)
-        self._inner_hash.update(self._ipad)
-        
+        # After computing the final digest, we must re-seed the _inner_hash
+        # to its initial K_ipad state, so that subsequent digest() calls work correctly.
+        # This mimics mbedtls_md_hmac_reset after mbedtls_md_hmac_finish.
+        self._inner_hash = Hash(self.algorithm) # Create a fresh hash
+        self._inner_hash.update(self._ipad)     # Re-seed it with the inner pad
+
         return result
 
     def hexdigest(self):
@@ -386,7 +416,9 @@ class HMAC:
 
     def free(self):
         if not self._freed:
-            self._inner_hash.free()
+            if self._inner_hash:
+                self._inner_hash.free()
+                self._inner_hash = None
             self._freed = True
 
 # ==============================================================================
@@ -427,7 +459,7 @@ class AES_CBC:
         iv_buf = ffi.malloc(16)
         out    = ffi.malloc(len(pt))
         try:
-            ffi.memcpy(iv_buf, iv, 16)
+            ffi.memcpy(iv_buf, ffi.addressof(iv), 16) # <<< FIX: Explicit addressof for bytes
             _check(_aes_setkey_enc(self._ctx, self._key, self._bits), "aes_setkey_enc")
             _check(_aes_crypt_cbc(self._ctx, MBEDTLS_ENCRYPT, len(pt), iv_buf, pt, out), "aes_crypt_cbc(enc)")
             return ffi.buffer_to_bytes(out, len(pt))
@@ -448,7 +480,7 @@ class AES_CBC:
         iv_buf = ffi.malloc(16)
         out    = ffi.malloc(len(ct))
         try:
-            ffi.memcpy(iv_buf, iv, 16)
+            ffi.memcpy(iv_buf, ffi.addressof(iv), 16) # <<< FIX: Explicit addressof for bytes
             _check(_aes_setkey_dec(self._ctx, self._key, self._bits), "aes_setkey_dec")
             _check(_aes_crypt_cbc(self._ctx, MBEDTLS_DECRYPT, len(ct), iv_buf, ct, out), "aes_crypt_cbc(dec)")
             return ffi.buffer_to_bytes(out, len(ct))
@@ -602,7 +634,7 @@ class Random:
             _entropy_init(self._entropy)
             _drbg_init(self._ctx)
             pers = _to_bytes(personalization)
-            _check(_drbg_seed(self._ctx, _entropy_func, self._entropy, pers, len(pers)), "ctr_drbg_seed")
+            _check(_drbg_seed(self._ctx, _entropy_ptr, self._entropy, pers, len(pers)), "ctr_drbg_seed")
         except MbedError:
             self.free()
             raise
@@ -738,7 +770,7 @@ class TLSClient:
 
             # Hook in our CSPRNG
             if _ssl_conf_rng:
-                _ssl_conf_rng(self._cfg, _drbg_random, rng._ctx)
+                _ssl_conf_rng(self._cfg, _drbg_random_ptr, rng._ctx)
 
             # Auth mode
             _ssl_conf_authmode(self._cfg, verify)
@@ -768,11 +800,9 @@ class TLSClient:
         Use a raw OS socket file descriptor for I/O.
         Requires mbedtls_net_set_fd or the built-in net send/recv.
         """
-        # mbedtls ships mbedtls_net_send and mbedtls_net_recv which take
-        # the fd (cast to void*) as the context pointer.
-        _net_send = _lib_tls.mbedtls_net_send([ffi.c_void_p, ffi.c_char_p, ffi.c_uint64], ffi.c_int32)
-        _net_recv = _lib_tls.mbedtls_net_recv([ffi.c_void_p, ffi.c_char_p, ffi.c_uint64], ffi.c_int32)
-        _ssl_set_bio(self._ssl, ffi.c_void_p(fd), _net_send, _net_recv, ffi.c_void_p(0))
+        if not _net_send_ptr:
+            raise MbedError("mbedtls_net functions not available in this build")
+        _ssl_set_bio(self._ssl, ffi.c_void_p(fd), _net_send_ptr, _net_recv_ptr, ffi.c_void_p(0))
 
     def handshake(self):
         """Perform the TLS handshake. Call after set_fd/set_bio."""

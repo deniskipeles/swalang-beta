@@ -3,7 +3,9 @@ import nuklear
 import time
 
 print("🧪 Initializing SDL2 & Nuklear...")
-sdl2.SDL.init()
+# Initialize ONLY video and events to prevent audio crashes
+sdl2.init(sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
+
 win = sdl2.Window("Nuklear UI via Swalang", 800, 600)
 ren = sdl2.Renderer(win)
 ev = sdl2.Event()
@@ -20,7 +22,7 @@ while running:
     # --- Input Gathering ---
     ctx.input_begin()
     while ev.poll():
-        if ev.type == sdl2.QUIT:
+        if ev.type == sdl2.SDL_QUIT:
             running = False
         # Feed the raw SDL event to Nuklear!
         ctx.handle_event(ev)
@@ -53,12 +55,12 @@ while running:
     # Clean up Nuklear command queues for the next frame
     ctx.clear()
     
-    sdl2.SDL.delay(16) # ~60 FPS
+    sdl2.delay(16) # ~60 FPS
 
 print("🧹 Cleaning up...")
 ctx.free()
 ev.free()
 ren.destroy()
 win.destroy()
-sdl2.SDL.quit()
+sdl2.quit()
 print("✅ Nuklear exited gracefully.")

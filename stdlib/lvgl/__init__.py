@@ -380,7 +380,7 @@ _lv_indev_set_type    = _lib.lv_indev_set_type([ffi.c_void_p, ffi.c_int32], None
 _lv_indev_set_read_cb = _lib.lv_indev_set_read_cb([ffi.c_void_p, ffi.c_void_p], None)
 _lv_indev_set_display = _lib.lv_indev_set_display([ffi.c_void_p, ffi.c_void_p], None)
 _lv_indev_reset       = _lib.lv_indev_reset([ffi.c_void_p, ffi.c_void_p], None)
-_lv_indev_get_active  = _lib.lv_indev_get_active([], ffi.c_void_p)
+# _lv_indev_get_active  = _lib.lv_indev_get_active([], ffi.c_void_p)
 
 # --- Timer ---
 _lv_timer_create       = _lib.lv_timer_create(
@@ -524,8 +524,7 @@ _lv_style_set_image_recolor_opa = _lib.lv_style_set_image_recolor_opa([ffi.c_voi
 _lv_style_set_layout         = _lib.lv_style_set_layout([ffi.c_void_p, ffi.c_int32], None)
 
 # Scrollbar
-_lv_style_set_scrollbar_mode = _lib.lv_style_set_scrollbar_mode(
-    [ffi.c_void_p, ffi.c_int32], None)
+# _lv_style_set_scrollbar_mode = _lib.lv_style_set_scrollbar_mode([ffi.c_void_p, ffi.c_int32], None)
 
 # --- Object base ---
 _lv_obj_create         = _lib.lv_obj_create([ffi.c_void_p], ffi.c_void_p)
@@ -580,8 +579,8 @@ _lv_obj_set_scroll_snap_x  = _lib.lv_obj_set_scroll_snap_x([ffi.c_void_p, ffi.c_
 _lv_obj_set_scroll_snap_y  = _lib.lv_obj_set_scroll_snap_y([ffi.c_void_p, ffi.c_int32], None)
 _lv_obj_invalidate     = _lib.lv_obj_invalidate([ffi.c_void_p], None)
 _lv_obj_move_to_index  = _lib.lv_obj_move_to_index([ffi.c_void_p, ffi.c_int32], None)
-_lv_obj_move_foreground = _lib.lv_obj_move_foreground([ffi.c_void_p], None)
-_lv_obj_move_background = _lib.lv_obj_move_background([ffi.c_void_p], None)
+# _lv_obj_move_foreground = _lib.lv_obj_move_foreground([ffi.c_void_p], None)
+# _lv_obj_move_background = _lib.lv_obj_move_background([ffi.c_void_p], None)
 _lv_obj_is_visible     = _lib.lv_obj_is_visible([ffi.c_void_p], ffi.c_int32)
 
 # --- Screen ---
@@ -624,10 +623,8 @@ _lv_anim_set_path_cb   = _lib.lv_anim_set_path_cb([ffi.c_void_p, ffi.c_void_p], 
 _lv_anim_set_delay     = _lib.lv_anim_set_delay([ffi.c_void_p, ffi.c_uint32], None)
 _lv_anim_set_repeat_count  = _lib.lv_anim_set_repeat_count([ffi.c_void_p, ffi.c_uint16], None)
 _lv_anim_set_repeat_delay  = _lib.lv_anim_set_repeat_delay([ffi.c_void_p, ffi.c_uint32], None)
-_lv_anim_set_playback_duration = _lib.lv_anim_set_playback_duration(
-    [ffi.c_void_p, ffi.c_uint32], None)
-_lv_anim_set_playback_delay    = _lib.lv_anim_set_playback_delay(
-    [ffi.c_void_p, ffi.c_uint32], None)
+# _lv_anim_set_playback_duration = _lib.lv_anim_set_playback_duration([ffi.c_void_p, ffi.c_uint32], None)
+# _lv_anim_set_playback_delay    = _lib.lv_anim_set_playback_delay([ffi.c_void_p, ffi.c_uint32], None)
 _lv_anim_set_completed_cb = _lib.lv_anim_set_completed_cb([ffi.c_void_p, ffi.c_void_p], None)
 _lv_anim_set_deleted_cb   = _lib.lv_anim_set_deleted_cb([ffi.c_void_p, ffi.c_void_p], None)
 _lv_anim_start            = _lib.lv_anim_start([ffi.c_void_p], ffi.c_void_p)
@@ -777,8 +774,8 @@ _lv_spinner_set_anim_params = _lib.lv_spinner_set_anim_params(
 # --- Widgets: Image ---
 _lv_image_create      = _lib.lv_image_create([ffi.c_void_p], ffi.c_void_p)
 _lv_image_set_src     = _lib.lv_image_set_src([ffi.c_void_p, ffi.c_void_p], None)
-_lv_image_set_angle   = _lib.lv_image_set_angle([ffi.c_void_p, ffi.c_int16], None)
-_lv_image_set_zoom    = _lib.lv_image_set_zoom([ffi.c_void_p, ffi.c_uint16], None)
+# _lv_image_set_angle   = _lib.lv_image_set_angle([ffi.c_void_p, ffi.c_int16], None)
+# _lv_image_set_zoom    = _lib.lv_image_set_zoom([ffi.c_void_p, ffi.c_uint16], None)
 _lv_image_set_pivot   = _lib.lv_image_set_pivot([ffi.c_void_p, ffi.c_int32, ffi.c_int32], None)
 _lv_image_set_antialias = _lib.lv_image_set_antialias([ffi.c_void_p, ffi.c_int32], None)
 _lv_image_set_offset_x  = _lib.lv_image_set_offset_x([ffi.c_void_p, ffi.c_int32], None)
@@ -953,7 +950,7 @@ class Style:
 
     # --- layout ---
     def layout(self, v):                    _lv_style_set_layout(self._buf, v)
-    def scrollbar_mode(self, v):            _lv_style_set_scrollbar_mode(self._buf, v)
+    # def scrollbar_mode(self, v):            _lv_style_set_scrollbar_mode(self._buf, v)
 
     def reset(self):
         _lv_style_reset(self._buf)
@@ -1028,11 +1025,11 @@ class Anim:
     def set_repeat_delay(self, ms):
         _lv_anim_set_repeat_delay(self._buf, ms)
 
-    def set_playback_duration(self, ms):
-        _lv_anim_set_playback_duration(self._buf, ms)
+    # def set_playback_duration(self, ms):
+    #     _lv_anim_set_playback_duration(self._buf, ms)
 
-    def set_playback_delay(self, ms):
-        _lv_anim_set_playback_delay(self._buf, ms)
+    # def set_playback_delay(self, ms):
+    #     _lv_anim_set_playback_delay(self._buf, ms)
 
     def set_completed_cb(self, cb):
         """cb = ffi.callback(fn, None, [ffi.c_void_p])"""
@@ -1149,8 +1146,8 @@ class Obj:
     def get_child(self, index):             return _lv_obj_get_child(self.ptr, index)
     def get_child_count(self):              return _lv_obj_get_child_count(self.ptr)
     def set_parent(self, parent_ptr):       _lv_obj_set_parent(self.ptr, parent_ptr)
-    def move_foreground(self):              _lv_obj_move_foreground(self.ptr)
-    def move_background(self):              _lv_obj_move_background(self.ptr)
+    # def move_foreground(self):              _lv_obj_move_foreground(self.ptr)
+    # def move_background(self):              _lv_obj_move_background(self.ptr)
     def move_to_index(self, index):         _lv_obj_move_to_index(self.ptr, index)
 
     # --- style ---
@@ -1620,8 +1617,8 @@ class Image(Obj):
         else:
             _lv_image_set_src(self.ptr, src)  # raw C ptr (lv_image_dsc_t*)
 
-    def set_angle(self, angle):             _lv_image_set_angle(self.ptr, angle)
-    def set_zoom(self, zoom):               _lv_image_set_zoom(self.ptr, zoom)
+    # def set_angle(self, angle):             _lv_image_set_angle(self.ptr, angle)
+    # def set_zoom(self, zoom):               _lv_image_set_zoom(self.ptr, zoom)
     def set_pivot(self, x, y):              _lv_image_set_pivot(self.ptr, x, y)
     def set_antialias(self, en):            _lv_image_set_antialias(self.ptr, 1 if en else 0)
     def set_offset_x(self, x):             _lv_image_set_offset_x(self.ptr, x)

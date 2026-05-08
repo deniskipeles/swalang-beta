@@ -1833,6 +1833,22 @@ func pyStringAt(ctx object.ExecutionContext, args ...object.Object) object.Objec
 	return &object.String{Value: strVal}
 }
 
+func pyGetFuncAddress(ctx object.ExecutionContext, args ...object.Object) object.Object {
+	if len(args) != 2 {
+		return object.NewError("TypeError", "get_func_address() takes 2 arguments")
+	}
+	lib, ok1 := args[0].(*Library)
+	name, ok2 := args[1].(*object.String)
+	if !ok1 || !ok2 {
+		return object.NewError("TypeError", "args must be (Library, string)")
+	}
+	procPtr, err := platform.GetManager().GetProcAddress(lib.handle, name.Value)
+	if err != nil {
+		return object.NewError("FFIError", err.Error())
+	}
+	return &Pointer{Address: unsafe.Pointer(procPtr), PtrType: C_VOID_P}
+}
+
 func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 2 {
 		return object.NewError("TypeError", "create_struct_type() takes 2 arguments (name, fields_list)")
@@ -2024,6 +2040,7 @@ func init() {
 	env.Set("create_union_type", &object.Builtin{Name: "_ffi.create_union_type", Fn: pyCreateUnionType})
 	env.Set("free_callback", &object.Builtin{Name: "_ffi.free_callback", Fn: pyFreeCallback})
 	env.Set("string_at", &object.Builtin{Name: "_ffi.string_at", Fn: pyStringAt})
+	env.Set("get_func_address", &object.Builtin{Name: "_ffi.get_func_address", Fn: pyGetFuncAddress})
 
 	registerPlatformSpecifics(env)
 
