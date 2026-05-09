@@ -388,12 +388,22 @@ func init() {
 		Methods:        make(map[string]Object), // object can have dunders like __str__, __repr__
 		ClassVariables: NewEnvironment(),
 	}
-	// ObjectClass = &Class{
-	// 	Name:           "object",
-	// 	Superclasses:   []*Class{},
-	// 	Methods:        make(map[string]*Function), // object can have dunders like __str__, __repr__
-	// 	ClassVariables: NewEnvironment(),
-	// }
+
+	// Implement Python's __new__ allocator
+	ObjectClass.Methods["__new__"] = &Builtin{
+		Name: "object.__new__",
+		Fn: func(ctx ExecutionContext, args ...Object) Object {
+			if len(args) < 1 {
+				return NewError("TypeError", "object.__new__(): not enough arguments")
+			}
+			cls, ok := args[0].(*Class)
+			if !ok {
+				return NewError("TypeError", "object.__new__(X): X is not a type object")
+			}
+			return &Instance{Class: cls, Env: NewEnvironment()}
+		},
+	}
+
 	ObjectClass.MRO = []*Class{ObjectClass} // MRO of object is [object]
 
 	// Add default __str__ and __repr__ to object that other classes can inherit

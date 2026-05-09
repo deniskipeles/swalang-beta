@@ -1066,7 +1066,7 @@ class Renderer:
         r.fill_rect(10, 10, 100, 50)
         r.present()
     """
-    def __init__(self, window, index=-1, flags=SDL_RENDERER_ACCELERATED):
+    def __init__(self, window, index=-1, flags=0):
         win_ptr = window.ptr if isinstance(window, Window) else window
         self.ptr = _SDL_CreateRenderer(win_ptr, index, flags)
         if self.ptr is None or self.ptr.Address == 0:
@@ -1969,7 +1969,7 @@ class LVGLSDLBackend:
         self.h = height
 
         self.window   = Window(title, width, height, window_flags)
-        self.renderer = Renderer(self.window, flags=SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)
+        self.renderer = Renderer(self.window, flags=0)
 
         # LVGL renders ARGB8888 by default for 32-bit color depth
         self.texture  = Texture(self.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height)
@@ -2223,7 +2223,7 @@ class NuklearSDLBridge:
 #  Convenience: create a standard window + renderer pair
 # ==============================================================================
 
-def create_window_renderer(title, w, h, win_flags=SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE, ren_flags=SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC):
+def create_window_renderer(title, w, h, win_flags=SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE, ren_flags=0):
     """
     One-call setup for the most common case.
     Returns (Window, Renderer).

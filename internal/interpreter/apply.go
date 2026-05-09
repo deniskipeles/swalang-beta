@@ -26,6 +26,20 @@ func applyFunctionOrClass(
 		ctx.SetSuperContext(bm.Instance, bm.Method.OriginalClass)
 	}
 
+	// Resolve __call__ for objects that aren't natively callable but implement AttributeGetter
+	switch callable.(type) {
+	case *object.Function, *object.Class, *object.BoundMethod, *object.Builtin:
+		// Natively callable types, proceed normally
+	default:
+		if getter, ok := callable.(object.AttributeGetter); ok {
+			callMethod, found := getter.GetObjectAttribute(ctx, constants.DunderCall)
+			if found && callMethod != nil {
+				// Recursively call the resolved __call__ method
+				return applyFunctionOrClass(ctx, callMethod, providedPositionalArgs, callsiteKeywordArgs, callToken)
+			}
+		}
+	}
+
 	switch fn := callable.(type) {
 	case *object.Function:
 		funcName := fn.Name

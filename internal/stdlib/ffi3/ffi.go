@@ -183,6 +183,23 @@ func (p *CPointerType) GetObjectAttribute(ctx object.ExecutionContext, name stri
 			},
 		}, true
 	}
+	if name == "__call__" {
+		return &object.Builtin{
+			Name: "FFIPointerType.__call__",
+			Fn: func(callCtx object.ExecutionContext, args ...object.Object) object.Object {
+				if len(args) == 1 {
+					// Allow instantiation with 0 or None to create a NULL pointer
+					if i, ok := args[0].(*object.Integer); ok && i.Value == 0 {
+						return &Pointer{Address: nil, PtrType: p}
+					}
+					if args[0] == object.NULL {
+						return &Pointer{Address: nil, PtrType: p}
+					}
+				}
+				return object.NewError("TypeError", "Pointer type can only be instantiated with 0 or None")
+			},
+		}, true
+	}
 	return nil, false
 }
 

@@ -769,15 +769,20 @@ func IsCallable(obj Object) bool {
 	case *Instance:
 		inst := obj.(*Instance)
 		if inst.Class != nil { // Check if Class is not nil
-			// Check if the instance's class has a __call__ method
-			// This requires looking up __call__ without causing infinite recursion if __call__ calls IsCallable.
-			// For simplicity, assume Methods map is directly accessible for this check.
 			if _, hasCall := inst.Class.Methods[constants.DunderCall]; hasCall {
 				return true
 			}
 		}
 		return false
 	default:
+		// Check if it's an AttributeGetter that has __call__
+		if getter, ok := obj.(AttributeGetter); ok {
+			// Pass a nil context for this simple check, avoiding full execution
+			_, found := getter.GetObjectAttribute(nil, constants.DunderCall)
+			if found {
+				return true
+			}
+		}
 		return false
 	}
 }
