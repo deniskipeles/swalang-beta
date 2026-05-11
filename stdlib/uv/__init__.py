@@ -1,5 +1,5 @@
 """
-A Pylearn wrapper for libuv.
+A Swalang wrapper for libuv.
 The engine behind Node.js and Python's uvloop.
 """
 

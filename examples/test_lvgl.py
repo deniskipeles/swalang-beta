@@ -14,16 +14,16 @@ W, H = 800, 600
 win = sdl2.Window("LVGL UI via Swalang", W, H)
 ren = sdl2.Renderer(win)
 
-# Create an SDL Texture that we will update with LVGL's pixel data
-texture = sdl2.Texture(ren, sdl2.SDL_PIXELFORMAT_ARGB8888, sdl2.SDL_TEXTUREACCESS_STREAMING, W, H)
+# Change SDL_PIXELFORMAT_ARGB8888 to SDL_PIXELFORMAT_RGB565
+texture = sdl2.Texture(ren, sdl2.SDL_PIXELFORMAT_RGB565, sdl2.SDL_TEXTUREACCESS_STREAMING, W, H)
 
 # -------------------------------------------------------------------------
 # Step 2: Setup LVGL Display & Flush Callback
 # -------------------------------------------------------------------------
 disp = lvgl.Display(W, H)
 
-# Allocate a draw buffer for LVGL. (W * H * 4 bytes per pixel)
-buf_size = W * H * 4
+# Allocate a draw buffer for LVGL. (W * H * 2 bytes per pixel for 16-bit color)
+buf_size = W * H * 2
 draw_buf = ffi.malloc(buf_size)
 
 # Tell LVGL to use this buffer
@@ -40,8 +40,8 @@ def flush_callback(disp_ptr, area_ptr, px_map_ptr):
     w = (x2 - x1) + 1
     h = (y2 - y1) + 1
 
-    # The sdl2 wrapper's update method automatically handles the tuple!
-    texture.update((x1, y1, w, h), px_map_ptr, w * 4)
+    # Change w * 4 to w * 2
+    texture.update((x1, y1, w, h), px_map_ptr, w * 2)
     
     # Tell LVGL we are done flushing
     disp.flush_ready()
@@ -56,6 +56,7 @@ mouse_y = 0
 mouse_pressed = False
 
 indev = lvgl.InputDevice()
+indev.set_display(disp)
 
 def read_callback(indev_ptr, data_ptr):
     """Called by LVGL to get the current mouse state."""
@@ -103,8 +104,12 @@ while running:
             mouse_x = ev.x
             mouse_y = ev.y
         elif ev.type == sdl2.SDL_MOUSEBUTTONDOWN:
+            mouse_x = ev.x
+            mouse_y = ev.y
             mouse_pressed = True
         elif ev.type == sdl2.SDL_MOUSEBUTTONUP:
+            mouse_x = ev.x
+            mouse_y = ev.y
             mouse_pressed = False
 
     # 2. Tell LVGL time has passed (e.g., 10ms)

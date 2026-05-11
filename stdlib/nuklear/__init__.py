@@ -266,58 +266,55 @@ _ATLAS_SIZE = 64 * 1024        # 64 KB for font atlas struct
 _CMD_HDR = 16
 
 # ==============================================================================
-#  Struct helpers
+#  Struct helpers & FFI Types
 # ==============================================================================
 
-def _r8(buf, off):
-    return ffi.read_memory_with_offset(buf, off, ffi.c_uint8)
+nk_color_t = ffi.create_struct_type("nk_color", [
+    ["r", ffi.c_uint8],
+    ["g", ffi.c_uint8],
+    ["b", ffi.c_uint8],
+    ["a", ffi.c_uint8]
+])
 
-def _r16(buf, off):
-    return ffi.read_memory_with_offset(buf, off, ffi.c_uint16)
+nk_rect_t = ffi.create_struct_type("nk_rect", [
+    ["x", ffi.c_float],
+    ["y", ffi.c_float],
+    ["w", ffi.c_float],
+    ["h", ffi.c_float]
+])
 
-def _rs16(buf, off):
-    return ffi.read_memory_with_offset(buf, off, ffi.c_short)
+nk_vec2_t = ffi.create_struct_type("nk_vec2", [
+    ["x", ffi.c_float],
+    ["y", ffi.c_float]
+])
 
-def _r32(buf, off):
-    return ffi.read_memory_with_offset(buf, off, ffi.c_int32)
-
-def _r64(buf, off):
-    return ffi.read_memory_with_offset(buf, off, ffi.c_uint64)
-
-def _rf(buf, off):
-    return ffi.read_memory_with_offset(buf, off, ffi.c_float)
+def _r8(buf, off):   return ffi.read_memory_with_offset(buf, off, ffi.c_uint8)
+def _r16(buf, off):  return ffi.read_memory_with_offset(buf, off, ffi.c_uint16)
+def _rs16(buf, off): return ffi.read_memory_with_offset(buf, off, ffi.c_short)
+def _r32(buf, off):  return ffi.read_memory_with_offset(buf, off, ffi.c_int32)
+def _r64(buf, off):  return ffi.read_memory_with_offset(buf, off, ffi.c_uint64)
+def _rf(buf, off):   return ffi.read_memory_with_offset(buf, off, ffi.c_float)
 
 def _w8(buf, off, v):   ffi.write_memory_with_offset(buf, off, ffi.c_uint8,  v)
 def _w16(buf, off, v):  ffi.write_memory_with_offset(buf, off, ffi.c_uint16, v)
 def _w32(buf, off, v):  ffi.write_memory_with_offset(buf, off, ffi.c_int32,  v)
-def _w64(buf, off, v):  ffi.write_memory_with_offset(buf, off, ffi.c_uint64, v)
-def _wf(buf, off, v):   ffi.write_memory_with_offset(buf, off, ffi.c_float,  v)
+def _wf(buf, off, v):   ffi.write_memory_with_offset(buf, off, ffi.c_float,  float(v))
+def _w64(buf, off, v):  ffi.write_memory_with_offset(buf, off, ffi.c_uint64, int(v))
 
 def _enc(s):
     return s.encode("utf-8") if isinstance(s, str) else s
 
 def _read_color(buf, off):
-    """Read nk_color {r,g,b,a} from offset → (r,g,b,a) tuple."""
     return (_r8(buf, off), _r8(buf, off+1), _r8(buf, off+2), _r8(buf, off+3))
 
 def make_color_buf(r, g, b, a=255):
-    """Allocate a 4-byte nk_color buffer. Caller must ffi.free() it."""
-    buf = ffi.malloc(4)
-    _w8(buf, 0, r); _w8(buf, 1, g); _w8(buf, 2, b); _w8(buf, 3, a)
-    return buf
+    return {"r": int(r), "g": int(g), "b": int(b), "a": int(a)}
 
 def make_rect_buf(x, y, w, h):
-    """Allocate a 16-byte nk_rect (float) buffer. Caller must ffi.free() it."""
-    buf = ffi.malloc(16)
-    _wf(buf,  0, x); _wf(buf,  4, y)
-    _wf(buf,  8, w); _wf(buf, 12, h)
-    return buf
+    return {"x": float(x), "y": float(y), "w": float(w), "h": float(h)}
 
 def make_vec2_buf(x, y):
-    """Allocate an 8-byte nk_vec2 buffer. Caller must ffi.free() it."""
-    buf = ffi.malloc(8)
-    _wf(buf, 0, x); _wf(buf, 4, y)
-    return buf
+    return {"x": float(x), "y": float(y)}
 
 def make_int_buf(v=0):
     buf = ffi.malloc(4)
@@ -345,7 +342,6 @@ def read_float_buf(buf):
 
 # --- Initialization ---
 _nk_init_fixed     = _lib.nk_init_fixed([ffi.c_void_p, ffi.c_void_p, ffi.c_uint64, ffi.c_void_p], ffi.c_int32)
-# _nk_init_default   = _lib.nk_init_default([ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
 _nk_clear          = _lib.nk_clear([ffi.c_void_p], None)
 _nk_free           = _lib.nk_free([ffi.c_void_p], None)
 
@@ -355,30 +351,30 @@ _nk_input_end      = _lib.nk_input_end(     [ffi.c_void_p], None)
 _nk_input_motion   = _lib.nk_input_motion(  [ffi.c_void_p, ffi.c_int32, ffi.c_int32], None)
 _nk_input_key      = _lib.nk_input_key(     [ffi.c_void_p, ffi.c_int32, ffi.c_int32], None)
 _nk_input_button   = _lib.nk_input_button([ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32, ffi.c_int32], None)
-_nk_input_scroll   = _lib.nk_input_scroll(  [ffi.c_void_p, ffi.c_void_p], None)
+_nk_input_scroll   = _lib.nk_input_scroll(  [ffi.c_void_p, nk_vec2_t], None)
 _nk_input_char     = _lib.nk_input_char(    [ffi.c_void_p, ffi.c_char], None)
 _nk_input_unicode  = _lib.nk_input_unicode( [ffi.c_void_p, ffi.c_uint32], None)
-_nk_input_is_mouse_hovering_rect = _lib.nk_input_is_mouse_hovering_rect([ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
-_nk_input_is_mouse_prev_hovering_rect = _lib.nk_input_is_mouse_prev_hovering_rect([ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
-_nk_input_is_mouse_click_in_rect = _lib.nk_input_is_mouse_click_in_rect([ffi.c_void_p, ffi.c_int32, ffi.c_void_p], ffi.c_int32)
+_nk_input_is_mouse_hovering_rect = _lib.nk_input_is_mouse_hovering_rect([ffi.c_void_p, nk_rect_t], ffi.c_int32)
+_nk_input_is_mouse_prev_hovering_rect = _lib.nk_input_is_mouse_prev_hovering_rect([ffi.c_void_p, nk_rect_t], ffi.c_int32)
+_nk_input_is_mouse_click_in_rect = _lib.nk_input_is_mouse_click_in_rect([ffi.c_void_p, ffi.c_int32, nk_rect_t], ffi.c_int32)
 _nk_input_is_key_pressed = _lib.nk_input_is_key_pressed([ffi.c_void_p, ffi.c_int32], ffi.c_int32)
 _nk_input_is_key_released = _lib.nk_input_is_key_released([ffi.c_void_p, ffi.c_int32], ffi.c_int32)
 _nk_input_is_key_down = _lib.nk_input_is_key_down([ffi.c_void_p, ffi.c_int32], ffi.c_int32)
 
 # --- Window ---
-_nk_begin          = _lib.nk_begin([ffi.c_void_p, ffi.c_char_p, ffi.c_void_p, ffi.c_uint32], ffi.c_int32)
-_nk_begin_titled   = _lib.nk_begin_titled([ffi.c_void_p, ffi.c_char_p, ffi.c_char_p, ffi.c_void_p, ffi.c_uint32], ffi.c_int32)
+_nk_begin          = _lib.nk_begin([ffi.c_void_p, ffi.c_char_p, nk_rect_t, ffi.c_uint32], ffi.c_int32)
+_nk_begin_titled   = _lib.nk_begin_titled([ffi.c_void_p, ffi.c_char_p, ffi.c_char_p, nk_rect_t, ffi.c_uint32], ffi.c_int32)
 _nk_end            = _lib.nk_end([ffi.c_void_p], None)
 _nk_window_find    = _lib.nk_window_find([ffi.c_void_p, ffi.c_char_p], ffi.c_void_p)
-_nk_window_get_bounds = _lib.nk_window_get_bounds([ffi.c_void_p], ffi.c_void_p)
-_nk_window_get_position = _lib.nk_window_get_position([ffi.c_void_p], ffi.c_void_p)
-_nk_window_get_size    = _lib.nk_window_get_size([ffi.c_void_p], ffi.c_void_p)
+_nk_window_get_bounds = _lib.nk_window_get_bounds([ffi.c_void_p], nk_rect_t)
+_nk_window_get_position = _lib.nk_window_get_position([ffi.c_void_p], nk_vec2_t)
+_nk_window_get_size    = _lib.nk_window_get_size([ffi.c_void_p], nk_vec2_t)
 _nk_window_get_width   = _lib.nk_window_get_width([ffi.c_void_p], ffi.c_float)
 _nk_window_get_height  = _lib.nk_window_get_height([ffi.c_void_p], ffi.c_float)
-_nk_window_get_content_region = _lib.nk_window_get_content_region([ffi.c_void_p], ffi.c_void_p)
-_nk_window_get_content_region_min = _lib.nk_window_get_content_region_min([ffi.c_void_p], ffi.c_void_p)
-_nk_window_get_content_region_max = _lib.nk_window_get_content_region_max([ffi.c_void_p], ffi.c_void_p)
-_nk_window_get_content_region_size = _lib.nk_window_get_content_region_size([ffi.c_void_p], ffi.c_void_p)
+_nk_window_get_content_region = _lib.nk_window_get_content_region([ffi.c_void_p], nk_rect_t)
+_nk_window_get_content_region_min = _lib.nk_window_get_content_region_min([ffi.c_void_p], nk_vec2_t)
+_nk_window_get_content_region_max = _lib.nk_window_get_content_region_max([ffi.c_void_p], nk_vec2_t)
+_nk_window_get_content_region_size = _lib.nk_window_get_content_region_size([ffi.c_void_p], nk_vec2_t)
 _nk_window_get_canvas  = _lib.nk_window_get_canvas([ffi.c_void_p], ffi.c_void_p)
 _nk_window_has_focus   = _lib.nk_window_has_focus([ffi.c_void_p], ffi.c_int32)
 _nk_window_is_hovered  = _lib.nk_window_is_hovered([ffi.c_void_p], ffi.c_int32)
@@ -386,9 +382,9 @@ _nk_window_is_collapsed = _lib.nk_window_is_collapsed([ffi.c_void_p, ffi.c_char_
 _nk_window_is_closed   = _lib.nk_window_is_closed([ffi.c_void_p, ffi.c_char_p], ffi.c_int32)
 _nk_window_is_hidden   = _lib.nk_window_is_hidden([ffi.c_void_p, ffi.c_char_p], ffi.c_int32)
 _nk_window_is_active   = _lib.nk_window_is_active([ffi.c_void_p, ffi.c_char_p], ffi.c_int32)
-_nk_window_set_bounds  = _lib.nk_window_set_bounds([ffi.c_void_p, ffi.c_char_p, ffi.c_void_p], None)
-_nk_window_set_position = _lib.nk_window_set_position([ffi.c_void_p, ffi.c_char_p, ffi.c_void_p], None)
-_nk_window_set_size    = _lib.nk_window_set_size([ffi.c_void_p, ffi.c_char_p, ffi.c_void_p], None)
+_nk_window_set_bounds  = _lib.nk_window_set_bounds([ffi.c_void_p, ffi.c_char_p, nk_rect_t], None)
+_nk_window_set_position = _lib.nk_window_set_position([ffi.c_void_p, ffi.c_char_p, nk_vec2_t], None)
+_nk_window_set_size    = _lib.nk_window_set_size([ffi.c_void_p, ffi.c_char_p, nk_vec2_t], None)
 _nk_window_set_focus   = _lib.nk_window_set_focus([ffi.c_void_p, ffi.c_char_p], None)
 _nk_window_set_scroll  = _lib.nk_window_set_scroll([ffi.c_void_p, ffi.c_uint32, ffi.c_uint32], None)
 _nk_window_close       = _lib.nk_window_close([ffi.c_void_p, ffi.c_char_p], None)
@@ -408,10 +404,10 @@ _nk_layout_row_template_push_variable = _lib.nk_layout_row_template_push_variabl
 _nk_layout_row_template_push_static  = _lib.nk_layout_row_template_push_static([ffi.c_void_p, ffi.c_float], None)
 _nk_layout_row_template_end   = _lib.nk_layout_row_template_end([ffi.c_void_p], None)
 _nk_layout_space_begin        = _lib.nk_layout_space_begin([ffi.c_void_p, ffi.c_int32, ffi.c_float, ffi.c_int32], None)
-_nk_layout_space_push         = _lib.nk_layout_space_push([ffi.c_void_p, ffi.c_void_p], None)
+_nk_layout_space_push         = _lib.nk_layout_space_push([ffi.c_void_p, nk_rect_t], None)
 _nk_layout_space_end          = _lib.nk_layout_space_end([ffi.c_void_p], None)
-_nk_layout_space_bounds       = _lib.nk_layout_space_bounds([ffi.c_void_p], ffi.c_void_p)
-_nk_layout_widget_bounds      = _lib.nk_layout_widget_bounds([ffi.c_void_p], ffi.c_void_p)
+_nk_layout_space_bounds       = _lib.nk_layout_space_bounds([ffi.c_void_p], nk_rect_t)
+_nk_layout_widget_bounds      = _lib.nk_layout_widget_bounds([ffi.c_void_p], nk_rect_t)
 _nk_layout_ratio_from_pixel   = _lib.nk_layout_ratio_from_pixel([ffi.c_void_p, ffi.c_float], ffi.c_float)
 _nk_spacer                    = _lib.nk_spacer([ffi.c_void_p], None)
 
@@ -433,18 +429,18 @@ _nk_tree_element_pop   = _lib.nk_tree_element_pop([ffi.c_void_p], None)
 
 # --- Widgets: Label / Text ---
 _nk_text               = _lib.nk_text([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_uint32], None)
-_nk_text_colored       = _lib.nk_text_colored([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_uint32, ffi.c_void_p], None)
+_nk_text_colored       = _lib.nk_text_colored([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_uint32, nk_color_t], None)
 _nk_text_wrap          = _lib.nk_text_wrap([ffi.c_void_p, ffi.c_char_p, ffi.c_int32], None)
-_nk_text_wrap_colored  = _lib.nk_text_wrap_colored([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_void_p], None)
+_nk_text_wrap_colored  = _lib.nk_text_wrap_colored([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, nk_color_t], None)
 _nk_label              = _lib.nk_label([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32], None)
-_nk_label_colored      = _lib.nk_label_colored([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32, ffi.c_void_p], None)
+_nk_label_colored      = _lib.nk_label_colored([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32, nk_color_t], None)
 _nk_label_wrap         = _lib.nk_label_wrap([ffi.c_void_p, ffi.c_char_p], None)
-_nk_label_colored_wrap = _lib.nk_label_colored_wrap([ffi.c_void_p, ffi.c_char_p, ffi.c_void_p], None)
+_nk_label_colored_wrap = _lib.nk_label_colored_wrap([ffi.c_void_p, ffi.c_char_p, nk_color_t], None)
 
 # --- Widgets: Button ---
 _nk_button_text        = _lib.nk_button_text([ffi.c_void_p, ffi.c_char_p, ffi.c_int32], ffi.c_int32)
 _nk_button_label       = _lib.nk_button_label([ffi.c_void_p, ffi.c_char_p], ffi.c_int32)
-_nk_button_color       = _lib.nk_button_color([ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
+_nk_button_color       = _lib.nk_button_color([ffi.c_void_p, nk_color_t], ffi.c_int32)
 _nk_button_symbol      = _lib.nk_button_symbol([ffi.c_void_p, ffi.c_int32], ffi.c_int32)
 _nk_button_symbol_label = _lib.nk_button_symbol_label([ffi.c_void_p, ffi.c_int32, ffi.c_char_p, ffi.c_uint32], ffi.c_int32)
 _nk_button_set_behavior = _lib.nk_button_set_behavior([ffi.c_void_p, ffi.c_int32], None)
@@ -481,7 +477,7 @@ _nk_progress           = _lib.nk_progress([ffi.c_void_p, ffi.c_void_p, ffi.c_uin
 _nk_prog               = _lib.nk_prog([ffi.c_void_p, ffi.c_uint64, ffi.c_uint64, ffi.c_int32], ffi.c_uint64)
 
 # --- Widgets: Color picker ---
-_nk_color_picker       = _lib.nk_color_picker([ffi.c_void_p, ffi.c_void_p, ffi.c_int32], ffi.c_void_p)
+_nk_color_picker       = _lib.nk_color_picker([ffi.c_void_p, ffi.c_void_p, ffi.c_int32], nk_color_t)
 _nk_color_pick         = _lib.nk_color_pick([ffi.c_void_p, ffi.c_void_p, ffi.c_int32], ffi.c_int32)
 
 # --- Widgets: Property ---
@@ -500,21 +496,21 @@ _nk_edit_unfocus       = _lib.nk_edit_unfocus([ffi.c_void_p], None)
 
 # --- Widgets: Chart ---
 _nk_chart_begin        = _lib.nk_chart_begin([ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_float, ffi.c_float], ffi.c_int32)
-_nk_chart_begin_colored = _lib.nk_chart_begin_colored([ffi.c_void_p, ffi.c_int32, ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_float, ffi.c_float], ffi.c_int32)
+_nk_chart_begin_colored = _lib.nk_chart_begin_colored([ffi.c_void_p, ffi.c_int32, nk_color_t, nk_color_t, ffi.c_int32, ffi.c_float, ffi.c_float], ffi.c_int32)
 _nk_chart_add_slot     = _lib.nk_chart_add_slot([ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_float, ffi.c_float], None)
-_nk_chart_add_slot_colored = _lib.nk_chart_add_slot_colored([ffi.c_void_p, ffi.c_int32, ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_float, ffi.c_float], None)
+_nk_chart_add_slot_colored = _lib.nk_chart_add_slot_colored([ffi.c_void_p, ffi.c_int32, nk_color_t, nk_color_t, ffi.c_int32, ffi.c_float, ffi.c_float], None)
 _nk_chart_push         = _lib.nk_chart_push([ffi.c_void_p, ffi.c_float], ffi.c_uint32)
 _nk_chart_push_slot    = _lib.nk_chart_push_slot([ffi.c_void_p, ffi.c_float, ffi.c_int32], ffi.c_uint32)
 _nk_chart_end          = _lib.nk_chart_end([ffi.c_void_p], None)
 _nk_plot               = _lib.nk_plot([ffi.c_void_p, ffi.c_int32, ffi.c_void_p, ffi.c_int32, ffi.c_int32], None)
 
-# --- Widgets: Combo ---
-_nk_combo              = _lib.nk_combo([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32, ffi.c_void_p], ffi.c_int32)
-_nk_combo_begin_label  = _lib.nk_combo_begin_label([ffi.c_void_p, ffi.c_char_p, ffi.c_void_p], ffi.c_int32)
-_nk_combo_begin_text   = _lib.nk_combo_begin_text([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_void_p], ffi.c_int32)
-_nk_combo_begin_color  = _lib.nk_combo_begin_color([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
-_nk_combo_begin_symbol = _lib.nk_combo_begin_symbol([ffi.c_void_p, ffi.c_int32, ffi.c_void_p], ffi.c_int32)
-_nk_combo_begin_symbol_label = _lib.nk_combo_begin_symbol_label([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_void_p], ffi.c_int32)
+# --- Combo ---
+_nk_combo              = _lib.nk_combo([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32, nk_vec2_t], ffi.c_int32)
+_nk_combo_begin_label  = _lib.nk_combo_begin_label([ffi.c_void_p, ffi.c_char_p, nk_vec2_t], ffi.c_int32)
+_nk_combo_begin_text   = _lib.nk_combo_begin_text([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, nk_vec2_t], ffi.c_int32)
+_nk_combo_begin_color  = _lib.nk_combo_begin_color([ffi.c_void_p, nk_color_t, nk_vec2_t], ffi.c_int32)
+_nk_combo_begin_symbol = _lib.nk_combo_begin_symbol([ffi.c_void_p, ffi.c_int32, nk_vec2_t], ffi.c_int32)
+_nk_combo_begin_symbol_label = _lib.nk_combo_begin_symbol_label([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, nk_vec2_t], ffi.c_int32)
 _nk_combo_item_label   = _lib.nk_combo_item_label([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32], ffi.c_int32)
 _nk_combo_item_text    = _lib.nk_combo_item_text([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_uint32], ffi.c_int32)
 _nk_combo_item_symbol_label = _lib.nk_combo_item_symbol_label([ffi.c_void_p, ffi.c_int32, ffi.c_char_p, ffi.c_uint32], ffi.c_int32)
@@ -522,7 +518,7 @@ _nk_combo_close        = _lib.nk_combo_close([ffi.c_void_p], None)
 _nk_combo_end          = _lib.nk_combo_end([ffi.c_void_p], None)
 
 # --- Contextual ---
-_nk_contextual_begin   = _lib.nk_contextual_begin([ffi.c_void_p, ffi.c_uint32, ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
+_nk_contextual_begin   = _lib.nk_contextual_begin([ffi.c_void_p, ffi.c_uint32, nk_vec2_t, nk_rect_t], ffi.c_int32)
 _nk_contextual_item_label = _lib.nk_contextual_item_label([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32], ffi.c_int32)
 _nk_contextual_item_text  = _lib.nk_contextual_item_text([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_uint32], ffi.c_int32)
 _nk_contextual_item_symbol_label = _lib.nk_contextual_item_symbol_label([ffi.c_void_p, ffi.c_int32, ffi.c_char_p, ffi.c_uint32], ffi.c_int32)
@@ -537,10 +533,10 @@ _nk_tooltip_end        = _lib.nk_tooltip_end([ffi.c_void_p], None)
 # --- Menubar ---
 _nk_menubar_begin      = _lib.nk_menubar_begin([ffi.c_void_p], None)
 _nk_menubar_end        = _lib.nk_menubar_end([ffi.c_void_p], None)
-_nk_menu_begin_label   = _lib.nk_menu_begin_label([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32, ffi.c_void_p], ffi.c_int32)
-_nk_menu_begin_text    = _lib.nk_menu_begin_text([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_uint32, ffi.c_void_p], ffi.c_int32)
-_nk_menu_begin_symbol  = _lib.nk_menu_begin_symbol([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_void_p], ffi.c_int32)
-_nk_menu_begin_symbol_label = _lib.nk_menu_begin_symbol_label([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_char_p, ffi.c_uint32, ffi.c_void_p], ffi.c_int32)
+_nk_menu_begin_label   = _lib.nk_menu_begin_label([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32, nk_vec2_t], ffi.c_int32)
+_nk_menu_begin_text    = _lib.nk_menu_begin_text([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_uint32, nk_vec2_t], ffi.c_int32)
+_nk_menu_begin_symbol  = _lib.nk_menu_begin_symbol([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, nk_vec2_t], ffi.c_int32)
+_nk_menu_begin_symbol_label = _lib.nk_menu_begin_symbol_label([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_char_p, ffi.c_uint32, nk_vec2_t], ffi.c_int32)
 _nk_menu_item_label    = _lib.nk_menu_item_label([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32], ffi.c_int32)
 _nk_menu_item_text     = _lib.nk_menu_item_text([ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_uint32], ffi.c_int32)
 _nk_menu_item_symbol_label = _lib.nk_menu_item_symbol_label([ffi.c_void_p, ffi.c_int32, ffi.c_char_p, ffi.c_uint32], ffi.c_int32)
@@ -548,7 +544,7 @@ _nk_menu_close         = _lib.nk_menu_close([ffi.c_void_p], None)
 _nk_menu_end           = _lib.nk_menu_end([ffi.c_void_p], None)
 
 # --- Popup ---
-_nk_popup_begin        = _lib.nk_popup_begin([ffi.c_void_p, ffi.c_int32, ffi.c_char_p, ffi.c_uint32, ffi.c_void_p], ffi.c_int32)
+_nk_popup_begin        = _lib.nk_popup_begin([ffi.c_void_p, ffi.c_int32, ffi.c_char_p, ffi.c_uint32, nk_rect_t], ffi.c_int32)
 _nk_popup_close        = _lib.nk_popup_close([ffi.c_void_p], None)
 _nk_popup_end          = _lib.nk_popup_end([ffi.c_void_p], None)
 _nk_popup_get_scroll   = _lib.nk_popup_get_scroll([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
@@ -559,81 +555,38 @@ _nk_style_push_font          = _lib.nk_style_push_font([ffi.c_void_p, ffi.c_void
 _nk_style_pop_font           = _lib.nk_style_pop_font([ffi.c_void_p], ffi.c_int32)
 _nk_style_push_float         = _lib.nk_style_push_float([ffi.c_void_p, ffi.c_void_p, ffi.c_float], ffi.c_int32)
 _nk_style_pop_float          = _lib.nk_style_pop_float([ffi.c_void_p], ffi.c_int32)
-_nk_style_push_vec2          = _lib.nk_style_push_vec2([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
+_nk_style_push_vec2          = _lib.nk_style_push_vec2([ffi.c_void_p, ffi.c_void_p, nk_vec2_t], ffi.c_int32)
 _nk_style_pop_vec2           = _lib.nk_style_pop_vec2([ffi.c_void_p], ffi.c_int32)
 _nk_style_push_flags         = _lib.nk_style_push_flags([ffi.c_void_p, ffi.c_void_p, ffi.c_uint32], ffi.c_int32)
 _nk_style_pop_flags          = _lib.nk_style_pop_flags([ffi.c_void_p], ffi.c_int32)
-_nk_style_push_color         = _lib.nk_style_push_color([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
+_nk_style_push_color         = _lib.nk_style_push_color([ffi.c_void_p, ffi.c_void_p, nk_color_t], ffi.c_int32)
 _nk_style_pop_color          = _lib.nk_style_pop_color([ffi.c_void_p], ffi.c_int32)
 _nk_style_set_font           = _lib.nk_style_set_font([ffi.c_void_p, ffi.c_void_p], None)
 _nk_style_default            = _lib.nk_style_default([ffi.c_void_p], None)
 _nk_style_from_table         = _lib.nk_style_from_table([ffi.c_void_p, ffi.c_void_p], None)
 _nk_style_load_all_cursors   = _lib.nk_style_load_all_cursors([ffi.c_void_p, ffi.c_void_p], None)
 _nk_style_get_color_by_name  = _lib.nk_style_get_color_by_name([ffi.c_int32], ffi.c_char_p)
-_nk_style_item_color         = _lib.nk_style_item_color([ffi.c_void_p], ffi.c_void_p)
+_nk_style_item_color         = _lib.nk_style_item_color([nk_color_t], ffi.c_void_p)
 _nk_style_item_hide          = _lib.nk_style_item_hide([], ffi.c_void_p)
 
-# --- Color conversions ---
-_nk_rgb              = _lib.nk_rgb([ffi.c_int32, ffi.c_int32, ffi.c_int32], ffi.c_void_p)
-_nk_rgb_iv           = _lib.nk_rgb_iv([ffi.c_void_p], ffi.c_void_p)
-_nk_rgb_fv           = _lib.nk_rgb_fv([ffi.c_void_p], ffi.c_void_p)
-_nk_rgb_hex          = _lib.nk_rgb_hex([ffi.c_char_p], ffi.c_void_p)
-_nk_rgba             = _lib.nk_rgba([ffi.c_int32, ffi.c_int32, ffi.c_int32, ffi.c_int32], ffi.c_void_p)
-_nk_rgba_u32         = _lib.nk_rgba_u32([ffi.c_uint32], ffi.c_void_p)
-_nk_rgba_hex         = _lib.nk_rgba_hex([ffi.c_char_p], ffi.c_void_p)
-_nk_hsva_colorf      = _lib.nk_hsva_colorf([ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float], ffi.c_void_p)
-_nk_color_hex_rgba   = _lib.nk_color_hex_rgba([ffi.c_char_p, ffi.c_void_p], None)
-_nk_color_hex_rgb    = _lib.nk_color_hex_rgb([ffi.c_char_p, ffi.c_void_p], None)
-_nk_color_d          = _lib.nk_color_d([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
-# _nk_color_u8         = _lib.nk_color_u8([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
-
 # --- Canvas / draw list ---
-# _nk_draw_list_init   = _lib.nk_draw_list_init([ffi.c_void_p], None)
-# _nk_draw_list_setup  = _lib.nk_draw_list_setup([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_int32], None)
-# _nk__draw_list_begin = _lib.nk__draw_list_begin([ffi.c_void_p, ffi.c_void_p], ffi.c_void_p)
-# _nk__draw_list_next  = _lib.nk__draw_list_next([ffi.c_void_p, ffi.c_void_p], ffi.c_void_p)
-# _nk__draw_list_is_empty = _lib.nk__draw_list_is_empty([ffi.c_void_p], ffi.c_int32)
-
-# nk_draw_* (onto draw list)
-# _nk_draw_list_path_clear          = _lib.nk_draw_list_path_clear([ffi.c_void_p], None)
-# _nk_draw_list_path_line_to        = _lib.nk_draw_list_path_line_to([ffi.c_void_p, ffi.c_void_p], None)
-# _nk_draw_list_path_arc_to_fast    = _lib.nk_draw_list_path_arc_to_fast([ffi.c_void_p, ffi.c_void_p, ffi.c_float, ffi.c_int32, ffi.c_int32], None)
-# _nk_draw_list_path_arc_to         = _lib.nk_draw_list_path_arc_to([ffi.c_void_p, ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_uint32], None)
-# _nk_draw_list_path_rect_to        = _lib.nk_draw_list_path_rect_to([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_float], None)
-# _nk_draw_list_path_curve_to       = _lib.nk_draw_list_path_curve_to([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_uint32], None)
-# _nk_draw_list_path_fill           = _lib.nk_draw_list_path_fill([ffi.c_void_p, ffi.c_void_p], None)
-# _nk_draw_list_path_stroke         = _lib.nk_draw_list_path_stroke([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_float], None)
-# _nk_draw_list_stroke_line         = _lib.nk_draw_list_stroke_line([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_float], None)
-# _nk_draw_list_stroke_rect         = _lib.nk_draw_list_stroke_rect([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_float, ffi.c_float], None)
-# _nk_draw_list_stroke_triangle     = _lib.nk_draw_list_stroke_triangle([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_float], None)
-# _nk_draw_list_stroke_circle       = _lib.nk_draw_list_stroke_circle([ffi.c_void_p, ffi.c_void_p, ffi.c_float, ffi.c_void_p, ffi.c_uint32, ffi.c_float], None)
-# _nk_draw_list_stroke_curve        = _lib.nk_draw_list_stroke_curve([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_uint32, ffi.c_float], None)
-# _nk_draw_list_stroke_poly_line    = _lib.nk_draw_list_stroke_poly_line([ffi.c_void_p, ffi.c_void_p, ffi.c_uint32, ffi.c_void_p, ffi.c_float, ffi.c_int32, ffi.c_int32], None)
-# _nk_draw_list_fill_rect           = _lib.nk_draw_list_fill_rect([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_float], None)
-# _nk_draw_list_fill_rect_multi_color = _lib.nk_draw_list_fill_rect_multi_color([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
-# _nk_draw_list_fill_triangle       = _lib.nk_draw_list_fill_triangle([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
-# _nk_draw_list_fill_circle         = _lib.nk_draw_list_fill_circle([ffi.c_void_p, ffi.c_void_p, ffi.c_float, ffi.c_void_p, ffi.c_uint32], None)
-# _nk_draw_list_fill_poly_convex    = _lib.nk_draw_list_fill_poly_convex([ffi.c_void_p, ffi.c_void_p, ffi.c_uint32, ffi.c_void_p, ffi.c_int32], None)
-# _nk_draw_list_add_image           = _lib.nk_draw_list_add_image([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
-
-# --- Window canvas (nk_command_buffer) draw functions ---
-_nk_fill_rect              = _lib.nk_fill_rect([ffi.c_void_p, ffi.c_void_p, ffi.c_float, ffi.c_void_p], None)
-_nk_fill_rect_multi_color  = _lib.nk_fill_rect_multi_color([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
-_nk_fill_circle            = _lib.nk_fill_circle([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
-_nk_fill_arc               = _lib.nk_fill_arc([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_void_p], None)
-_nk_fill_triangle          = _lib.nk_fill_triangle([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_void_p], None)
-_nk_fill_polygon           = _lib.nk_fill_polygon([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_void_p], None)
-_nk_stroke_line            = _lib.nk_stroke_line([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_void_p], None)
-_nk_stroke_curve           = _lib.nk_stroke_curve([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_void_p], None)
-_nk_stroke_rect            = _lib.nk_stroke_rect([ffi.c_void_p, ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_void_p], None)
-_nk_stroke_circle          = _lib.nk_stroke_circle([ffi.c_void_p, ffi.c_void_p, ffi.c_float, ffi.c_void_p], None)
-_nk_stroke_arc             = _lib.nk_stroke_arc([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_void_p], None)
-_nk_stroke_triangle        = _lib.nk_stroke_triangle([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_void_p], None)
-_nk_stroke_polyline        = _lib.nk_stroke_polyline([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_float, ffi.c_void_p], None)
-_nk_stroke_polygon         = _lib.nk_stroke_polygon([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_float, ffi.c_void_p], None)
-_nk_draw_image             = _lib.nk_draw_image([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
-_nk_draw_text              = _lib.nk_draw_text([ffi.c_void_p, ffi.c_void_p, ffi.c_char_p, ffi.c_int32, ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
-_nk_push_scissor           = _lib.nk_push_scissor([ffi.c_void_p, ffi.c_void_p], None)
+_nk_fill_rect              = _lib.nk_fill_rect([ffi.c_void_p, nk_rect_t, ffi.c_float, nk_color_t], None)
+_nk_fill_rect_multi_color  = _lib.nk_fill_rect_multi_color([ffi.c_void_p, nk_rect_t, nk_color_t, nk_color_t, nk_color_t, nk_color_t], None)
+_nk_fill_circle            = _lib.nk_fill_circle([ffi.c_void_p, nk_rect_t, nk_color_t], None)
+_nk_fill_arc               = _lib.nk_fill_arc([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, nk_color_t], None)
+_nk_fill_triangle          = _lib.nk_fill_triangle([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, nk_color_t], None)
+_nk_fill_polygon           = _lib.nk_fill_polygon([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, nk_color_t], None)
+_nk_stroke_line            = _lib.nk_stroke_line([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, nk_color_t], None)
+_nk_stroke_curve           = _lib.nk_stroke_curve([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, nk_color_t], None)
+_nk_stroke_rect            = _lib.nk_stroke_rect([ffi.c_void_p, nk_rect_t, ffi.c_float, ffi.c_float, nk_color_t], None)
+_nk_stroke_circle          = _lib.nk_stroke_circle([ffi.c_void_p, nk_rect_t, ffi.c_float, nk_color_t], None)
+_nk_stroke_arc             = _lib.nk_stroke_arc([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, nk_color_t], None)
+_nk_stroke_triangle        = _lib.nk_stroke_triangle([ffi.c_void_p, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, ffi.c_float, nk_color_t], None)
+_nk_stroke_polyline        = _lib.nk_stroke_polyline([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_float, nk_color_t], None)
+_nk_stroke_polygon         = _lib.nk_stroke_polygon([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_float, nk_color_t], None)
+_nk_draw_image             = _lib.nk_draw_image([ffi.c_void_p, nk_rect_t, ffi.c_void_p, nk_color_t], None)
+_nk_draw_text              = _lib.nk_draw_text([ffi.c_void_p, nk_rect_t, ffi.c_char_p, ffi.c_int32, ffi.c_void_p, nk_color_t, nk_color_t], None)
+_nk_push_scissor           = _lib.nk_push_scissor([ffi.c_void_p, nk_rect_t], None)
 
 # --- Command iteration ---
 _nk__begin             = _lib.nk__begin([ffi.c_void_p], ffi.c_void_p)
@@ -648,7 +601,6 @@ _nk_font_atlas_bake     = _lib.nk_font_atlas_bake([ffi.c_void_p, ffi.c_void_p, f
 _nk_font_atlas_end      = _lib.nk_font_atlas_end([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
 _nk_font_atlas_cleanup  = _lib.nk_font_atlas_cleanup([ffi.c_void_p], None)
 _nk_font_atlas_clear    = _lib.nk_font_atlas_clear([ffi.c_void_p], None)
-_nk_font_handle         = _lib.nk_font_handle([ffi.c_void_p], ffi.c_void_p)
 
 # --- Utility ---
 _nk_image_id            = _lib.nk_image_id([ffi.c_int32], ffi.c_void_p)
@@ -777,16 +729,13 @@ class UserFont:
         _wf(self._buf, 8, height)
 
         if width_fn is not None:
-            cb = ffi.callback(width_fn, ffi.c_float,
-                              [ffi.c_void_p, ffi.c_float, ffi.c_char_p, ffi.c_int32])
+            cb = ffi.callback(width_fn, ffi.c_float, [ffi.c_void_p, ffi.c_float, ffi.c_char_p, ffi.c_int32])
             self._width_cb = cb
             # write function pointer at offset 16
             _w64(self._buf, 16, ffi.addressof(cb))
 
         if query_fn is not None:
-            cb2 = ffi.callback(query_fn, None,
-                               [ffi.c_void_p, ffi.c_float, ffi.c_void_p,
-                                ffi.c_uint32, ffi.c_void_p])
+            cb2 = ffi.callback(query_fn, None, [ffi.c_void_p, ffi.c_float, ffi.c_void_p, ffi.c_uint32, ffi.c_void_p])
             self._query_cb = cb2
             _w64(self._buf, 24, ffi.addressof(cb2))
 
@@ -848,8 +797,7 @@ class FontAtlas:
 
     def add_from_file(self, path, height=16.0):
         """Add a TrueType font from a file path."""
-        ptr = _nk_font_atlas_add_from_file(
-            self._buf, _enc(path), height, ffi.c_void_p(0))
+        ptr = _nk_font_atlas_add_from_file(self._buf, _enc(path), height, ffi.c_void_p(0))
         return _FontHandle(ptr)
 
     def bake(self, fmt=NK_RGBA):
@@ -903,8 +851,12 @@ class _FontHandle:
 
     @property
     def user_font_ptr(self):
-        """Returns the nk_user_font* for use with nk_style_set_font."""
-        return _nk_font_handle(self._ptr)
+        """
+        Returns the nk_user_font* for use with nk_style_set_font.
+        In Nuklear, nk_user_font is the first member of nk_font, 
+        so the pointers are identical.
+        """
+        return self._ptr
 
     @property
     def ptr(self):
@@ -1170,12 +1122,7 @@ class Context:
         _nk_input_button(self._ctx_buf, btn, x, y, 1 if down else 0)
     def input_scroll(self, sx, sy):
         v = make_vec2_buf(sx, sy)
-        try:
-            _nk_input_scroll(self._ctx_buf, v)
-        except Exception:
-            pass
-        finally:
-            ffi.free(v)
+        _nk_input_scroll(self._ctx_buf, v)
     def input_char(self, ch):
         _nk_input_char(self._ctx_buf, ord(ch) if isinstance(ch, str) else ch)
     def input_unicode(self, codepoint):
@@ -1195,15 +1142,24 @@ class Context:
         finally:
             ffi.free(rb)
 
+    def handle_event(self, event):
+        """
+        Processes a single SDL2 event and updates the Nuklear input state.
+        Lazily creates an internal NuklearSDLInput bridge.
+        """
+        if not hasattr(self, "_event_bridge"):
+            self._event_bridge = NuklearSDLInput(self)
+        self._event_bridge.feed(event)
+        
+        # If this is the last event and we are about to end input, 
+        # apply any accumulated scroll data.
+        if event.type == 0x403: # SDL_MOUSEWHEEL
+            self.input_scroll(self._event_bridge._scroll_x, self._event_bridge._scroll_y)
+
     # --- Window lifecycle ---
     def begin(self, title, x, y, w, h, flags=NK_WINDOW_BORDER | NK_WINDOW_TITLE | NK_WINDOW_MOVABLE):
         rb = make_rect_buf(x, y, w, h)
-        try:
-            return _nk_begin(self._ctx_buf, _enc(title), rb, flags) != 0
-        except Exception:
-            pass
-        finally:
-            ffi.free(rb)
+        return _nk_begin(self._ctx_buf, _enc(title), rb, flags) != 0
 
     def begin_titled(self, name, title, x, y, w, h, flags=NK_WINDOW_BORDER | NK_WINDOW_TITLE | NK_WINDOW_MOVABLE):
         rb = make_rect_buf(x, y, w, h)
@@ -1762,22 +1718,35 @@ class Context:
             ffi.free(buf)
 
     # --- Frame ---
-    def clear(self):                    _nk_clear(self._ctx_buf)
+    def clear(self):
+        """Resets the context for the next frame."""
+        if self._ctx_buf:
+            _nk_clear(self._ctx_buf)
 
     def free(self):
-        if not self._freed:
-            # Free edit buffers
-            for name in self._edit_bufs:
-                cbuf, lbuf, _ = self._edit_bufs[name]
-                ffi.free(cbuf)
-                ffi.free(lbuf)
-            self._edit_bufs = {}
+        if self._freed:
+            return None
+            
+        # Free edit buffers
+        for name in self._edit_bufs:
+            data = self._edit_bufs[name]
+            cbuf = data[0]
+            lbuf = data[1]
+            ffi.free(cbuf)
+            ffi.free(lbuf)
+            
+        self._edit_bufs = {}
+        
+        if self._ctx_buf:
             _nk_free(self._ctx_buf)
             ffi.free(self._ctx_buf)
+            self._ctx_buf = None
+            
+        if self._pool_buf:
             ffi.free(self._pool_buf)
-            self._ctx_buf  = None
             self._pool_buf = None
-            self._freed    = True
+            
+        self._freed = True
 
     @property
     def ptr(self):
@@ -2268,10 +2237,7 @@ class NuklearApp:
         _sdl.init(_sdl.SDL_INIT_EVERYTHING)
 
         self.window   = _sdl.Window(title, width, height)
-        self.renderer = _sdl.Renderer(
-            self.window,
-            flags=_sdl.SDL_RENDERER_ACCELERATED |
-                  (_sdl.SDL_RENDERER_PRESENTVSYNC if vsync else 0))
+        self.renderer = _sdl.Renderer(self.window, flags=_sdl.SDL_RENDERER_ACCELERATED | (_sdl.SDL_RENDERER_PRESENTVSYNC if vsync else 0))
 
         self.atlas = FontAtlas()
         self.atlas.begin()
@@ -2279,9 +2245,7 @@ class NuklearApp:
         raw_pixels, fw, fh = self.atlas.bake()
 
         # Upload font atlas to SDL2 texture
-        self._font_tex = _sdl.Texture(
-            self.renderer, _sdl.SDL_PIXELFORMAT_RGBA8888,
-            _sdl.SDL_TEXTUREACCESS_STATIC, fw, fh)
+        self._font_tex = _sdl.Texture(self.renderer, _sdl.SDL_PIXELFORMAT_RGBA8888, _sdl.SDL_TEXTUREACCESS_STATIC, fw, fh)
         self._font_tex.set_blend_mode(_sdl.SDL_BLENDMODE_BLEND)
         self._font_tex.update(None, raw_pixels, fw * 4)
 

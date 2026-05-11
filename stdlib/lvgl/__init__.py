@@ -1921,12 +1921,24 @@ class InputDevice:
     @staticmethod
     def write_pointer(data_ptr, x, y, state):
         """
-        Write x, y, state into lv_indev_data_t.
-        Layout (LVGL v9, 64-bit): int32 x @ 0, int32 y @ 4, uint32 state @ 8
+        Write x, y, state into lv_indev_data_t for LVGL v9.
+        
+        Layout (v9 64-bit):
+          0: int32 point.x
+          4: int32 point.y
+          8: uint32 state (LV_INDEV_STATE_PR/REL)
+          12: uint32 key
         """
-        ffi.write_memory_with_offset(data_ptr,  0, ffi.c_int32,  x)
-        ffi.write_memory_with_offset(data_ptr,  4, ffi.c_int32,  y)
-        ffi.write_memory_with_offset(data_ptr,  8, ffi.c_uint32, state)
+        # Ensure 'key' and 'continue_reading' fields are zeroed out
+        ffi.write_memory_with_offset(data_ptr, 12, ffi.c_uint32, 0)
+        ffi.write_memory_with_offset(data_ptr, 16, ffi.c_uint32, 0)
+
+        # Write point coordinates
+        ffi.write_memory_with_offset(data_ptr, 0, ffi.c_int32, x)
+        ffi.write_memory_with_offset(data_ptr, 4, ffi.c_int32, y)
+        
+        # In LVGL v9, 'state' starts immediately at offset 8
+        ffi.write_memory_with_offset(data_ptr, 8, ffi.c_uint32, state)
 
     def delete(self):
         if self.ptr:

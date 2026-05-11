@@ -11,8 +11,8 @@ def handle_response(conn, response):
 mgr = mongoose.Manager()
 
 try:
-    print("🚀 Connecting to http://localhost:8000/api/test...")
-    mgr.http_connect("http://localhost:8000/api/test", handle_response)
+    print("🚀 Connecting to http://localhost:5000/api...")
+    mgr.http_connect("http://localhost:5000/api", handle_response)
     
     # Event loop
     while not request_finished:

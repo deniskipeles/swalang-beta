@@ -60,13 +60,40 @@ func pyFormatStringFunction(ctx object.ExecutionContext, args ...object.Object) 
 			formatSpec := ""
 
 			colonPos := -1
-			innerBraceDepth := 0
+			braceDepth, bracketDepth, parenDepth := 0, 0, 0
+			inSingleQuote, inDoubleQuote := false, false
+
 			for k := 0; k < len(fullContent); k++ {
-				if fullContent[k] == '{' {
-					innerBraceDepth++
-				} else if fullContent[k] == '}' {
-					innerBraceDepth--
-				} else if fullContent[k] == ':' && innerBraceDepth == 0 {
+				ch := fullContent[k]
+				if ch == '\\' {
+					k++
+					continue
+				}
+				if ch == '\'' && !inDoubleQuote {
+					inSingleQuote = !inSingleQuote
+					continue
+				}
+				if ch == '"' && !inSingleQuote {
+					inDoubleQuote = !inDoubleQuote
+					continue
+				}
+				if inSingleQuote || inDoubleQuote {
+					continue
+				}
+
+				if ch == '{' {
+					braceDepth++
+				} else if ch == '}' {
+					braceDepth--
+				} else if ch == '[' {
+					bracketDepth++
+				} else if ch == ']' {
+					bracketDepth--
+				} else if ch == '(' {
+					parenDepth++
+				} else if ch == ')' {
+					parenDepth--
+				} else if ch == ':' && braceDepth == 0 && bracketDepth == 0 && parenDepth == 0 {
 					colonPos = k
 					break
 				}
@@ -245,18 +272,43 @@ func pyFStringFn(ctx object.ExecutionContext, args ...object.Object) object.Obje
 			expressionStr := fullContent
 			formatSpec := ""
 
-			// Find the format specifier separator ':'
-			// We only care about the rightmost one that is not inside nested braces.
 			colonPos := -1
-			innerBraceDepth := 0
+			braceDepth, bracketDepth, parenDepth := 0, 0, 0
+			inSingleQuote, inDoubleQuote := false, false
+
 			for k := 0; k < len(fullContent); k++ {
-				if fullContent[k] == '{' {
-					innerBraceDepth++
-				} else if fullContent[k] == '}' {
-					innerBraceDepth--
-				} else if fullContent[k] == ':' && innerBraceDepth == 0 {
+				ch := fullContent[k]
+				if ch == '\\' {
+					k++
+					continue
+				}
+				if ch == '\'' && !inDoubleQuote {
+					inSingleQuote = !inSingleQuote
+					continue
+				}
+				if ch == '"' && !inSingleQuote {
+					inDoubleQuote = !inDoubleQuote
+					continue
+				}
+				if inSingleQuote || inDoubleQuote {
+					continue
+				}
+
+				if ch == '{' {
+					braceDepth++
+				} else if ch == '}' {
+					braceDepth--
+				} else if ch == '[' {
+					bracketDepth++
+				} else if ch == ']' {
+					bracketDepth--
+				} else if ch == '(' {
+					parenDepth++
+				} else if ch == ')' {
+					parenDepth--
+				} else if ch == ':' && braceDepth == 0 && bracketDepth == 0 && parenDepth == 0 {
 					colonPos = k
-					break // Found the main format spec separator
+					break
 				}
 			}
 

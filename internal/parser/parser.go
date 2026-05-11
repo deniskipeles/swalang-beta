@@ -433,10 +433,10 @@ func (p *Parser) parseTernaryExpression(valueIfTrue ast.Expression) ast.Expressi
 	// Parse the value_if_false expression.
 	// Its precedence should be slightly lower than the TERNARY precedence
 	// to handle chaining correctly (e.g., `a if b else c if d else e`).
-	expr.ValueIfFalse = p.parseExpression(TERNARY - 1)
-	if expr.ValueIfFalse == nil {
-		return nil
-	}
+	expr.ValueIfFalse = p.parseExpression(OR)
+ 	if expr.ValueIfFalse == nil {
+ 		return nil
+ 	}
 
 	return expr
 }
@@ -487,7 +487,7 @@ func (p *Parser) parseTryStatement() ast.Statement {
 	
 	// FIX: We do NOT skip DEDENTs here. parseSuite() leaves p.curToken exactly on the DEDENT.
 	// If the next logical block is an except block, p.peekToken will naturally be EXCEPT.
-	for p.peekTokenIs(lexer.EXCEPT) {
+	for p.curTokenIs(lexer.DEDENT) && p.peekTokenIs(lexer.EXCEPT) {
 		hasHandlers = true
 		p.nextToken() // Move to EXCEPT
 		handler := p.parseExceptHandler()
@@ -498,7 +498,7 @@ func (p *Parser) parseTryStatement() ast.Statement {
 	}
 
 	hasFinally := false
-	if p.peekTokenIs(lexer.FINALLY) {
+	if p.curTokenIs(lexer.DEDENT) && p.peekTokenIs(lexer.FINALLY) {
 		hasFinally = true
 		p.nextToken() // Move to FINALLY
 

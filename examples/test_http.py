@@ -7,7 +7,7 @@ print("===========================================")
 
 print("\n1. Testing HTTP Client (GET)...")
 try:
-    resp = http.get("https://jsonplaceholder.typicode.com/todos/1")
+    resp = http.get("http://ip-api.com/json")
     print(format_str("👉 Status: {resp.status_code}"))
     print(format_str("👉 JSON Response: {resp.json()}"))
 except Exception as e:

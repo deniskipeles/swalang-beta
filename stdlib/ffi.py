@@ -1,9 +1,9 @@
 """
-A ctypes-like Foreign Function Interface for Pylearn.
+A ctypes-like Foreign Function Interface for Swalang.
 
 This module provides C compatible data types, and allows calling functions in
 shared libraries (.so, .dll, .dylib). It can be used to wrap these libraries
-in pure Pylearn code.
+in pure Swalang code.
 
 New Features Supported:
 - Full set of C primitive types (char, short, long, bool, wchar_t).
