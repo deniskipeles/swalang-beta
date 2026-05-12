@@ -7,6 +7,10 @@ builds/
 bin/
 lib/
 .windows_deps/
+vscode-ext/node_modules/
+vscode-ext/package-lock.json
+node_modules/
+package-lock.json
 
 # Other
 .vscode/

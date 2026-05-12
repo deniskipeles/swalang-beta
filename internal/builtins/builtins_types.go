@@ -243,6 +243,11 @@ func pyStrFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
 		return strObj
 	}
 
+	// Short-circuit for Class objects so we don't accidentally call an unbound instance __str__ method.
+	if classObj, ok := arg.(*object.Class); ok {
+		return &object.String{Value: classObj.Inspect()}
+	}
+
 	// Try to find and call __str__ using the proper MRO search.
 	// object.CallGetAttr correctly finds the attribute on a parent class if needed.
 	strMethod, strFound := object.CallGetAttr(ctx, arg, constants.DunderStr, object.NoToken)
@@ -270,6 +275,11 @@ func pyReprFn(ctx object.ExecutionContext, args ...object.Object) object.Object 
 		return object.NewError(constants.TypeError, constants.BuiltinsTypesReprArgCountError, len(args))
 	}
 	arg := args[0]
+
+	// Short-circuit for Class objects so we don't accidentally call an unbound instance __repr__ method.
+	if classObj, ok := arg.(*object.Class); ok {
+		return &object.String{Value: classObj.Inspect()}
+	}
 
 	// Try to find and call __repr__ using the proper MRO search.
 	reprMethod, reprFound := object.CallGetAttr(ctx, arg, constants.DunderRepr, object.NoToken)

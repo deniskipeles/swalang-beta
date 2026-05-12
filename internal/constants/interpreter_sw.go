@@ -65,7 +65,7 @@ const (
 	EvalExpressionsBadOperandTypeUnaryMinus           = "bad operand type for unary -: '%s'"
 	EvalExpressionsBadOperandTypeUnaryPlus            = "bad operand type for unary +: '%s'"
 	EvalExpressionsUnknownPrefixOperator              = "unknown prefix operator: %s"
-	EvalExpressionsStrAttrNotCallable                 = "__contains__ attribute of type %s is not callable"
+	EvalExpressionsStrAttrNotCallable                 = "'%s' attribute of type %s is not callable"
 	EvalExpressionsStrReturnedNonBool                 = "__contains__ returned non-bool (type %s)"
 	EvalExpressionsInStringRequiresString             = "'in <string>' requires string as left operand, not %s"
 	EvalExpressionsArgNotIterable                     = "argument of type '%s' is not iterable for 'in' operator (or __contains__ not defined)"

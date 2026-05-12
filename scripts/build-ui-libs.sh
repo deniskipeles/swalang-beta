@@ -71,7 +71,8 @@ cd ..
 
 # 2. LVGL
 if [ ! -d "lvgl" ]; then
-    git clone --depth 1 https://github.com/lvgl/lvgl.git lvgl
+    LVGL_VER="v9.5.0"
+    git clone -b $LVGL_VER --depth 1 https://github.com/lvgl/lvgl.git lvgl
     cd lvgl
     cp lv_conf_template.h lv_conf.h
     sed -i 's/#if 0/#if 1/g' lv_conf.h
@@ -142,6 +143,8 @@ build_lib() {
             local lvgl_flags=(
                 "${cmake_flags[@]}"
                 "-DBUILD_SHARED_LIBS=ON"
+                "-DLV_BUILD_EXAMPLES=0"   # <-- add this
+                "-DLV_BUILD_DEMOS=0"      # <-- add this
             )
             if [[ "$target" == *"windows"* ]]; then
                 lvgl_flags+=(

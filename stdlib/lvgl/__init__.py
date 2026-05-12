@@ -358,16 +358,12 @@ _lv_refr_now       = _lib.lv_refr_now([ffi.c_void_p], None)
 # --- Display ---
 _lv_display_create       = _lib.lv_display_create([ffi.c_int32, ffi.c_int32], ffi.c_void_p)
 _lv_display_delete       = _lib.lv_display_delete([ffi.c_void_p], None)
-_lv_display_set_buffers  = _lib.lv_display_set_buffers(
-    [ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_uint32, ffi.c_int32], None)
+_lv_display_set_buffers  = _lib.lv_display_set_buffers([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p, ffi.c_uint32, ffi.c_int32], None)
 _lv_display_set_flush_cb = _lib.lv_display_set_flush_cb([ffi.c_void_p, ffi.c_void_p], None)
 _lv_display_flush_ready  = _lib.lv_display_flush_ready([ffi.c_void_p], None)
-_lv_display_set_resolution = _lib.lv_display_set_resolution(
-    [ffi.c_void_p, ffi.c_int32, ffi.c_int32], None)
-_lv_display_get_horizontal_resolution = _lib.lv_display_get_horizontal_resolution(
-    [ffi.c_void_p], ffi.c_int32)
-_lv_display_get_vertical_resolution   = _lib.lv_display_get_vertical_resolution(
-    [ffi.c_void_p], ffi.c_int32)
+_lv_display_set_resolution = _lib.lv_display_set_resolution([ffi.c_void_p, ffi.c_int32, ffi.c_int32], None)
+_lv_display_get_horizontal_resolution = _lib.lv_display_get_horizontal_resolution([ffi.c_void_p], ffi.c_int32)
+_lv_display_get_vertical_resolution   = _lib.lv_display_get_vertical_resolution([ffi.c_void_p], ffi.c_int32)
 _lv_display_set_rotation = _lib.lv_display_set_rotation([ffi.c_void_p, ffi.c_int32], None)
 _lv_display_get_default  = _lib.lv_display_get_default([], ffi.c_void_p)
 _lv_display_set_default  = _lib.lv_display_set_default([ffi.c_void_p], None)
@@ -383,15 +379,13 @@ _lv_indev_reset       = _lib.lv_indev_reset([ffi.c_void_p, ffi.c_void_p], None)
 # _lv_indev_get_active  = _lib.lv_indev_get_active([], ffi.c_void_p)
 
 # --- Timer ---
-_lv_timer_create       = _lib.lv_timer_create(
-    [ffi.c_void_p, ffi.c_uint32, ffi.c_void_p], ffi.c_void_p)
+_lv_timer_create       = _lib.lv_timer_create([ffi.c_void_p, ffi.c_uint32, ffi.c_void_p], ffi.c_void_p)
 _lv_timer_delete       = _lib.lv_timer_delete([ffi.c_void_p], None)
 _lv_timer_set_period   = _lib.lv_timer_set_period([ffi.c_void_p, ffi.c_uint32], None)
 _lv_timer_reset        = _lib.lv_timer_reset([ffi.c_void_p], None)
 _lv_timer_pause        = _lib.lv_timer_pause([ffi.c_void_p], None)
 _lv_timer_resume       = _lib.lv_timer_resume([ffi.c_void_p], None)
-_lv_timer_set_repeat_count = _lib.lv_timer_set_repeat_count(
-    [ffi.c_void_p, ffi.c_int32], None)
+_lv_timer_set_repeat_count = _lib.lv_timer_set_repeat_count([ffi.c_void_p, ffi.c_int32], None)
 _lv_timer_get_user_data = _lib.lv_timer_get_user_data([ffi.c_void_p], ffi.c_void_p)
 
 # --- Style ---
@@ -399,70 +393,42 @@ _lv_style_init    = _lib.lv_style_init([ffi.c_void_p], None)
 _lv_style_reset   = _lib.lv_style_reset([ffi.c_void_p], None)
 
 # Background
-_lv_style_set_bg_color      = _lib.lv_style_set_bg_color(
-    [ffi.c_void_p, ffi.c_uint32], None)
-_lv_style_set_bg_opa        = _lib.lv_style_set_bg_opa(
-    [ffi.c_void_p, ffi.c_uint8], None)
-_lv_style_set_bg_grad_color = _lib.lv_style_set_bg_grad_color(
-    [ffi.c_void_p, ffi.c_uint32], None)
-_lv_style_set_bg_grad_dir   = _lib.lv_style_set_bg_grad_dir(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_bg_main_stop  = _lib.lv_style_set_bg_main_stop(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_bg_grad_stop  = _lib.lv_style_set_bg_grad_stop(
-    [ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_bg_color      = _lib.lv_style_set_bg_color([ffi.c_void_p, ffi.c_uint32], None)
+_lv_style_set_bg_opa        = _lib.lv_style_set_bg_opa([ffi.c_void_p, ffi.c_uint8], None)
+_lv_style_set_bg_grad_color = _lib.lv_style_set_bg_grad_color([ffi.c_void_p, ffi.c_uint32], None)
+_lv_style_set_bg_grad_dir   = _lib.lv_style_set_bg_grad_dir([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_bg_main_stop  = _lib.lv_style_set_bg_main_stop([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_bg_grad_stop  = _lib.lv_style_set_bg_grad_stop([ffi.c_void_p, ffi.c_int32], None)
 
 # Border
-_lv_style_set_border_color  = _lib.lv_style_set_border_color(
-    [ffi.c_void_p, ffi.c_uint32], None)
-_lv_style_set_border_width  = _lib.lv_style_set_border_width(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_border_opa    = _lib.lv_style_set_border_opa(
-    [ffi.c_void_p, ffi.c_uint8], None)
-_lv_style_set_border_side   = _lib.lv_style_set_border_side(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_border_post   = _lib.lv_style_set_border_post(
-    [ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_border_color  = _lib.lv_style_set_border_color([ffi.c_void_p, ffi.c_uint32], None)
+_lv_style_set_border_width  = _lib.lv_style_set_border_width([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_border_opa    = _lib.lv_style_set_border_opa([ffi.c_void_p, ffi.c_uint8], None)
+_lv_style_set_border_side   = _lib.lv_style_set_border_side([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_border_post   = _lib.lv_style_set_border_post([ffi.c_void_p, ffi.c_int32], None)
 
 # Outline
-_lv_style_set_outline_color = _lib.lv_style_set_outline_color(
-    [ffi.c_void_p, ffi.c_uint32], None)
-_lv_style_set_outline_width = _lib.lv_style_set_outline_width(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_outline_pad   = _lib.lv_style_set_outline_pad(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_outline_opa   = _lib.lv_style_set_outline_opa(
-    [ffi.c_void_p, ffi.c_uint8], None)
+_lv_style_set_outline_color = _lib.lv_style_set_outline_color([ffi.c_void_p, ffi.c_uint32], None)
+_lv_style_set_outline_width = _lib.lv_style_set_outline_width([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_outline_pad   = _lib.lv_style_set_outline_pad([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_outline_opa   = _lib.lv_style_set_outline_opa([ffi.c_void_p, ffi.c_uint8], None)
 
 # Shadow
-_lv_style_set_shadow_color  = _lib.lv_style_set_shadow_color(
-    [ffi.c_void_p, ffi.c_uint32], None)
-_lv_style_set_shadow_width  = _lib.lv_style_set_shadow_width(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_shadow_opa    = _lib.lv_style_set_shadow_opa(
-    [ffi.c_void_p, ffi.c_uint8], None)
-_lv_style_set_shadow_offset_x = _lib.lv_style_set_shadow_offset_x(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_shadow_offset_y = _lib.lv_style_set_shadow_offset_y(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_shadow_spread = _lib.lv_style_set_shadow_spread(
-    [ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_shadow_color  = _lib.lv_style_set_shadow_color([ffi.c_void_p, ffi.c_uint32], None)
+_lv_style_set_shadow_width  = _lib.lv_style_set_shadow_width([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_shadow_opa    = _lib.lv_style_set_shadow_opa([ffi.c_void_p, ffi.c_uint8], None)
+_lv_style_set_shadow_offset_x = _lib.lv_style_set_shadow_offset_x([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_shadow_offset_y = _lib.lv_style_set_shadow_offset_y([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_shadow_spread = _lib.lv_style_set_shadow_spread([ffi.c_void_p, ffi.c_int32], None)
 
 # Text
-_lv_style_set_text_color    = _lib.lv_style_set_text_color(
-    [ffi.c_void_p, ffi.c_uint32], None)
-_lv_style_set_text_opa      = _lib.lv_style_set_text_opa(
-    [ffi.c_void_p, ffi.c_uint8], None)
-_lv_style_set_text_font     = _lib.lv_style_set_text_font(
-    [ffi.c_void_p, ffi.c_void_p], None)
-_lv_style_set_text_letter_space = _lib.lv_style_set_text_letter_space(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_text_line_space   = _lib.lv_style_set_text_line_space(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_text_decor    = _lib.lv_style_set_text_decor(
-    [ffi.c_void_p, ffi.c_int32], None)
-_lv_style_set_text_align    = _lib.lv_style_set_text_align(
-    [ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_text_color    = _lib.lv_style_set_text_color([ffi.c_void_p, ffi.c_uint32], None)
+_lv_style_set_text_opa      = _lib.lv_style_set_text_opa([ffi.c_void_p, ffi.c_uint8], None)
+_lv_style_set_text_font     = _lib.lv_style_set_text_font([ffi.c_void_p, ffi.c_void_p], None)
+_lv_style_set_text_letter_space = _lib.lv_style_set_text_letter_space([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_text_line_space   = _lib.lv_style_set_text_line_space([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_text_decor    = _lib.lv_style_set_text_decor([ffi.c_void_p, ffi.c_int32], None)
+_lv_style_set_text_align    = _lib.lv_style_set_text_align([ffi.c_void_p, ffi.c_int32], None)
 
 # Padding
 _lv_style_set_pad_top    = _lib.lv_style_set_pad_top(   [ffi.c_void_p, ffi.c_int32], None)
@@ -488,8 +454,7 @@ _lv_style_set_max_height   = _lib.lv_style_set_max_height(  [ffi.c_void_p, ffi.c
 _lv_style_set_radius       = _lib.lv_style_set_radius(      [ffi.c_void_p, ffi.c_int32], None)
 _lv_style_set_clip_corner  = _lib.lv_style_set_clip_corner( [ffi.c_void_p, ffi.c_int32], None)
 _lv_style_set_opa          = _lib.lv_style_set_opa(         [ffi.c_void_p, ffi.c_uint8], None)
-_lv_style_set_color_filter_opa = _lib.lv_style_set_color_filter_opa(
-    [ffi.c_void_p, ffi.c_uint8], None)
+_lv_style_set_color_filter_opa = _lib.lv_style_set_color_filter_opa([ffi.c_void_p, ffi.c_uint8], None)
 _lv_style_set_blend_mode   = _lib.lv_style_set_blend_mode(  [ffi.c_void_p, ffi.c_int32], None)
 _lv_style_set_transform_width  = _lib.lv_style_set_transform_width( [ffi.c_void_p, ffi.c_int32], None)
 _lv_style_set_transform_height = _lib.lv_style_set_transform_height([ffi.c_void_p, ffi.c_int32], None)
@@ -537,10 +502,8 @@ _lv_obj_set_size       = _lib.lv_obj_set_size(  [ffi.c_void_p, ffi.c_int32, ffi.
 _lv_obj_set_width      = _lib.lv_obj_set_width( [ffi.c_void_p, ffi.c_int32], None)
 _lv_obj_set_height     = _lib.lv_obj_set_height([ffi.c_void_p, ffi.c_int32], None)
 _lv_obj_set_align      = _lib.lv_obj_set_align( [ffi.c_void_p, ffi.c_int32], None)
-_lv_obj_align          = _lib.lv_obj_align(
-    [ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32], None)
-_lv_obj_align_to       = _lib.lv_obj_align_to(
-    [ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32], None)
+_lv_obj_align          = _lib.lv_obj_align([ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32], None)
+_lv_obj_align_to       = _lib.lv_obj_align_to([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32], None)
 _lv_obj_center         = _lib.lv_obj_center([ffi.c_void_p], None)
 _lv_obj_get_x          = _lib.lv_obj_get_x(     [ffi.c_void_p], ffi.c_int32)
 _lv_obj_get_y          = _lib.lv_obj_get_y(     [ffi.c_void_p], ffi.c_int32)
@@ -552,17 +515,12 @@ _lv_obj_get_parent     = _lib.lv_obj_get_parent([ffi.c_void_p], ffi.c_void_p)
 _lv_obj_get_child      = _lib.lv_obj_get_child( [ffi.c_void_p, ffi.c_int32], ffi.c_void_p)
 _lv_obj_get_child_count = _lib.lv_obj_get_child_count([ffi.c_void_p], ffi.c_uint32)
 _lv_obj_set_parent     = _lib.lv_obj_set_parent([ffi.c_void_p, ffi.c_void_p], None)
-_lv_obj_add_style      = _lib.lv_obj_add_style(
-    [ffi.c_void_p, ffi.c_void_p, ffi.c_int32], None)
-_lv_obj_remove_style   = _lib.lv_obj_remove_style(
-    [ffi.c_void_p, ffi.c_void_p, ffi.c_int32], None)
+_lv_obj_add_style      = _lib.lv_obj_add_style([ffi.c_void_p, ffi.c_void_p, ffi.c_int32], None)
+_lv_obj_remove_style   = _lib.lv_obj_remove_style([ffi.c_void_p, ffi.c_void_p, ffi.c_int32], None)
 _lv_obj_remove_style_all = _lib.lv_obj_remove_style_all([ffi.c_void_p], None)
-_lv_obj_add_event_cb   = _lib.lv_obj_add_event_cb(
-    [ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_void_p], ffi.c_void_p)
-_lv_obj_remove_event_cb = _lib.lv_obj_remove_event_cb(
-    [ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
-_lv_obj_send_event     = _lib.lv_obj_send_event(
-    [ffi.c_void_p, ffi.c_int32, ffi.c_void_p], ffi.c_int32)
+_lv_obj_add_event_cb   = _lib.lv_obj_add_event_cb([ffi.c_void_p, ffi.c_void_p, ffi.c_int32, ffi.c_void_p], ffi.c_void_p)
+_lv_obj_remove_event_cb = _lib.lv_obj_remove_event_cb([ffi.c_void_p, ffi.c_void_p], ffi.c_int32)
+_lv_obj_send_event     = _lib.lv_obj_send_event([ffi.c_void_p, ffi.c_int32, ffi.c_void_p], ffi.c_int32)
 _lv_obj_add_flag       = _lib.lv_obj_add_flag(   [ffi.c_void_p, ffi.c_uint32], None)
 _lv_obj_remove_flag    = _lib.lv_obj_remove_flag([ffi.c_void_p, ffi.c_uint32], None)
 _lv_obj_has_flag       = _lib.lv_obj_has_flag(   [ffi.c_void_p, ffi.c_uint32], ffi.c_int32)
@@ -571,8 +529,7 @@ _lv_obj_remove_state   = _lib.lv_obj_remove_state([ffi.c_void_p, ffi.c_int32], N
 _lv_obj_has_state      = _lib.lv_obj_has_state(   [ffi.c_void_p, ffi.c_int32], ffi.c_int32)
 _lv_obj_set_user_data  = _lib.lv_obj_set_user_data([ffi.c_void_p, ffi.c_void_p], None)
 _lv_obj_get_user_data  = _lib.lv_obj_get_user_data([ffi.c_void_p], ffi.c_void_p)
-_lv_obj_scroll_to      = _lib.lv_obj_scroll_to(
-    [ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32], None)
+_lv_obj_scroll_to      = _lib.lv_obj_scroll_to([ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32], None)
 _lv_obj_scroll_to_view = _lib.lv_obj_scroll_to_view([ffi.c_void_p, ffi.c_int32], None)
 _lv_obj_set_scrollbar_mode = _lib.lv_obj_set_scrollbar_mode([ffi.c_void_p, ffi.c_int32], None)
 _lv_obj_set_scroll_snap_x  = _lib.lv_obj_set_scroll_snap_x([ffi.c_void_p, ffi.c_int32], None)
@@ -586,8 +543,7 @@ _lv_obj_is_visible     = _lib.lv_obj_is_visible([ffi.c_void_p], ffi.c_int32)
 # --- Screen ---
 _lv_screen_active  = _lib.lv_screen_active([], ffi.c_void_p)
 _lv_screen_load    = _lib.lv_screen_load([ffi.c_void_p], None)
-_lv_screen_load_anim = _lib.lv_screen_load_anim(
-    [ffi.c_void_p, ffi.c_int32, ffi.c_uint32, ffi.c_uint32, ffi.c_int32], None)
+_lv_screen_load_anim = _lib.lv_screen_load_anim([ffi.c_void_p, ffi.c_int32, ffi.c_uint32, ffi.c_uint32, ffi.c_int32], None)
 
 # Screen load anim types
 SCR_LOAD_ANIM_NONE        = 0
@@ -608,8 +564,7 @@ SCR_LOAD_ANIM_OUT_BOTTOM  = 14
 
 # --- Flex layout ---
 _lv_obj_set_flex_flow   = _lib.lv_obj_set_flex_flow([ffi.c_void_p, ffi.c_int32], None)
-_lv_obj_set_flex_align  = _lib.lv_obj_set_flex_align(
-    [ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32], None)
+_lv_obj_set_flex_align  = _lib.lv_obj_set_flex_align([ffi.c_void_p, ffi.c_int32, ffi.c_int32, ffi.c_int32], None)
 _lv_obj_set_flex_grow   = _lib.lv_obj_set_flex_grow([ffi.c_void_p, ffi.c_uint8], None)
 
 # --- Animation ---
@@ -617,8 +572,7 @@ _lv_anim_init          = _lib.lv_anim_init([ffi.c_void_p], None)
 _lv_anim_set_var       = _lib.lv_anim_set_var([ffi.c_void_p, ffi.c_void_p], None)
 _lv_anim_set_exec_cb   = _lib.lv_anim_set_exec_cb([ffi.c_void_p, ffi.c_void_p], None)
 _lv_anim_set_duration  = _lib.lv_anim_set_duration([ffi.c_void_p, ffi.c_uint32], None)
-_lv_anim_set_values    = _lib.lv_anim_set_values(
-    [ffi.c_void_p, ffi.c_int32, ffi.c_int32], None)
+_lv_anim_set_values    = _lib.lv_anim_set_values([ffi.c_void_p, ffi.c_int32, ffi.c_int32], None)
 _lv_anim_set_path_cb   = _lib.lv_anim_set_path_cb([ffi.c_void_p, ffi.c_void_p], None)
 _lv_anim_set_delay     = _lib.lv_anim_set_delay([ffi.c_void_p, ffi.c_uint32], None)
 _lv_anim_set_repeat_count  = _lib.lv_anim_set_repeat_count([ffi.c_void_p, ffi.c_uint16], None)
@@ -718,8 +672,7 @@ _lv_dropdown_set_options   = _lib.lv_dropdown_set_options([ffi.c_void_p, ffi.c_c
 _lv_dropdown_add_option    = _lib.lv_dropdown_add_option([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32], None)
 _lv_dropdown_set_selected  = _lib.lv_dropdown_set_selected([ffi.c_void_p, ffi.c_uint16], None)
 _lv_dropdown_get_selected  = _lib.lv_dropdown_get_selected([ffi.c_void_p], ffi.c_uint16)
-_lv_dropdown_get_selected_str = _lib.lv_dropdown_get_selected_str(
-    [ffi.c_void_p, ffi.c_char_p, ffi.c_uint32], None)
+_lv_dropdown_get_selected_str = _lib.lv_dropdown_get_selected_str([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32], None)
 _lv_dropdown_set_text      = _lib.lv_dropdown_set_text([ffi.c_void_p, ffi.c_char_p], None)
 _lv_dropdown_set_dir       = _lib.lv_dropdown_set_dir([ffi.c_void_p, ffi.c_int32], None)
 _lv_dropdown_open          = _lib.lv_dropdown_open([ffi.c_void_p], None)
@@ -729,15 +682,11 @@ _lv_dropdown_get_option_count = _lib.lv_dropdown_get_option_count([ffi.c_void_p]
 
 # --- Widgets: Roller ---
 _lv_roller_create          = _lib.lv_roller_create([ffi.c_void_p], ffi.c_void_p)
-_lv_roller_set_options     = _lib.lv_roller_set_options(
-    [ffi.c_void_p, ffi.c_char_p, ffi.c_int32], None)
-_lv_roller_set_selected    = _lib.lv_roller_set_selected(
-    [ffi.c_void_p, ffi.c_uint16, ffi.c_int32], None)
+_lv_roller_set_options     = _lib.lv_roller_set_options([ffi.c_void_p, ffi.c_char_p, ffi.c_int32], None)
+_lv_roller_set_selected    = _lib.lv_roller_set_selected([ffi.c_void_p, ffi.c_uint16, ffi.c_int32], None)
 _lv_roller_get_selected    = _lib.lv_roller_get_selected([ffi.c_void_p], ffi.c_uint16)
-_lv_roller_get_selected_str = _lib.lv_roller_get_selected_str(
-    [ffi.c_void_p, ffi.c_char_p, ffi.c_uint32], None)
-_lv_roller_set_visible_row_count = _lib.lv_roller_set_visible_row_count(
-    [ffi.c_void_p, ffi.c_uint8], None)
+_lv_roller_get_selected_str = _lib.lv_roller_get_selected_str([ffi.c_void_p, ffi.c_char_p, ffi.c_uint32], None)
+_lv_roller_set_visible_row_count = _lib.lv_roller_set_visible_row_count([ffi.c_void_p, ffi.c_uint8], None)
 _lv_roller_get_option_count = _lib.lv_roller_get_option_count([ffi.c_void_p], ffi.c_uint16)
 
 # --- Widgets: Textarea ---
@@ -748,17 +697,14 @@ _lv_textarea_add_char         = _lib.lv_textarea_add_char([ffi.c_void_p, ffi.c_u
 _lv_textarea_add_text         = _lib.lv_textarea_add_text([ffi.c_void_p, ffi.c_char_p], None)
 _lv_textarea_delete_char      = _lib.lv_textarea_delete_char([ffi.c_void_p], None)
 _lv_textarea_delete_char_forward = _lib.lv_textarea_delete_char_forward([ffi.c_void_p], None)
-_lv_textarea_set_placeholder_text = _lib.lv_textarea_set_placeholder_text(
-    [ffi.c_void_p, ffi.c_char_p], None)
+_lv_textarea_set_placeholder_text = _lib.lv_textarea_set_placeholder_text([ffi.c_void_p, ffi.c_char_p], None)
 _lv_textarea_set_one_line     = _lib.lv_textarea_set_one_line([ffi.c_void_p, ffi.c_int32], None)
 _lv_textarea_set_password_mode = _lib.lv_textarea_set_password_mode([ffi.c_void_p, ffi.c_int32], None)
 _lv_textarea_set_max_length   = _lib.lv_textarea_set_max_length([ffi.c_void_p, ffi.c_uint32], None)
-_lv_textarea_set_accepted_chars = _lib.lv_textarea_set_accepted_chars(
-    [ffi.c_void_p, ffi.c_char_p], None)
+_lv_textarea_set_accepted_chars = _lib.lv_textarea_set_accepted_chars([ffi.c_void_p, ffi.c_char_p], None)
 _lv_textarea_set_cursor_pos   = _lib.lv_textarea_set_cursor_pos([ffi.c_void_p, ffi.c_int32], None)
 _lv_textarea_get_cursor_pos   = _lib.lv_textarea_get_cursor_pos([ffi.c_void_p], ffi.c_uint32)
-_lv_textarea_set_password_show_time = _lib.lv_textarea_set_password_show_time(
-    [ffi.c_void_p, ffi.c_uint16], None)
+_lv_textarea_set_password_show_time = _lib.lv_textarea_set_password_show_time([ffi.c_void_p, ffi.c_uint16], None)
 
 # --- Widgets: Keyboard ---
 _lv_keyboard_create      = _lib.lv_keyboard_create([ffi.c_void_p], ffi.c_void_p)
@@ -768,8 +714,7 @@ _lv_keyboard_get_textarea = _lib.lv_keyboard_get_textarea([ffi.c_void_p], ffi.c_
 
 # --- Widgets: Spinner ---
 _lv_spinner_create     = _lib.lv_spinner_create([ffi.c_void_p], ffi.c_void_p)
-_lv_spinner_set_anim_params = _lib.lv_spinner_set_anim_params(
-    [ffi.c_void_p, ffi.c_uint32, ffi.c_uint32], None)
+_lv_spinner_set_anim_params = _lib.lv_spinner_set_anim_params([ffi.c_void_p, ffi.c_uint32, ffi.c_uint32], None)
 
 # --- Widgets: Image ---
 _lv_image_create      = _lib.lv_image_create([ffi.c_void_p], ffi.c_void_p)
@@ -784,40 +729,32 @@ _lv_image_get_src       = _lib.lv_image_get_src([ffi.c_void_p], ffi.c_void_p)
 
 # --- Widgets: Line ---
 _lv_line_create       = _lib.lv_line_create([ffi.c_void_p], ffi.c_void_p)
-_lv_line_set_points   = _lib.lv_line_set_points(
-    [ffi.c_void_p, ffi.c_void_p, ffi.c_uint16], None)
+_lv_line_set_points   = _lib.lv_line_set_points([ffi.c_void_p, ffi.c_void_p, ffi.c_uint16], None)
 _lv_line_set_y_invert = _lib.lv_line_set_y_invert([ffi.c_void_p, ffi.c_int32], None)
 
 # --- Widgets: Table ---
 _lv_table_create        = _lib.lv_table_create([ffi.c_void_p], ffi.c_void_p)
-_lv_table_set_cell_value = _lib.lv_table_set_cell_value(
-    [ffi.c_void_p, ffi.c_uint16, ffi.c_uint16, ffi.c_char_p], None)
-_lv_table_get_cell_value = _lib.lv_table_get_cell_value(
-    [ffi.c_void_p, ffi.c_uint16, ffi.c_uint16], ffi.c_char_p)
+_lv_table_set_cell_value = _lib.lv_table_set_cell_value([ffi.c_void_p, ffi.c_uint16, ffi.c_uint16, ffi.c_char_p], None)
+_lv_table_get_cell_value = _lib.lv_table_get_cell_value([ffi.c_void_p, ffi.c_uint16, ffi.c_uint16], ffi.c_char_p)
 _lv_table_set_column_count = _lib.lv_table_set_column_count([ffi.c_void_p, ffi.c_uint16], None)
 _lv_table_get_column_count = _lib.lv_table_get_column_count([ffi.c_void_p], ffi.c_uint16)
 _lv_table_set_row_count    = _lib.lv_table_set_row_count([ffi.c_void_p, ffi.c_uint16], None)
 _lv_table_get_row_count    = _lib.lv_table_get_row_count([ffi.c_void_p], ffi.c_uint16)
-_lv_table_set_column_width = _lib.lv_table_set_column_width(
-    [ffi.c_void_p, ffi.c_uint16, ffi.c_int32], None)
-_lv_table_get_selected_cell = _lib.lv_table_get_selected_cell(
-    [ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
+_lv_table_set_column_width = _lib.lv_table_set_column_width([ffi.c_void_p, ffi.c_uint16, ffi.c_int32], None)
+_lv_table_get_selected_cell = _lib.lv_table_get_selected_cell([ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
 
 # --- Widgets: List ---
 _lv_list_create     = _lib.lv_list_create([ffi.c_void_p], ffi.c_void_p)
 _lv_list_add_text   = _lib.lv_list_add_text([ffi.c_void_p, ffi.c_char_p], ffi.c_void_p)
-_lv_list_add_button = _lib.lv_list_add_button(
-    [ffi.c_void_p, ffi.c_void_p, ffi.c_char_p], ffi.c_void_p)
-_lv_list_get_button_text = _lib.lv_list_get_button_text(
-    [ffi.c_void_p, ffi.c_void_p], ffi.c_char_p)
+_lv_list_add_button = _lib.lv_list_add_button([ffi.c_void_p, ffi.c_void_p, ffi.c_char_p], ffi.c_void_p)
+_lv_list_get_button_text = _lib.lv_list_get_button_text([ffi.c_void_p, ffi.c_void_p], ffi.c_char_p)
 
 # --- Widgets: Message box ---
 _lv_msgbox_create         = _lib.lv_msgbox_create([ffi.c_void_p], ffi.c_void_p)
 _lv_msgbox_add_title      = _lib.lv_msgbox_add_title([ffi.c_void_p, ffi.c_char_p], ffi.c_void_p)
 _lv_msgbox_add_text       = _lib.lv_msgbox_add_text( [ffi.c_void_p, ffi.c_char_p], ffi.c_void_p)
 _lv_msgbox_add_close_button = _lib.lv_msgbox_add_close_button([ffi.c_void_p], ffi.c_void_p)
-_lv_msgbox_add_footer_button = _lib.lv_msgbox_add_footer_button(
-    [ffi.c_void_p, ffi.c_char_p], ffi.c_void_p)
+_lv_msgbox_add_footer_button = _lib.lv_msgbox_add_footer_button([ffi.c_void_p, ffi.c_char_p], ffi.c_void_p)
 _lv_msgbox_close          = _lib.lv_msgbox_close([ffi.c_void_p], None)
 
 # ==============================================================================
@@ -1921,24 +1858,24 @@ class InputDevice:
     @staticmethod
     def write_pointer(data_ptr, x, y, state):
         """
-        Write x, y, state into lv_indev_data_t for LVGL v9.
+        Write x, y, state into lv_indev_data_t.
         
-        Layout (v9 64-bit):
+        Layout in LVGL v9:
           0: int32 point.x
           4: int32 point.y
-          8: uint32 state (LV_INDEV_STATE_PR/REL)
-          12: uint32 key
+          8: uint32 btn_id
+         12: uint32 key
+         16: uint32 dir
+         20: int16 enc_diff
+         24: uint32 state (LV_INDEV_STATE_PR/REL)
+         28: bool continue_reading
         """
-        # Ensure 'key' and 'continue_reading' fields are zeroed out
-        ffi.write_memory_with_offset(data_ptr, 12, ffi.c_uint32, 0)
-        ffi.write_memory_with_offset(data_ptr, 16, ffi.c_uint32, 0)
-
-        # Write point coordinates
         ffi.write_memory_with_offset(data_ptr, 0, ffi.c_int32, x)
         ffi.write_memory_with_offset(data_ptr, 4, ffi.c_int32, y)
+        ffi.write_memory_with_offset(data_ptr, 24, ffi.c_uint32, state)
         
-        # In LVGL v9, 'state' starts immediately at offset 8
-        ffi.write_memory_with_offset(data_ptr, 8, ffi.c_uint32, state)
+        # Ensure 'continue_reading' is False to prevent infinite loops
+        ffi.write_memory_with_offset(data_ptr, 28, ffi.c_uint8, 0)
 
     def delete(self):
         if self.ptr:

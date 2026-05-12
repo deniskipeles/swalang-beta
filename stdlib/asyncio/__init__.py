@@ -38,24 +38,27 @@ class Task(Future):
 
     def _step(self, value):
         try:
-            # Advance the coroutine. `send()` passes the value back to the `await` keyword.
             result = self.coro.send(value)
             
-            # If the coroutine yielded a Future or another Task, we hook into it
+            # If it yielded a Future, wait for it
             if hasattr(result, "add_done_callback"):
                 result.add_done_callback(self._wakeup)
+            # If it yielded another Coroutine, wrap it in a Task and wait
             elif hasattr(result, "send"):
-                # It yielded a raw coroutine (e.g. `await my_func()`). Wrap it in a task.
                 t = Task(result, self.loop)
                 t.add_done_callback(self._wakeup)
             else:
-                raise Exception("Awaited object is not a Future or Coroutine")
+                # If it yielded a plain value, just re-step immediately
+                self._step(result)
                 
         except StopIteration as e:
-            # The coroutine finished (hit the return statement)
+            # FIX: In Pylearn, the return value of a generator 
+            # is stored in the 'value' attribute of the StopIteration error instance.
             val = None
-            if hasattr(e, "value"):
+            try:
                 val = e.value
+            except Exception:
+                pass
             self.set_result(val)
         except Exception as e:
             print(format_str("Task Crash: {e}"))

@@ -1,0 +1,24 @@
+{
+  "name": "swalang-vscode",
+  "displayName": "Swalang LSP",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "activationEvents": [
+    "onLanguage:swalang"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "swalang",
+        "aliases": ["Swalang"],
+        "extensions": [".swa", ".py"]
+      }
+    ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}

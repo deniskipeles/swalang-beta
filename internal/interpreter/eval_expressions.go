@@ -182,7 +182,8 @@ func evalInfixExpression(node *ast.InfixExpression, ctx *InterpreterContext) obj
 				} else if boundMeth, isBound := methodObj.(*object.BoundMethod); isBound {
 					result = object.ApplyBoundMethod(ctx, boundMeth, []object.Object{right}, token)
 				} else {
-					return object.NewError(constants.TypeError, constants.EvalExpressionsStrAttrNotCallable, dunderName)
+					// If it's an unbound function (e.g., from Class attribute lookup), treat as NotImplemented
+					result = object.NOT_IMPLEMENTED
 				}
 				if result != object.NOT_IMPLEMENTED {
 					return result
@@ -239,7 +240,7 @@ func evalInOperator(left, right object.Object, token lexer.Token, ctx *Interpret
 			} else if boundInstanceMethod, isBound := containsMethodObj.(*object.BoundMethod); isBound {
 				result = object.ApplyBoundMethod(ctx, boundInstanceMethod, []object.Object{left}, token)
 			} else {
-				return object.NewError(constants.TypeError, constants.EvalExpressionsStrAttrNotCallable, containsMethodObj.Type())
+				return object.NewError(constants.TypeError, constants.EvalExpressionsStrAttrNotCallable, constants.DunderContains, containsMethodObj.Type())
 			}
 			if object.IsError(result) {
 				return result
