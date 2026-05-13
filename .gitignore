@@ -7,10 +7,12 @@ builds/
 bin/
 lib/
 .windows_deps/
+vscode-ext/dist/
 vscode-ext/node_modules/
 vscode-ext/package-lock.json
 node_modules/
 package-lock.json
+swalang-vscode-0.0.1.vsix
 
 # Other
 .vscode/

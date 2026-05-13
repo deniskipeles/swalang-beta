@@ -1,15 +1,44 @@
 const path = require('path');
+const fs = require('fs');
+const vscode = require('vscode');
 const { LanguageClient } = require('vscode-languageclient/node');
 
 let client;
+let outputChannel;
 
 function activate(context) {
-    console.log('Starting Swalang LSP...');
+    outputChannel = vscode.window.createOutputChannel("Swalang LSP");
+    outputChannel.appendLine('Starting Swalang LSP Extension...');
 
-    // Point this to your compiled binary!
-    // Since vscode-ext is inside swalang-beta, we go up one directory to builds/
-    const serverPath = path.join(__dirname, '..', 'builds', 'swalang-lsp'); 
-    // On Windows use: 'swalang-lsp.exe'
+    // 1. Determine Binary Path
+    let swalangPath = process.env.SWALANG_PATH;
+    
+    // Cloud IDE Fallback for Lightning.ai
+    if (!swalangPath) {
+        outputChannel.appendLine('SWALANG_PATH not found. Trying cloud IDE fallback...');
+        const cloudFallback = '/teamspace/studios/this_studio/swalang-beta/builds/linux-x86_64/bin';
+        if (fs.existsSync(cloudFallback)) {
+            swalangPath = cloudFallback;
+        }
+    }
+
+    if (!swalangPath) {
+        vscode.window.showErrorMessage("Swalang LSP: SWALANG_PATH is not set and fallback failed.");
+        outputChannel.appendLine("ERROR: Binary path not found.");
+        return;
+    }
+
+    const isWindows = process.platform === 'win32';
+    const binaryName = isWindows ? 'swalang-lsp.exe' : 'swalang-lsp';
+    const serverPath = path.join(swalangPath, binaryName);
+
+    outputChannel.appendLine(`Resolved LSP Binary: ${serverPath}`);
+
+    if (!fs.existsSync(serverPath)) {
+        vscode.window.showErrorMessage(`Swalang LSP: Binary not found at ${serverPath}`);
+        outputChannel.appendLine("ERROR: Executable does not exist on disk.");
+        return;
+    }
 
     const serverOptions = {
         command: serverPath,
@@ -17,8 +46,8 @@ function activate(context) {
     };
 
     const clientOptions = {
-        // Trigger this LSP on our custom language ID
-        documentSelector: [{ scheme: 'file', language: 'swalang' }]
+        documentSelector: [{ scheme: 'file', language: 'swalang' }],
+        outputChannel: outputChannel, // Pipe all extension logs here
     };
 
     client = new LanguageClient(
@@ -29,6 +58,7 @@ function activate(context) {
     );
 
     client.start();
+    outputChannel.appendLine('LSP Client started successfully.');
 }
 
 function deactivate() {

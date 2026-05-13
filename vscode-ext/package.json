@@ -2,23 +2,34 @@
   "name": "swalang-vscode",
   "displayName": "Swalang LSP",
   "version": "0.0.1",
+  "publisher": "swalang-team",
+  "icon": "logo.png",
   "engines": {
     "vscode": "^1.75.0"
   },
   "activationEvents": [
     "onLanguage:swalang"
   ],
-  "main": "./extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "languages": [
       {
         "id": "swalang",
         "aliases": ["Swalang"],
-        "extensions": [".swa", ".py"]
+        "extensions": [".swa", ".sw"]
       }
     ]
   },
+  "scripts": {
+    "build": "esbuild ./extension.js --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "package": "vsce package"
+  },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.19.11"
   }
 }

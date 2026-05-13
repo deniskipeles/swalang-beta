@@ -32,6 +32,10 @@ CGO_CFLAGS="-I$PROJECT_ROOT/.deps/out_linux_gnu/include" \
 CGO_LDFLAGS="-L$PROJECT_ROOT/.deps/out_linux_gnu/lib" \
 go build -tags="$TAGS" -ldflags="-s -w" -o "$LINUX_DIR/bin/$OUTPUT_BASE_NAME" "$PACKAGE_PATH"
 
+# Build LSP and Setup Tool
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags="$TAGS" -ldflags="-s -w" -o "$LINUX_DIR/bin/swalang-lsp" "cmd/lsp/main.go"
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o "$LINUX_DIR/bin/set-swalang" "cmd/set-swalang/main.go"
+
 # Copy shared libs & stdlib into production structure
 cp -r bin/x86_64-linux/* "$LINUX_DIR/lib/" 2>/dev/null || true
 cp -r stdlib/* "$LINUX_DIR/stdlib/" 2>/dev/null || true
@@ -49,6 +53,10 @@ CXX="zig c++ -target x86_64-windows-gnu" \
 CGO_CFLAGS="-I$PROJECT_ROOT/.deps/out_windows/include" \
 CGO_LDFLAGS="-L$PROJECT_ROOT/.deps/out_windows/lib" \
 go build -tags="$TAGS" -ldflags="-s -w" -o "$WIN_DIR/bin/${OUTPUT_BASE_NAME}.exe" "$PACKAGE_PATH"
+
+# Build LSP and Setup Tool
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags="$TAGS" -ldflags="-s -w" -o "$WIN_DIR/bin/swalang-lsp.exe" "cmd/lsp/main.go"
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o "$WIN_DIR/bin/set-swalang.exe" "cmd/set-swalang/main.go"
 
 # Copy shared libs & stdlib into production structure
 cp -r bin/x86_64-windows-gnu/* "$WIN_DIR/lib/" 2>/dev/null || true
