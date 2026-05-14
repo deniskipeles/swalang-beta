@@ -1,77 +1,86 @@
-name: Build and Release Swalang
+name: Build Swalang
 
 on:
   push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: write
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  build-and-release:
-    name: Build Swalang Release
-    runs-on: ubuntu-latest
-    
+  build:
+    name: Build Swalang & Dependencies
+    runs-on: ubuntu-22.04
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23.0'
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23.0'
 
-      - name: Setup Zig (For Cross-Compilation)
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.13.0
+    - name: Setup Node.js (For VSCode Extension)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential curl tar zip perl
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential curl wget tar zip
 
-      - name: Build Shared Extensions (Standard)
-        run: |
-          chmod +x scripts/build-shared-libs.sh
-          bash scripts/build-shared-libs.sh
+    - name: Install Zig
+      run: bash scripts/setup/install-zig.sh
 
-      - name: Build MbedTLS Extension
-        run: |
-          chmod +x scripts/build-mbedtls.sh
-          bash scripts/build-mbedtls.sh
+    - name: Cross-Compile LibFFI
+      run: bash scripts/setup/cross-compile-libffi.sh
 
-      - name: Build Swalang Interpreter
-        run: |
-          chmod +x scripts/setup/cross-compile-libffi.sh
-          chmod +x scripts/build-interpreter.sh
-          bash scripts/build-interpreter.sh
+    - name: Build Standard Shared Libraries
+      run: bash scripts/build-shared-libs.sh
 
-      - name: Package Artifacts
-        run: |
-          cd builds
-          zip -r swalang-linux-x86_64.zip linux-x86_64/
-          zip -r swalang-windows-x86_64.zip win64-x86_64/
+    - name: Build UI Libraries (LVGL, SDL2, Nuklear)
+      run: bash scripts/build-ui-libs.sh
 
-      - name: Upload Linux Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: swalang-linux
-          path: builds/swalang-linux-x86_64.zip
+    - name: Build Swalang Interpreter
+      run: bash scripts/build-interpreter.sh
 
-      - name: Upload Windows Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: swalang-windows
-          path: builds/swalang-windows-x86_64.zip
+    - name: Build VSCode Extension
+      run: |
+        cd vscode-ext
+        npm install
+        npm run build
+        npm run package
+        cd ..
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            builds/swalang-linux-x86_64.zip
-            builds/swalang-windows-x86_64.zip
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+    - name: Package Release Artifacts
+      run: |
+        mkdir -p release_artifacts
+        
+        # Package Linux Build
+        tar -czvf release_artifacts/swalang-linux-x86_64.tar.gz -C builds/linux-x86_64 .
+        
+        # Package Windows Build
+        cd builds/win64-x86_64
+        zip -r ../../release_artifacts/swalang-windows-x86_64.zip ./*
+        cd ../..
+        
+        # Copy VSCode Extension into the release artifacts
+        cp vscode-ext/*.vsix release_artifacts/
+
+    - name: Upload Artifacts to GitHub Actions
+      uses: actions/upload-artifact@v4
+      with:
+        name: swalang-build-artifacts
+        path: release_artifacts/*
+
+    - name: Publish to GitHub Releases (Tags Only)
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: release_artifacts/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

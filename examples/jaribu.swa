@@ -40,6 +40,3 @@ def ws_handler(conn, event, msg):
 
 # This will block the thread forever, answering requests
 app.run()
-
-for x in range(1, 2):
-pass

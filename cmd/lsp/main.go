@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/deniskipeles/pylearn/internal/builtins"
+	"github.com/deniskipeles/pylearn/internal/constants"
 	"github.com/deniskipeles/pylearn/internal/lexer"
 	"github.com/deniskipeles/pylearn/internal/parser"
 )
@@ -22,7 +24,6 @@ type Message struct {
 	Params json.RawMessage `json:"params,omitempty"`
 }
 
-// Params for textDocument/didOpen and textDocument/didChange
 type DidOpenTextDocumentParams struct {
 	TextDocument struct {
 		URI  string `json:"uri"`
@@ -58,7 +59,7 @@ type CompletionParams struct {
 
 type CompletionItem struct {
 	Label  string `json:"label"`
-	Kind   int    `json:"kind"` // 3=Function, 6=Variable, 14=Keyword, etc.
+	Kind   int    `json:"kind"` // 3=Function, 6=Variable, 14=Keyword
 	Detail string `json:"detail,omitempty"`
 }
 
@@ -67,7 +68,6 @@ type CompletionList struct {
 	Items        []CompletionItem `json:"items"`
 }
 
-// Notification payload to send Diagnostics (Parser Errors)
 type PublishDiagnosticsParams struct {
 	URI         string       `json:"uri"`
 	Diagnostics []Diagnostic `json:"diagnostics"`
@@ -90,23 +90,24 @@ type Position struct {
 	Character int `json:"character"`
 }
 
+var documentCache = make(map[string]string)
+
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		// 1. Read LSP Header (Content-Length: X)
 		var length int
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
-					return // IDE closed the connection
+					return
 				}
 				panic(err)
 			}
 			line = strings.TrimSpace(line)
 			if line == "" {
-				break // End of headers
+				break
 			}
 			if strings.HasPrefix(line, "Content-Length:") {
 				parts := strings.Split(line, ":")
@@ -120,25 +121,17 @@ func main() {
 			continue
 		}
 
-		// 2. Read the JSON Payload
 		buf := make([]byte, length)
-		_, err := io.ReadFull(reader, buf)
-		if err != nil {
-			panic(err)
-		}
+		io.ReadFull(reader, buf)
 
 		var msg Message
-		if err := json.Unmarshal(buf, &msg); err != nil {
-			continue
-		}
+		json.Unmarshal(buf, &msg)
 
-		// 3. Route the message
 		switch msg.Method {
 		case "initialize":
-			// Acknowledge initialization
 			sendResponse(msg.ID, map[string]interface{}{
 				"capabilities": map[string]interface{}{
-					"textDocumentSync": 1, // Full document sync for now
+					"textDocumentSync": 1,
 					"semanticTokensProvider": map[string]interface{}{
 						"legend": map[string]interface{}{
 							"tokenTypes": []string{
@@ -154,17 +147,6 @@ func main() {
 					},
 				},
 			})
-		case "textDocument/completion":
-			var params CompletionParams
-			json.Unmarshal(msg.Params, &params)
-			sendResponse(msg.ID, provideCompletions(params.TextDocument.URI, params.Position))
-		case "textDocument/semanticTokens/full":
-			var params SemanticTokensParams
-			json.Unmarshal(msg.Params, &params)
-			// Send back syntax highlighting data
-			sendResponse(msg.ID, SemanticTokensResponse{
-				Data: provideSemanticTokens(params.TextDocument.URI),
-			})
 		case "textDocument/didOpen":
 			var params DidOpenTextDocumentParams
 			json.Unmarshal(msg.Params, &params)
@@ -175,129 +157,157 @@ func main() {
 			if len(params.ContentChanges) > 0 {
 				lintDocument(params.TextDocument.URI, params.ContentChanges[0].Text)
 			}
+		case "textDocument/semanticTokens/full":
+			var params SemanticTokensParams
+			json.Unmarshal(msg.Params, &params)
+			sendResponse(msg.ID, SemanticTokensResponse{
+				Data: provideSemanticTokens(params.TextDocument.URI),
+			})
+		case "textDocument/completion":
+			var params CompletionParams
+			json.Unmarshal(msg.Params, &params)
+			sendResponse(msg.ID, provideCompletions(params.TextDocument.URI, params.Position))
 		}
 	}
 }
 
 func lintDocument(uri string, text string) {
-	// Cache the text for the semantic token request
 	documentCache[uri] = text
-
-	// Re-use our robust Lexer and Parser!
 	l := lexer.New(text)
 	p := parser.New(l)
-	p.ParseProgram() // We don't need the AST yet, just the errors
+	p.ParseProgram()
 
-	// Regex to extract line and column from Pylearn parser errors (e.g. "line 46:9: ...")
 	re := regexp.MustCompile(`line (\d+):(\d+):? (.*)`)
-
 	var diagnostics []Diagnostic
 	for _, errStr := range p.Errors() {
-		line := 0
-		col := 0
+		line, col := 0, 0
 		msg := errStr
 
 		if matches := re.FindStringSubmatch(errStr); len(matches) >= 4 {
-			parsedLine, _ := strconv.Atoi(matches[1])
-			parsedCol, _ := strconv.Atoi(matches[2])
-			// LSP is 0-indexed, so we subtract 1
-			if parsedLine > 0 { line = parsedLine - 1 }
-			if parsedCol > 0 { col = parsedCol - 1 }
+			l, _ := strconv.Atoi(matches[1])
+			c, _ := strconv.Atoi(matches[2])
+			if l > 0 { line = l - 1 }
+			if c > 0 { col = c - 1 }
 			msg = strings.TrimSpace(matches[3])
 		}
 
-		diag := Diagnostic{
+		diagnostics = append(diagnostics, Diagnostic{
 			Range: Range{
 				Start: Position{Line: line, Character: col},
-				// Highlight approx 5 characters from the error start
-				End:   Position{Line: line, Character: col + 5}, 
+				End:   Position{Line: line, Character: col + 5},
 			},
-			Severity: 1, // 1 = Error
+			Severity: 1,
 			Source:   "swalang",
 			Message:  msg,
-		}
-		diagnostics = append(diagnostics, diag)
+		})
 	}
-
-	sendNotification("textDocument/publishDiagnostics", PublishDiagnosticsParams{
-		URI:         uri,
-		Diagnostics: diagnostics,
-	})
+	sendNotification("textDocument/publishDiagnostics", PublishDiagnosticsParams{URI: uri, Diagnostics: diagnostics})
 }
 
-// provideCompletions supplies autocomplete suggestions
 func provideCompletions(uri string, pos Position) CompletionList {
-	items := []CompletionItem{
-		// Keywords
-		{Label: "def", Kind: 14, Detail: "Define function"},
-		{Label: "class", Kind: 14, Detail: "Define class"},
-		{Label: "return", Kind: 14, Detail: "Return statement"},
-		{Label: "import", Kind: 14, Detail: "Import module"},
-		{Label: "if", Kind: 14}, {Label: "elif", Kind: 14}, {Label: "else", Kind: 14},
-		{Label: "for", Kind: 14}, {Label: "while", Kind: 14}, {Label: "in", Kind: 14},
-		{Label: "try", Kind: 14}, {Label: "except", Kind: 14}, {Label: "finally", Kind: 14},
-		{Label: "async", Kind: 14}, {Label: "await", Kind: 14},
-
-		// Built-ins
-		{Label: "print", Kind: 3, Detail: "print(*args)"},
-		{Label: "len", Kind: 3, Detail: "len(object)"},
-		{Label: "type", Kind: 3, Detail: "type(object)"},
-		{Label: "format_str", Kind: 3, Detail: "Format string like f\"\""},
-		{Label: "int", Kind: 3}, {Label: "float", Kind: 3}, {Label: "str", Kind: 3},
-		{Label: "list", Kind: 3}, {Label: "dict", Kind: 3}, {Label: "set", Kind: 3},
-		{Label: "range", Kind: 3},
-	}
-
-	// Basic dynamic extraction of local variables from the document
 	text := documentCache[uri]
-	l := lexer.New(text)
-	seen := make(map[string]bool)
+	lines := strings.Split(text, "\n")
+	
+	isDotCompletion := false
 
-	for {
-		tok := l.NextToken()
-		if tok.Type == lexer.EOF {
-			break
-		}
-		if tok.Type == lexer.IDENT {
-			// Don't add if it's already in our static list
-			if !seen[tok.Literal] {
-				seen[tok.Literal] = true
-				items = append(items, CompletionItem{
-					Label:  tok.Literal,
-					Kind:   6, // 6 = Variable
-					Detail: "Local identifier",
-				})
+	// Check if we are doing a dot completion
+	if pos.Line < len(lines) {
+		lineText := lines[pos.Line]
+		if pos.Character > 0 && pos.Character <= len(lineText) {
+			cursorStr := lineText[:pos.Character]
+			if strings.HasSuffix(cursorStr, ".") {
+				isDotCompletion = true
 			}
 		}
 	}
 
-	return CompletionList{
-		IsIncomplete: false,
-		Items:        items,
-	}
-}
+	var items []CompletionItem
 
-// Global cache to hold the latest document text for semantic tokens
-var documentCache = make(map[string]string)
+	if isDotCompletion {
+		// DOT COMPLETION (Attributes & Methods)
+		// We provide standard types methods and magic methods.
+		methods := []string{
+			"append", "pop", "remove", "insert", "index", "count", "extend", // Lists
+			"upper", "lower", "split", "join", "strip", "replace", "format", // Strings
+			"keys", "values", "items", "get", "update",                      // Dicts
+			"add", "discard", "union", "difference",                         // Sets
+			"close", "read", "write", "readlines",                           // Files
+		}
+		for _, m := range methods {
+			items = append(items, CompletionItem{Label: m, Kind: 3, Detail: "Method"})
+		}
+		
+		// Add dunder methods dynamically
+		dunders := []string{constants.DunderInit, constants.DunderStr, constants.DunderLen, constants.DunderCall}
+		for _, d := range dunders {
+			items = append(items, CompletionItem{Label: d, Kind: 3, Detail: "Magic Method"})
+		}
+	} else {
+		// STANDARD COMPLETION (Keywords, Builtins, Locals)
+
+		// 1. Dynamic Keywords (From currently compiled language tags)
+		for kw := range lexer.GetKeywords() {
+			items = append(items, CompletionItem{Label: kw, Kind: 14, Detail: "Keyword"})
+		}
+
+		// 2. Dynamic Built-in Functions
+		for name := range builtins.Builtins {
+			items = append(items, CompletionItem{Label: name, Kind: 3, Detail: "Built-in Function"})
+		}
+
+		// 3. Document Local Variables & Functions
+		l := lexer.New(text)
+		seen := make(map[string]bool)
+		for {
+			tok := l.NextToken()
+			if tok.Type == lexer.EOF {
+				break
+			}
+			if tok.Type == lexer.IDENT {
+				if !seen[tok.Literal] {
+					seen[tok.Literal] = true
+					// Don't duplicate builtins or keywords
+					if _, isBuiltin := builtins.Builtins[tok.Literal]; !isBuiltin {
+						if _, isKeyword := lexer.GetKeywords()[tok.Literal]; !isKeyword {
+							items = append(items, CompletionItem{
+								Label:  tok.Literal,
+								Kind:   6, // Variable
+								Detail: "Local symbol",
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return CompletionList{IsIncomplete: false, Items: items}
+}
 
 func provideSemanticTokens(uri string) []int {
 	text := documentCache[uri]
 	l := lexer.New(text)
-
 	var data []int
-	prevLine := 0
-	prevChar := 0
+	prevLine, prevChar := 0, 0
 
 	for {
 		tok := l.NextToken()
-		if tok.Type == lexer.EOF {
-			break
+		if tok.Type == lexer.EOF { break }
+
+		tokenType := -1
+		if _, ok := lexer.GetKeywords()[tok.Literal]; ok {
+			tokenType = 0 // Keyword
+		} else {
+			switch tok.Type {
+			case lexer.IDENT: tokenType = 2
+			case lexer.STRING, lexer.FSTRING, lexer.BYTES: tokenType = 3
+			case lexer.INT, lexer.FLOAT: tokenType = 4
+			case lexer.ASSIGN, lexer.PLUS, lexer.MINUS, lexer.ASTERISK, lexer.SLASH, lexer.EQ, lexer.DOT: tokenType = 5
+			case lexer.COMMENT: tokenType = 6
+			}
 		}
 
-		tokenType := getLspTokenType(tok.Type)
-		if tokenType == -1 {
-			continue // Skip tokens we don't highlight
-		}
+		if tokenType == -1 { continue }
 
 		line := tok.Line - 1
 		char := tok.Column - 1
@@ -306,61 +316,22 @@ func provideSemanticTokens(uri string) []int {
 
 		deltaLine := line - prevLine
 		deltaChar := char
-		if deltaLine == 0 {
-			deltaChar = char - prevChar
-		}
+		if deltaLine == 0 { deltaChar = char - prevChar }
 
-		// Ensure no negative deltas
-		if deltaLine < 0 || deltaChar < 0 {
-			continue
-		}
-
-		length := len(tok.Literal)
-
-		data = append(data, deltaLine, deltaChar, length, tokenType, 0)
-
-		prevLine = line
-		prevChar = char
+		if deltaLine < 0 || deltaChar < 0 { continue }
+		data = append(data, deltaLine, deltaChar, len(tok.Literal), tokenType, 0)
+		prevLine, prevChar = line, char
 	}
-
 	return data
 }
 
-func getLspTokenType(t lexer.TokenType) int {
-	switch t {
-	case lexer.FUNCTION, lexer.IF, lexer.ELSE, lexer.ELIF, lexer.RETURN, lexer.FOR, lexer.WHILE, lexer.IN, lexer.CLASS, lexer.IMPORT, lexer.FROM, lexer.AS, lexer.TRY, lexer.EXCEPT, lexer.FINALLY, lexer.RAISE, lexer.PASS, lexer.BREAK, lexer.CONTINUE, lexer.YIELD, lexer.ASYNC, lexer.AWAIT, lexer.WITH, lexer.GLOBAL, lexer.DEL, lexer.ASSERT, lexer.IS, lexer.NOT, lexer.AND, lexer.OR, lexer.TRUE, lexer.FALSE, lexer.NIL:
-		return 0 // keyword
-	case lexer.IDENT:
-		return 2 // variable
-	case lexer.STRING, lexer.FSTRING, lexer.BYTES:
-		return 3 // string
-	case lexer.INT, lexer.FLOAT:
-		return 4 // number
-	case lexer.ASSIGN, lexer.PLUS, lexer.MINUS, lexer.ASTERISK, lexer.SLASH, lexer.EQ, lexer.NOT_EQ, lexer.LT, lexer.GT, lexer.LT_EQ, lexer.GT_EQ, lexer.POW, lexer.FLOOR_DIV, lexer.PERCENT:
-		return 5 // operator
-	case lexer.COMMENT:
-		return 6 // comment
-	default:
-		return -1 // skip
-	}
-}
-
-// Helper to write RPC responses back to stdout
 func sendResponse(id *int, result interface{}) {
-	payload := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      id,
-		"result":  result,
-	}
+	payload := map[string]interface{}{"jsonrpc": "2.0", "id": id, "result": result}
 	send(payload)
 }
 
 func sendNotification(method string, params interface{}) {
-	payload := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"method":  method,
-		"params":  params,
-	}
+	payload := map[string]interface{}{"jsonrpc": "2.0", "method": method, "params": params}
 	send(payload)
 }
 

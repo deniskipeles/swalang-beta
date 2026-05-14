@@ -137,6 +137,11 @@ const (
 	LAMBDA  TokenType = constants.LexerTokenTypeLambda
 )
 
+// GetKeywords returns the active keyword map for the LSP
+func GetKeywords() map[string]TokenType {
+	return keywords
+}
+
 // keywords map - REMOVE the "print" entry
 var keywords = map[string]TokenType{
 	constants.LexerKeywordDef:      FUNCTION,
