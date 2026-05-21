@@ -3,9 +3,6 @@ package object
 import (
 	"fmt"
 	"strings"
-	// "bytes"
-	// "hash/fnv"
-
 	"github.com/deniskipeles/pylearn/internal/constants"
 )
 
@@ -240,11 +237,6 @@ type BoundMethod struct {
 
 func (bm *BoundMethod) Type() ObjectType { return BOUND_METHOD_OBJ }
 
-// func (bm *BoundMethod) Inspect() string { /* ... keep inspect logic ... */
-//
-//		instanceInspect := "<unknown instance>"; if bm.Instance != nil { instanceInspect = bm.Instance.Inspect() }; methodName := bm.Method.Name; if methodName == "" { methodName = "<method>" }; className := "<ClassName>"; if inst, ok := bm.Instance.(*Instance); ok { className = inst.Class.Name }; return fmt.Sprintf("<bound method %s.%s of %s>", className, methodName, instanceInspect)
-//	}
-//
 // BoundMethod: No change needed to its structure.
 // Its `Instance` field is already object.Object, so it can hold an *object.Class.
 // Its Inspect method may need a slight tweak if Instance is a Class.
