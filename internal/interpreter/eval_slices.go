@@ -39,10 +39,10 @@ func calculateSliceBounds(node *ast.SliceExpression, seqLen int64, ctx *Interpre
 		if stepInt, ok := stepObj.(*object.Integer); ok {
 			step = stepInt.Value
 			if step == 0 {
-				return 0, 0, 0, object.NewError(constants.ValueError, "slice step cannot be zero")
+				return 0, 0, 0, object.NewError(constants.ValueError, constants.InterpreterEvalSlicesStepCannotBeZeroError)
 			}
 		} else if stepObj != object.NULL {
-			return 0, 0, 0, object.NewError(constants.TypeError, "slice indices must be integers")
+			return 0, 0, 0, object.NewError(constants.TypeError, constants.InterpreterEvalSliceIndicesMustBeIntegersError)
 		}
 	}
 
@@ -62,7 +62,7 @@ func calculateSliceBounds(node *ast.SliceExpression, seqLen int64, ctx *Interpre
 		if startInt, ok := startObj.(*object.Integer); ok {
 			start = startInt.Value
 		} else if startObj != object.NULL {
-			return 0, 0, 0, object.NewError(constants.TypeError, "slice indices must be integers")
+			return 0, 0, 0, object.NewError(constants.TypeError, constants.InterpreterEvalSliceIndicesMustBeIntegersError)
 		}
 	}
 
@@ -73,7 +73,7 @@ func calculateSliceBounds(node *ast.SliceExpression, seqLen int64, ctx *Interpre
 		if stopInt, ok := stopObj.(*object.Integer); ok {
 			stop = stopInt.Value
 		} else if stopObj != object.NULL {
-			return 0, 0, 0, object.NewError(constants.TypeError, "slice indices must be integers")
+			return 0, 0, 0, object.NewError(constants.TypeError, constants.InterpreterEvalSliceIndicesMustBeIntegersError)
 		}
 	}
 

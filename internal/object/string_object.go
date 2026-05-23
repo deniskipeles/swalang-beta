@@ -93,7 +93,6 @@ func (s *String) GetObjectAttribute(ctx ExecutionContext, name string) (Object, 
 		return makeStringMethod(constants.DunderMul, pyStringMulFn), true
 	case constants.DunderRMul: // For `int * str`
 		return makeStringMethod(constants.DunderRMul, pyStringMulFn), true
-		// __add__ is handled by the infix operator logic usually, but can be added here if needed for explicit calls.
 	}
 	return nil, false
 }
@@ -121,7 +120,6 @@ func (s *String) GetObjectItem(key Object) Object {
 }
 
 // TODO: String Attribute Access (e.g., .upper(), .lower(), .split())
-// func (s *String) GetObjectAttribute(name string) (Object, bool) { ... }
 var _ Object = (*String)(nil)
 var _ Hashable = (*String)(nil)
 var _ ItemGetter = (*String)(nil) // String implements item getting
@@ -138,7 +136,7 @@ func pyStringMulFn(ctx ExecutionContext, args ...Object) Object {
 	if !okStr || !okInt {
 		// This path should ideally not be taken if the infix evaluation logic is correct,
 		// but serves as a safeguard.
-		return NewError(constants.TypeError, "unsupported operand type(s) for *: '%s' and '%s'", args[0].Type(), args[1].Type())
+		return NewError(constants.TypeError, constants.STRING_MUL_OPERAND_TYPE_ERROR, args[0].Type(), args[1].Type())
 	}
 
 	count := int(countObj.Value)
@@ -162,12 +160,6 @@ func pyStringEncodeFn(ctx ExecutionContext, args ...Object) Object {
 	if !ok {
 		return NewError(constants.TypeError, constants.STRING_ENCODE_ON_STRING_ERROR)
 	}
-
-	// For now, we only support utf-8 and will ignore the encoding argument.
-	// A full implementation would check args[1] if it exists.
-	// if len(args) > 1 {
-	//   // check encoding type and value
-	// }
 
 	return &Bytes{Value: []byte(selfStr.Value)}
 }
@@ -195,7 +187,7 @@ func pyStringSplitFn(ctx ExecutionContext, args ...Object) Object {
 	}
 
 	// Process separator
-	var sepArg string = constants.EmptyString // Empty string means split by whitespace (special case for strings.Fields)
+	var sepArg string = constants.EmptyString // Empty string means split by whitespace
 	sepIsNone := true                         // Python's default split by whitespace
 	if sepOpt != nil && sepOpt != NULL {
 		sepStr, okSep := sepOpt.(*String)
@@ -223,12 +215,10 @@ func pyStringSplitFn(ctx ExecutionContext, args ...Object) Object {
 		if maxsplitArg == -1 {
 			result = strings.Fields(source)
 		} else {
-			// strings.Fields doesn't support maxsplit. We need to emulate.
-			// This is a simplified emulation. A more robust one handles consecutive whitespace correctly.
 			tempResult := strings.Fields(source)
 			if maxsplitArg >= 0 && len(tempResult) > maxsplitArg {
 				// Join the remaining parts
-				lastPart := strings.Join(tempResult[maxsplitArg:], constants.Space) // This assumes single space original separator
+				lastPart := strings.Join(tempResult[maxsplitArg:], constants.Space)
 				result = append(tempResult[:maxsplitArg], lastPart)
 			} else {
 				result = tempResult
@@ -289,7 +279,6 @@ func pyStringJoinFn(ctx ExecutionContext, args ...Object) Object {
 			elementsToJoin[i] = itemStr.Value
 		}
 	default:
-		// TODO: Support generic iterables by using the iterator protocol
 		return NewError(constants.TypeError, constants.STRING_JOIN_ITERABLE_TYPE_ERROR, iterable.Type())
 	}
 
@@ -365,7 +354,6 @@ func pyStringStartswithFn(ctx ExecutionContext, args ...Object) Object {
 
 	prefixStr, okPrefix := args[1].(*String)
 	if !okPrefix {
-		// Python allows tuple of strings for prefix, not implemented here yet
 		return NewError(constants.TypeError, constants.STRING_STARTSWITH_PREFIX_TYPE_ERROR, args[1].Type())
 	}
 
@@ -534,9 +522,6 @@ func pyStringFindFn(ctx ExecutionContext, args ...Object) Object {
 	sourceVal := selfStr.Value // Use the full string for Index
 	targetSub := subStr.Value
 
-	// Python's find operates on the substring defined by start/end
-	// strings.Index operates on the full string, so we slice first
-
 	runes := []rune(sourceVal)
 	startIdx, endIdx := 0, len(runes)
 
@@ -564,7 +549,7 @@ func pyStringFindFn(ctx ExecutionContext, args ...Object) Object {
 	}
 	if startIdx > len(runes) {
 		startIdx = len(runes)
-	} // Can be len, results in empty slice
+	}
 
 	if endIdx < 0 {
 		endIdx = len(runes) + endIdx
@@ -579,7 +564,7 @@ func pyStringFindFn(ctx ExecutionContext, args ...Object) Object {
 	if startIdx > endIdx || startIdx == len(runes) { // If slice is empty or start is beyond end
 		if targetSub == constants.EmptyString {
 			return &Integer{Value: int64(startIdx)}
-		} // "" is found at startIdx if slice is valid but empty
+		}
 		return &Integer{Value: -1}
 	}
 
@@ -589,7 +574,7 @@ func pyStringFindFn(ctx ExecutionContext, args ...Object) Object {
 	if idxInSlice == -1 {
 		return &Integer{Value: -1}
 	}
-	return &Integer{Value: int64(startIdx + idxInSlice)} // Adjust index relative to original string
+	return &Integer{Value: int64(startIdx + idxInSlice)}
 }
 
 // pyStringLenFn implements string.__len__()
@@ -600,7 +585,7 @@ func pyStringLenFn(ctx ExecutionContext, args ...Object) Object {
 	}
 	if len(args) != 1 {
 		return NewError(constants.TypeError, constants.LIST_LEN_ON_LIST_ERROR)
-	} // Reusing for now
+	}
 	return &Integer{Value: int64(utf8.RuneCountInString(selfStr.Value))}
 }
 
@@ -612,7 +597,7 @@ func pyStringContainsFn(ctx ExecutionContext, args ...Object) Object {
 	}
 	if len(args) != 2 {
 		return NewError(constants.TypeError, constants.LIST_CONTAINS_ARG_COUNT_ERROR)
-	} // Reusing for now
+	}
 
 	subObj, okSub := args[1].(*String)
 	if !okSub {
@@ -623,12 +608,8 @@ func pyStringContainsFn(ctx ExecutionContext, args ...Object) Object {
 }
 
 // pyStringFormatFn implements string.format(*args, **kwargs)
-// Simplified version: only positional {} and {index} placeholders. No kwargs, no complex format specifiers.
 func pyStringFormatFn(ctx ExecutionContext, args ...Object) Object {
-	// args[0] is self (the String object to format)
-	// args[1:] are the values to format into the string
 	if len(args) < 1 {
-		// This should ideally not happen if called as a method, 'self' is always prepended.
 		return NewError(constants.InternalError, constants.STRING_FORMAT_ARG_COUNT_ERROR)
 	}
 	selfStr, ok := args[0].(*String)
@@ -636,10 +617,10 @@ func pyStringFormatFn(ctx ExecutionContext, args ...Object) Object {
 		return NewError(constants.TypeError, constants.STRING_FORMAT_ON_STRING_ERROR)
 	}
 
-	formatArgs := args[1:] // Arguments provided to format() by the Pylearn script
+	formatArgs := args[1:]
 	source := selfStr.Value
 	var result strings.Builder
-	autoIdx := 0 // For automatic indexing with {}
+	autoIdx := 0
 
 	i := 0
 	for i < len(source) {
@@ -650,15 +631,14 @@ func pyStringFormatFn(ctx ExecutionContext, args ...Object) Object {
 				i += 2
 				continue
 			}
-			// Potential placeholder
-			i++ // Move past '{'
+			i++
 			placeholderEnd := strings.IndexByte(source[i:], byte(constants.CloseBraceRune))
 			if placeholderEnd == -1 {
 				return NewError(constants.ValueError, constants.STRING_FORMAT_SINGLE_BRACE_ERROR)
 			}
 
 			placeholderContent := source[i : i+placeholderEnd]
-			i += placeholderEnd + 1 // Move past '}'
+			i += placeholderEnd + 1
 
 			var argToFormat Object
 
@@ -669,57 +649,25 @@ func pyStringFormatFn(ctx ExecutionContext, args ...Object) Object {
 				argToFormat = formatArgs[autoIdx]
 				autoIdx++
 			} else {
-				// Try to parse as explicit index: {0}, {1}, etc.
 				idx, err := strconv.Atoi(placeholderContent)
-				if err == nil { // Successfully parsed as integer index
+				if err == nil {
 					if idx < 0 || idx >= len(formatArgs) {
 						return NewError(constants.IndexError, constants.STRING_FORMAT_INDEX_OUT_OF_RANGE, idx)
 					}
 					argToFormat = formatArgs[idx]
-					// If explicit indexing is used, automatic indexing should ideally not continue or reset.
-					// For simplicity, this version might allow mixing if not careful, Python's is stricter.
-					// Python: "cannot switch from manual field specification to automatic field numbering"
-					if autoIdx > 0 && placeholderContent != constants.EmptyString { // if autoIdx was used and now we see explicit
-						// This check is basic. Python's rule is more about the *first* one setting the mode.
-						// return NewError(constants.ValueError, "cannot switch from automatic field numbering to manual field specification")
-					}
 				} else {
-					// Placeholder content is not empty and not a simple integer index.
-					// This could be a keyword, attribute access, etc. Not supported in this simplified version.
 					return NewError(constants.ValueError, constants.STRING_FORMAT_UNSUPPORTED_PLACEHOLDER_ERROR, placeholderContent)
 				}
 			}
 
-			// Convert the Pylearn argument to its string representation
-			// We need to call the Pylearn `str()` built-in on argToFormat
-			// This requires the ExecutionContext (ctx) and access to the str built-in.
-
-			// Simplification: Use Inspect() for now.
-			// A full solution would use ctx.Execute(strBuiltin, argToFormat)
-			// (See builtins.pyPrintFn for an example of calling str() via context)
-			if argToFormat == nil { // Should not happen if formatArgs are valid Pylearn objects
+			if argToFormat == nil {
 				result.WriteString(constants.STRING_FORMAT_NIL_ARG_ERROR)
 			} else if strVal, isStr := argToFormat.(*String); isStr {
 				result.WriteString(strVal.Value)
 			} else if argToFormat == NULL {
-				result.WriteString(constants.STRING_FORMAT_NONE_KEYWORD) // Python's str(None) is "None"
+				result.WriteString(constants.STRING_FORMAT_NONE_KEYWORD)
 			} else {
-				// For other types, attempt to get their string representation via str() or Inspect()
-				// Let's use Inspect() as a fallback.
-				// To correctly use str(), the ExecutionContext (ctx) would need to be leveraged.
-				// For now, directly using Inspect might differ from Python's str() for some types.
-				// For example, str(123) is "123", my_list.Inspect() might be "[1, 2]".
-
-				// Ideal way:
-				// strBuiltin, strBuiltinFound := Builtins["str"] // Assuming Builtins is accessible
-				// if strBuiltinFound {
-				//   strResultObj := ctx.Execute(strBuiltin, argToFormat)
-				//   if IsError(strResultObj) { /* handle error from str() */ return strResultObj }
-				//   result.WriteString(strResultObj.(*String).Value)
-				// } else {
-				//   result.WriteString(argToFormat.Inspect()) // Fallback
-				// }
-				result.WriteString(argToFormat.Inspect()) // Simplified: Using Inspect directly
+				result.WriteString(argToFormat.Inspect())
 			}
 
 		} else if char == constants.CloseBraceRune {

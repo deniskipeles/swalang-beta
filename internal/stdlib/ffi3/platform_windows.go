@@ -1,5 +1,4 @@
 //go:build windows
-// pylearn/internal/stdlib/ffi3/platform_windows.go
 
 package ffi3
 
@@ -11,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/deniskipeles/pylearn/internal/constants"
 	"github.com/deniskipeles/pylearn/internal/object"
 	"github.com/deniskipeles/pylearn/internal/stdlib/platform"
 )
@@ -23,34 +23,34 @@ var (
 	addedDllDirsMu sync.Mutex
 )
 var (
-	kernel32         = syscall.NewLazyDLL("kernel32.dll")
-	procGetLastError = kernel32.NewProc("GetLastError")
+	kernel32         = syscall.NewLazyDLL(constants.PLATFORM_WINDOWS_KERNEL32_DLL)
+	procGetLastError = kernel32.NewProc(constants.FFI_WINDOWS_GET_LAST_ERR_PROC)
 )
 
 func pyGetLastError(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 0 {
-		return object.NewError("TypeError", "get_last_error() takes no arguments")
+		return object.NewError(constants.TypeError, constants.FFI_WINDOWS_GET_LAST_ERR_ARG_ERROR)
 	}
 	ret, _, _ := procGetLastError.Call()
 	return &object.Integer{Value: int64(ret)}
 }
 
 func registerPlatformSpecifics(env *object.Environment) {
-	env.Set("get_last_error", &object.Builtin{Name: "_ffi.get_last_error", Fn: pyGetLastError})
+	env.Set(constants.FFI_WINDOWS_GET_LAST_ERR_METHOD, &object.Builtin{Name: constants.FFI_WINDOWS_GET_LAST_ERR_BUILTIN, Fn: pyGetLastError})
 }
 
 func findProjectRoot() (string, bool) {
 	dir, err := os.Getwd()
 	if err != nil {
-		return "", false
+		return constants.EmptyString, false
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, constants.FFI_GO_MOD_FILE)); err == nil {
 			return dir, true
 		}
 		parentDir := filepath.Dir(dir)
 		if parentDir == dir {
-			return "", false
+			return constants.EmptyString, false
 		}
 		dir = parentDir
 	}
@@ -109,22 +109,22 @@ func findLibrary(name string) string {
 		}
 	}
 
-	var allSearchPaths[]string
+	var allSearchPaths []string
 
 	// 1. Production Layout: Resolve relative to the Swalang executable
 	if exePath, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exePath) // e.g., root-folder/bin
-		rootDir := filepath.Dir(exeDir) // e.g., root-folder
+		exeDir := filepath.Dir(exePath)       // e.g., root-folder/bin
+		rootDir := filepath.Dir(exeDir)       // e.g., root-folder
 		
 		allSearchPaths = append(allSearchPaths, exeDir)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, "lib"))...)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, "bin"))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, constants.FFI_LIB_DIR))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, constants.FFI_BIN_DIR))...)
 	}
 
 	// 2. Development Layout: Resolve via go.mod
 	if projectRoot, found := findProjectRoot(); found {
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "bin"))...)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "lib"))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, constants.FFI_BIN_DIR))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, constants.FFI_LIB_DIR))...)
 	}
 
 	for _, path := range allSearchPaths {
@@ -132,10 +132,10 @@ func findLibrary(name string) string {
 	}
 
 	for _, searchDir := range allSearchPaths {
-		possibleNames :=[]string{
+		possibleNames := []string{
 			name,
 			name + libManager.LibraryExtension(),
-			"lib" + name + libManager.LibraryExtension(),
+			constants.FFI_LIB_PREFIX + name + libManager.LibraryExtension(),
 		}
 		for _, libName := range possibleNames {
 			fullPath := filepath.Join(searchDir, libName)
@@ -145,9 +145,9 @@ func findLibrary(name string) string {
 		}
 	}
 
-	systemPaths :=[]string{
-		filepath.Join(os.Getenv("WINDIR"), "System32"),
-		filepath.Join(os.Getenv("WINDIR"), "SysWOW64"),
+	systemPaths := []string{
+		filepath.Join(os.Getenv(constants.FFI_WINDOWS_WINDIR_ENV), constants.FFI_WINDOWS_SYSTEM32_DIR),
+		filepath.Join(os.Getenv(constants.FFI_WINDOWS_WINDIR_ENV), constants.FFI_WINDOWS_SYSWOW64_DIR),
 	}
 	for _, sysPath := range systemPaths {
 		fullPath := filepath.Join(sysPath, name+libManager.LibraryExtension())
@@ -176,7 +176,7 @@ func LoadLibrary(name string) (*Library, error) {
 			handle, err = libManager.LoadLibrary(name)
 		}
 		if err != nil {
-			return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v \n(Original path error: %v)", name, err, originalErr)}
+			return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf(constants.FFI_LOAD_LIB_ERR_FORMAT, name, err, originalErr)}
 		}
 	}
 

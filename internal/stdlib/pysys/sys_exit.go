@@ -14,7 +14,7 @@ func pyExitFn(ctx object.ExecutionContext, args ...object.Object) object.Object 
 
 	if len(args) > 1 {
 		// Use object.NewError
-		return object.NewError(constants.TypeError, "sys.exit() takes at most 1 argument (%d given)", len(args))
+		return object.NewError(constants.TypeError, constants.SYS_EXIT_ARG_COUNT_ERROR, len(args))
 	}
 
 	if len(args) == 1 {
@@ -26,12 +26,8 @@ func pyExitFn(ctx object.ExecutionContext, args ...object.Object) object.Object 
 			// Python prints the argument to stderr and exits with 1 if it's not None or int
 			// For simplicity, let's just raise a TypeError
 			// Use object.NewError
-			return object.NewError(constants.TypeError, "sys.exit() argument must be an integer or None, not %s", codeArg.Type())
-			// Alternative: Print to stderr and exit(1) ?
-			// fmt.Fprintln(os.Stderr, codeArg.Inspect()) // Mimic Python printing
-			// os.Exit(1)
+			return object.NewError(constants.TypeError, constants.SYS_EXIT_ARG_TYPE_ERROR, codeArg.Type())
 		}
-		// If codeArg is object.NULL, exitCode remains 0
 	}
 
 	// --- Perform the actual exit ---

@@ -4,6 +4,8 @@ package object
 
 import (
 	"fmt"
+
+	"github.com/deniskipeles/pylearn/internal/constants"
 )
 
 const PROPERTY_OBJ ObjectType = "property"
@@ -19,14 +21,14 @@ type Property struct {
 func (p *Property) Type() ObjectType { return PROPERTY_OBJ }
 func (p *Property) Inspect() string {
 	// Provide a Python-like representation
-	return fmt.Sprintf("<property object at %p>", p)
+	return fmt.Sprintf(constants.OBJECT_PROPERTY_INSPECT_FORMAT, p)
 }
 
 // GetObjectAttribute for the Property object itself (e.g., prop.setter)
 func (p *Property) GetObjectAttribute(ctx ExecutionContext, name string) (Object, bool) {
 	makePropMethod := func(methodName string, goFn BuiltinFunction) *Builtin {
 		return &Builtin{
-			Name: "property." + methodName,
+			Name: constants.OBJECT_PROPERTY_METHOD_PREFIX + methodName,
 			Fn: func(callCtx ExecutionContext, scriptProvidedArgs ...Object) Object {
 				// Prepend `self` (the Property `p`) to the arguments
 				methodArgs := make([]Object, 0, 1+len(scriptProvidedArgs))
@@ -38,10 +40,10 @@ func (p *Property) GetObjectAttribute(ctx ExecutionContext, name string) (Object
 	}
 
 	switch name {
-	case "setter":
-		return makePropMethod("setter", pyPropertySetter), true
-	case "deleter":
-		return makePropMethod("deleter", pyPropertyDeleter), true
+	case constants.OBJECT_PROPERTY_SETTER_METHOD_NAME:
+		return makePropMethod(constants.OBJECT_PROPERTY_SETTER_METHOD_NAME, pyPropertySetter), true
+	case constants.OBJECT_PROPERTY_DELETER_METHOD_NAME:
+		return makePropMethod(constants.OBJECT_PROPERTY_DELETER_METHOD_NAME, pyPropertyDeleter), true
 	}
 	return nil, false
 }
@@ -51,15 +53,15 @@ func (p *Property) GetObjectAttribute(ctx ExecutionContext, name string) (Object
 // Pylearn: prop.setter(fset)
 func pyPropertySetter(ctx ExecutionContext, args ...Object) Object {
 	if len(args) != 2 {
-		return NewError("TypeError", "setter() takes exactly 1 argument (the setter function)")
+		return NewError(constants.TypeError, constants.OBJECT_PROPERTY_SETTER_ARG_COUNT_ERROR)
 	}
 	selfProp, ok := args[0].(*Property)
 	if !ok {
-		return NewError("TypeError", "setter must be called on a property object")
+		return NewError(constants.TypeError, constants.OBJECT_PROPERTY_SETTER_ON_NON_PROPERTY_ERROR)
 	}
 	fset := args[1]
 	if !IsCallable(fset) {
-		return NewError("TypeError", "setter argument must be a callable")
+		return NewError(constants.TypeError, constants.OBJECT_PROPERTY_SETTER_ARG_TYPE_ERROR)
 	}
 
 	// Create a *new* property object with the setter configured
@@ -75,15 +77,15 @@ func pyPropertySetter(ctx ExecutionContext, args ...Object) Object {
 // Pylearn: prop.deleter(fdel)
 func pyPropertyDeleter(ctx ExecutionContext, args ...Object) Object {
 	if len(args) != 2 {
-		return NewError("TypeError", "deleter() takes exactly 1 argument (the deleter function)")
+		return NewError(constants.TypeError, constants.OBJECT_PROPERTY_DELETER_ARG_COUNT_ERROR)
 	}
 	selfProp, ok := args[0].(*Property)
 	if !ok {
-		return NewError("TypeError", "deleter must be called on a property object")
+		return NewError(constants.TypeError, constants.OBJECT_PROPERTY_DELETER_ON_NON_PROPERTY_ERROR)
 	}
 	fdel := args[1]
 	if !IsCallable(fdel) {
-		return NewError("TypeError", "deleter argument must be a callable")
+		return NewError(constants.TypeError, constants.OBJECT_PROPERTY_DELETER_ARG_TYPE_ERROR)
 	}
 
 	// Create a *new* property object with the deleter configured

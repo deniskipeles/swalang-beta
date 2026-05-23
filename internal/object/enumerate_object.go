@@ -4,8 +4,7 @@ package object
 import (
 	"fmt"
 
-	"github.com/deniskipeles/pylearn/internal/constants" // Import the constants package
-	// "github.com/deniskipeles/pylearn/internal/lexer" // For NoToken if used
+	"github.com/deniskipeles/pylearn/internal/constants" 
 )
 
 

@@ -342,7 +342,7 @@ func (p *Parser) parseDelStatement() ast.Statement {
 	case *ast.IndexExpression:
 		// This is a valid target.
 	default:
-		p.errors = append(p.errors, fmt.Sprintf("invalid deletion target at line %d", stmt.Token.Line))
+		p.errors = append(p.errors, fmt.Sprintf(constants.ParserInvalidDeletionTargetAtLine_DIGITFORMAT, stmt.Token.Line))
 		return nil
 	}
 	return stmt
@@ -356,7 +356,7 @@ func (p *Parser) parseGlobalStatement() *ast.GlobalStatement {
 
 	// Parse the first identifier
 	if !p.curTokenIs(lexer.IDENT) {
-		p.errorExpected("identifier after 'global'", p.curToken.String())
+		p.errorExpected(constants.ParserIdentifierAfterGlobal, p.curToken.String())
 		return nil
 	}
 	stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
@@ -367,7 +367,7 @@ func (p *Parser) parseGlobalStatement() *ast.GlobalStatement {
 		p.nextToken() // Consume COMMA
 
 		if !p.curTokenIs(lexer.IDENT) {
-			p.errorExpected("identifier after comma in 'global' statement", p.curToken.String())
+			p.errorExpected(constants.ParserIdentifierAfterCommaInGlobalStatement, p.curToken.String())
 			return nil
 		}
 		stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
@@ -384,7 +384,7 @@ func (p *Parser) parseAssertStatement() *ast.AssertStatement {
 
 	stmt.Condition = p.parseExpression(LOWEST)
 	if stmt.Condition == nil {
-		p.errors = append(p.errors, "expected condition after 'assert'")
+		p.errors = append(p.errors, constants.ParserExpectedConditionAfterAssert)
 		return nil
 	}
 
@@ -395,7 +395,7 @@ func (p *Parser) parseAssertStatement() *ast.AssertStatement {
 
 		stmt.Message = p.parseExpression(LOWEST)
 		if stmt.Message == nil {
-			p.errors = append(p.errors, "expected message expression after comma in 'assert' statement")
+			p.errors = append(p.errors, constants.ParserExpectedMessageExpressionAfterCommaInAssertStatement)
 			return nil
 		}
 	}
@@ -603,7 +603,7 @@ func (p *Parser) parseImportStatement() *ast.ImportStatement {
 	// Parse the dotted module path
 	modulePath := p.parseDottedModulePath()
 	if modulePath == "" {
-		p.peekErrorMsg("module name after 'import'")
+		p.peekErrorMsg(constants.ParserModuleNameAfterImport)
 		return nil
 	}
 	// Note: p.curToken is now on the last IDENT of the module path.
@@ -616,7 +616,7 @@ func (p *Parser) parseImportStatement() *ast.ImportStatement {
 		p.nextToken() // Consume AS. curToken is now the alias identifier.
 
 		if !p.curTokenIs(lexer.IDENT) {
-			p.errorExpected("alias identifier after 'as'", p.curToken.String())
+			p.errorExpected(constants.ParserAliasIdentifierAfter_AS, p.curToken.String())
 			return nil
 		}
 		// Create an Identifier node for the alias and attach it to the statement.
@@ -1118,8 +1118,8 @@ func (p *Parser) parseFStringLiteral() ast.Expression {
 	// 1. Create the identifier for the built-in function `format_str`.
 	callName := &ast.Identifier{
 		// We can reuse the token's location info for better error reporting.
-		Token: lexer.Token{Type: lexer.IDENT, Literal: "format_str", Line: fstringToken.Line, Column: fstringToken.Column},
-		Value: "format_str",
+		Token: lexer.Token{Type: lexer.IDENT, Literal: constants.ParserFormatString, Line: fstringToken.Line, Column: fstringToken.Column},
+		Value: constants.ParserFormatString,
 	}
 
 	// 2. Create the string literal argument containing the f-string's content.
@@ -2083,7 +2083,7 @@ func (p *Parser) parseAssignExpression(left ast.Expression) ast.Expression {
 
 	// For in-place operators, the target cannot be a tuple.
 	if _, isTuple := left.(*ast.TupleLiteral); isTuple && stmt.Operator != "=" {
-		p.errors = append(p.errors, fmt.Sprintf("SyntaxError: '%s' operator cannot be used with multiple targets", stmt.Operator))
+		p.errors = append(p.errors, fmt.Sprintf(constants.ParserSyntaxErrorOperatorCannotBeUsedWithMultipleTargets, stmt.Operator))
 		return nil
 	}
 

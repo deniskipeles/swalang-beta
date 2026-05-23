@@ -1,5 +1,4 @@
 //go:build linux || darwin || windows
-// pylearn/internal/stdlib/ffi/platform/platform.go
 package platform
 
 // LibraryHandle is an opaque handle to a loaded shared library.

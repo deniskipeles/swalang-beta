@@ -134,11 +134,11 @@ func applyFunctionOrClass(
 				for {
 					if generatorCtx.InstructionPtr >= len(fn.Body.Statements) {
 						// Reached end of function without explicit return. Raise StopIteration(None).
-						stopIter := object.NewError(constants.StopIteration, "generator return")
+						stopIter := object.NewError(constants.StopIteration, constants.InterpreterApplyFunctionOrClassGeneratorReturn)
 						if stopIter.Instance == nil {
 							stopIter.Instance = &object.Instance{Class: stopIter.ErrorClass, Env: object.NewEnvironment()}
 						}
-						stopIter.Instance.Env.Set("value", object.NULL)
+						stopIter.Instance.Env.Set(constants.InterpreterApplyFunctionOrClassStopIterInstanceEnvSetValue, object.NULL)
 						return stopIter, true // End of function
 					}
 			
@@ -166,11 +166,11 @@ func applyFunctionOrClass(
 					}
 					if retVal, isReturn := result.(*object.ReturnValue); isReturn {
 						// Reached a return statement. Raise StopIteration(Return_Value).
-						stopIter := object.NewError(constants.StopIteration, "generator return")
+						stopIter := object.NewError(constants.StopIteration, constants.InterpreterApplyFunctionOrClassGeneratorReturn)
 						if stopIter.Instance == nil {
 							stopIter.Instance = &object.Instance{Class: stopIter.ErrorClass, Env: object.NewEnvironment()}
 						}
-						stopIter.Instance.Env.Set("value", retVal.Value)
+						stopIter.Instance.Env.Set(constants.InterpreterApplyFunctionOrClassStopIterInstanceEnvSetValue, retVal.Value)
 						return stopIter, true
 					}
 				}

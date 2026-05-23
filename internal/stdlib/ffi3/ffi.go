@@ -17,6 +17,7 @@ import (
 	"unicode/utf16"
 	"unsafe"
 
+	"github.com/deniskipeles/pylearn/internal/constants"
 	"github.com/deniskipeles/pylearn/internal/object"
 	"github.com/deniskipeles/pylearn/internal/stdlib/platform"
 )
@@ -43,7 +44,7 @@ type FFIError struct {
 }
 
 func (e *FFIError) Error() string {
-	return fmt.Sprintf("FFI Error: %s", e.Message)
+	return fmt.Sprintf(constants.FFI_ERR_PREFIX, e.Message)
 }
 
 // =============================================================================
@@ -66,12 +67,12 @@ type CPrimitiveType struct {
 }
 
 func (p *CPrimitiveType) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
-	if name == "Size" {
+	if name == constants.FFI_SIZE_METHOD_NAME {
 		return &object.Builtin{
-			Name: "FFIType.Size",
+			Name: constants.FFI_PRIMITIVE_SIZE_BUILTIN_NAME,
 			Fn: func(callCtx object.ExecutionContext, args ...object.Object) object.Object {
 				if len(args) != 0 {
-					return object.NewError("TypeError", "Size() takes no arguments")
+					return object.NewError(constants.TypeError, constants.FFI_SIZE_TAKES_NO_ARGS)
 				}
 				return &object.Integer{Value: int64(p.Size())}
 			},
@@ -80,8 +81,8 @@ func (p *CPrimitiveType) GetObjectAttribute(ctx object.ExecutionContext, name st
 	return nil, false
 }
 
-func (p *CPrimitiveType) Type() object.ObjectType { return "FFI_PRIMITIVE_TYPE" }
-func (p *CPrimitiveType) Inspect() string         { return fmt.Sprintf("<ffi_type %s>", p.name) }
+func (p *CPrimitiveType) Type() object.ObjectType { return constants.FFI_PRIMITIVE_TYPE_NAME }
+func (p *CPrimitiveType) Inspect() string         { return fmt.Sprintf(constants.FFI_PRIMITIVE_INSPECT, p.name) }
 func (p *CPrimitiveType) GetFFIType() *C.ffi_type { return p.ffiType }
 func (p *CPrimitiveType) Size() uintptr           { return p.size }
 func (p *CPrimitiveType) Alignment() uintptr      { return p.size }
@@ -91,53 +92,53 @@ func (p *CPrimitiveType) ToC(val object.Object, dest unsafe.Pointer) (func(), er
 	case &C.ffi_type_sint8:
 		i, ok := val.(*object.Integer)
 		if !ok {
-			return nil, fmt.Errorf("expected int, got %s", val.Type())
+			return nil, fmt.Errorf(constants.FFI_EXPECTED_INT, val.Type())
 		}
 		*(*C.schar)(dest) = C.schar(i.Value)
 	case &C.ffi_type_uint8:
 		i, ok := val.(*object.Integer)
 		if !ok {
-			return nil, fmt.Errorf("expected int, got %s", val.Type())
+			return nil, fmt.Errorf(constants.FFI_EXPECTED_INT, val.Type())
 		}
 		*(*C.uchar)(dest) = C.uchar(i.Value)
 	case &C.ffi_type_sint32:
 		i, ok := val.(*object.Integer)
 		if !ok {
-			return nil, fmt.Errorf("expected int, got %s", val.Type())
+			return nil, fmt.Errorf(constants.FFI_EXPECTED_INT, val.Type())
 		}
 		*(*C.int)(dest) = C.int(i.Value)
 	case &C.ffi_type_uint32:
 		i, ok := val.(*object.Integer)
 		if !ok {
-			return nil, fmt.Errorf("expected int, got %s", val.Type())
+			return nil, fmt.Errorf(constants.FFI_EXPECTED_INT, val.Type())
 		}
 		*(*C.uint)(dest) = C.uint(i.Value)
 	case &C.ffi_type_sint64:
 		i, ok := val.(*object.Integer)
 		if !ok {
-			return nil, fmt.Errorf("expected int, got %s", val.Type())
+			return nil, fmt.Errorf(constants.FFI_EXPECTED_INT, val.Type())
 		}
 		*(*C.longlong)(dest) = C.longlong(i.Value)
 	case &C.ffi_type_uint64:
 		i, ok := val.(*object.Integer)
 		if !ok {
-			return nil, fmt.Errorf("expected int, got %s", val.Type())
+			return nil, fmt.Errorf(constants.FFI_EXPECTED_INT, val.Type())
 		}
 		*(*C.ulonglong)(dest) = C.ulonglong(i.Value)
 	case &C.ffi_type_float:
 		f, ok := val.(*object.Float)
 		if !ok {
-			return nil, fmt.Errorf("expected float, got %s", val.Type())
+			return nil, fmt.Errorf(constants.FFI_EXPECTED_FLOAT, val.Type())
 		}
 		*(*C.float)(dest) = C.float(f.Value)
 	case &C.ffi_type_double:
 		f, ok := val.(*object.Float)
 		if !ok {
-			return nil, fmt.Errorf("expected float, got %s", val.Type())
+			return nil, fmt.Errorf(constants.FFI_EXPECTED_FLOAT, val.Type())
 		}
 		*(*C.double)(dest) = C.double(f.Value)
 	default:
-		return nil, fmt.Errorf("unsupported primitive type for marshalling: %s", p.name)
+		return nil, fmt.Errorf(constants.FFI_UNSUPPORTED_PRIMITIVE_MARSHAL, p.name)
 	}
 	return nil, nil
 }
@@ -161,7 +162,7 @@ func (p *CPrimitiveType) FromC(src unsafe.Pointer) (object.Object, error) {
 	case &C.ffi_type_double:
 		return &object.Float{Value: float64(*(*C.double)(src))}, nil
 	default:
-		return nil, fmt.Errorf("unsupported primitive type for unmarshalling: %s", p.name)
+		return nil, fmt.Errorf(constants.FFI_UNSUPPORTED_PRIMITIVE_UNMARSHAL, p.name)
 	}
 }
 
@@ -172,20 +173,20 @@ type CPointerType struct {
 }
 
 func (p *CPointerType) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
-	if name == "Size" {
+	if name == constants.FFI_SIZE_METHOD_NAME {
 		return &object.Builtin{
-			Name: "FFIPointerType.Size",
+			Name: constants.FFI_POINTER_SIZE_BUILTIN_NAME,
 			Fn: func(callCtx object.ExecutionContext, args ...object.Object) object.Object {
 				if len(args) != 0 {
-					return object.NewError("TypeError", "Size() takes no arguments")
+					return object.NewError(constants.TypeError, constants.FFI_SIZE_TAKES_NO_ARGS)
 				}
 				return &object.Integer{Value: int64(p.Size())}
 			},
 		}, true
 	}
-	if name == "__call__" {
+	if name == constants.DunderCall {
 		return &object.Builtin{
-			Name: "FFIPointerType.__call__",
+			Name: constants.FFI_POINTER_CALL_BUILTIN_NAME,
 			Fn: func(callCtx object.ExecutionContext, args ...object.Object) object.Object {
 				if len(args) == 1 {
 					// Allow instantiation with 0 or None to create a NULL pointer
@@ -196,23 +197,23 @@ func (p *CPointerType) GetObjectAttribute(ctx object.ExecutionContext, name stri
 						return &Pointer{Address: nil, PtrType: p}
 					}
 				}
-				return object.NewError("TypeError", "Pointer type can only be instantiated with 0 or None")
+				return object.NewError(constants.TypeError, constants.FFI_POINTER_INSTANTIATION_ERR)
 			},
 		}, true
 	}
 	return nil, false
 }
 
-func (p *CPointerType) Type() object.ObjectType { return "FFI_POINTER_TYPE" }
+func (p *CPointerType) Type() object.ObjectType { return constants.FFI_POINTER_TYPE_NAME }
 func (p *CPointerType) Inspect() string {
 	if p.Pointee != nil {
 		pointeeStr := p.Pointee.Inspect()
 		if p.ArraySize > 0 {
-			return fmt.Sprintf("<ffi_type POINTER TO %s[%d]>", pointeeStr, p.ArraySize)
+			return fmt.Sprintf(constants.FFI_POINTER_ARRAY_INSPECT, pointeeStr, p.ArraySize)
 		}
-		return fmt.Sprintf("<ffi_type POINTER TO %s>", pointeeStr)
+		return fmt.Sprintf(constants.FFI_POINTER_INSPECT, pointeeStr)
 	}
-	return "<ffi_type c_void_p>"
+	return constants.FFI_VOID_P_INSPECT
 }
 
 func (p *CPointerType) GetFFIType() *C.ffi_type { return &C.ffi_type_pointer }
@@ -224,12 +225,12 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) (func(), erro
 		switch v := val.(type) {
 		case *object.List:
 			if len(v.Elements) != p.ArraySize {
-				return nil, fmt.Errorf("list length %d does not match array size %d", len(v.Elements), p.ArraySize)
+				return nil, fmt.Errorf(constants.FFI_ARRAY_LEN_MISMATCH, len(v.Elements), p.ArraySize)
 			}
 			totalSize := C.size_t(p.ArraySize) * C.size_t(p.Pointee.Size())
 			arrayPtr := C.malloc(totalSize)
 			if arrayPtr == nil {
-				return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for fixed array"}
+				return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_FIXED_ARRAY_ERR}
 			}
 
 			*(*unsafe.Pointer)(dest) = arrayPtr
@@ -246,7 +247,7 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) (func(), erro
 					}
 					C.free(arrayPtr)
 					*(*unsafe.Pointer)(dest) = nil
-					return nil, fmt.Errorf("failed to marshal array element: %v", err)
+					return nil, fmt.Errorf(constants.FFI_MARSHAL_ARRAY_ELEM_ERR, err)
 				}
 				if cleanup != nil {
 					cleanupFns = append(cleanupFns, cleanup)
@@ -262,7 +263,7 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) (func(), erro
 				C.free(arrayPtr)
 			}, nil
 		default:
-			return nil, fmt.Errorf("cannot convert Pylearn type %s to C array[%d]", val.Type(), p.ArraySize)
+			return nil, fmt.Errorf(constants.FFI_CONVERT_ARRAY_ERR, val.Type(), p.ArraySize)
 		}
 	} else {
 		switch v := val.(type) {
@@ -281,7 +282,7 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) (func(), erro
 				*(*unsafe.Pointer)(dest) = ptr
 				return func() { C.free(ptr) }, nil
 			} else {
-				return nil, fmt.Errorf("cannot automatically convert Pylearn bytes to pointer of type %s", p.Pointee.Inspect())
+				return nil, fmt.Errorf(constants.FFI_CONVERT_BYTES_PTR_ERR, p.Pointee.Inspect())
 			}
 		case *object.String:
 			if p.Pointee == C_CHAR || p.Pointee == nil {
@@ -295,7 +296,7 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) (func(), erro
 					totalSize := C.size_t(numWChars) * 2
 					cWStringPtr := C.malloc(totalSize)
 					if cWStringPtr == nil {
-						return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for wchar_t string"}
+						return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_WCHAR_STR_ERR}
 					}
 					wcharSlice := (*[1 << 30]C.wchar_t)(cWStringPtr)[:numWChars:numWChars]
 					for i, code := range utf16Codes {
@@ -305,7 +306,7 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) (func(), erro
 					*(*unsafe.Pointer)(dest) = cWStringPtr
 					return func() { C.free(cWStringPtr) }, nil
 				} else {
-					return nil, fmt.Errorf("wchar_t* ToC not fully implemented for size %d", C_WCHAR_T.Size())
+					return nil, fmt.Errorf(constants.FFI_WCHAR_TOC_NOT_IMPL, C_WCHAR_T.Size())
 				}
 			} else {
 				ptr := unsafe.Pointer(C.CString(v.Value))
@@ -316,7 +317,7 @@ func (p *CPointerType) ToC(val object.Object, dest unsafe.Pointer) (func(), erro
 			*(*unsafe.Pointer)(dest) = nil
 			return nil, nil
 		default:
-			return nil, fmt.Errorf("cannot convert Pylearn type %s to C pointer", val.Type())
+			return nil, fmt.Errorf(constants.FFI_CONVERT_PTR_ERR, val.Type())
 		}
 	}
 }
@@ -326,14 +327,14 @@ func (p *CPointerType) FromC(src unsafe.Pointer) (object.Object, error) {
 
 	if p.ArraySize > 0 {
 		if cPtr == nil {
-			return object.NewError("ValueError", "cannot read from NULL pointer for array"), nil
+			return object.NewError(constants.ValueError, constants.FFI_NULL_PTR_ARRAY_READ_ERR), nil
 		}
 		elements := make([]object.Object, p.ArraySize)
 		elementPtr := cPtr
 		for i := 0; i < p.ArraySize; i++ {
 			elem, err := p.Pointee.FromC(elementPtr)
 			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal array element [%d]: %v", i, err)
+				return nil, fmt.Errorf(constants.FFI_UNMARSHAL_ARRAY_ELEM_ERR, i, err)
 			}
 			elements[i] = elem
 			elementPtr = unsafe.Pointer(uintptr(elementPtr) + p.Pointee.Size())
@@ -364,7 +365,7 @@ func (p *CPointerType) FromC(src unsafe.Pointer) (object.Object, error) {
 			runes := utf16.Decode(uint16Slice)
 			return &object.String{Value: string(runes)}, nil
 		} else {
-			return nil, fmt.Errorf("wchar_t* FromC not fully implemented for size %d", C_WCHAR_T.Size())
+			return nil, fmt.Errorf(constants.FFI_WCHAR_FROMC_NOT_IMPL, C_WCHAR_T.Size())
 		}
 	}
 
@@ -372,14 +373,14 @@ func (p *CPointerType) FromC(src unsafe.Pointer) (object.Object, error) {
 }
 
 var (
-	C_INT8    = &CPrimitiveType{name: "c_int8", ffiType: &C.ffi_type_sint8, size: unsafe.Sizeof(int8(0))}
-	C_UINT8   = &CPrimitiveType{name: "c_uint8", ffiType: &C.ffi_type_uint8, size: unsafe.Sizeof(uint8(0))}
-	C_INT32   = &CPrimitiveType{name: "c_int32", ffiType: &C.ffi_type_sint32, size: unsafe.Sizeof(int32(0))}
-	C_UINT32  = &CPrimitiveType{name: "c_uint32", ffiType: &C.ffi_type_uint32, size: unsafe.Sizeof(uint32(0))}
-	C_INT64   = &CPrimitiveType{name: "c_int64", ffiType: &C.ffi_type_sint64, size: unsafe.Sizeof(int64(0))}
-	C_UINT64  = &CPrimitiveType{name: "c_uint64", ffiType: &C.ffi_type_uint64, size: unsafe.Sizeof(int64(0))}
-	C_FLOAT32 = &CPrimitiveType{name: "c_float", ffiType: &C.ffi_type_float, size: unsafe.Sizeof(float32(0))}
-	C_FLOAT64 = &CPrimitiveType{name: "c_double", ffiType: &C.ffi_type_double, size: unsafe.Sizeof(float64(0))}
+	C_INT8    = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_INT8, ffiType: &C.ffi_type_sint8, size: unsafe.Sizeof(int8(0))}
+	C_UINT8   = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_UINT8, ffiType: &C.ffi_type_uint8, size: unsafe.Sizeof(uint8(0))}
+	C_INT32   = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_INT32, ffiType: &C.ffi_type_sint32, size: unsafe.Sizeof(int32(0))}
+	C_UINT32  = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_UINT32, ffiType: &C.ffi_type_uint32, size: unsafe.Sizeof(uint32(0))}
+	C_INT64   = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_INT64, ffiType: &C.ffi_type_sint64, size: unsafe.Sizeof(int64(0))}
+	C_UINT64  = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_UINT64, ffiType: &C.ffi_type_uint64, size: unsafe.Sizeof(int64(0))}
+	C_FLOAT32 = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_FLOAT, ffiType: &C.ffi_type_float, size: unsafe.Sizeof(float32(0))}
+	C_FLOAT64 = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_DOUBLE, ffiType: &C.ffi_type_double, size: unsafe.Sizeof(float64(0))}
 	C_VOID_P  = &CPointerType{Pointee: nil}
 
 	C_CHAR      *CPrimitiveType
@@ -410,12 +411,12 @@ type wcharType struct {
 }
 
 func (w *wcharType) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
-	if name == "Size" {
+	if name == constants.FFI_SIZE_METHOD_NAME {
 		return &object.Builtin{
-			Name: "FFIType.Size",
+			Name: constants.FFI_PRIMITIVE_SIZE_BUILTIN_NAME,
 			Fn: func(callCtx object.ExecutionContext, args ...object.Object) object.Object {
 				if len(args) != 0 {
-					return object.NewError("TypeError", "Size() takes no arguments")
+					return object.NewError(constants.TypeError, constants.FFI_SIZE_TAKES_NO_ARGS)
 				}
 				return &object.Integer{Value: int64(w.Size())}
 			},
@@ -424,8 +425,8 @@ func (w *wcharType) GetObjectAttribute(ctx object.ExecutionContext, name string)
 	return nil, false
 }
 
-func (w *wcharType) Type() object.ObjectType { return "FFI_PRIMITIVE_TYPE" }
-func (w *wcharType) Inspect() string         { return fmt.Sprintf("<ffi_type %s>", w.name) }
+func (w *wcharType) Type() object.ObjectType { return constants.FFI_PRIMITIVE_TYPE_NAME }
+func (w *wcharType) Inspect() string         { return fmt.Sprintf(constants.FFI_PRIMITIVE_INSPECT, w.name) }
 
 func (w *wcharType) GetFFIType() *C.ffi_type {
 	switch w.size {
@@ -434,7 +435,7 @@ func (w *wcharType) GetFFIType() *C.ffi_type {
 	case 4:
 		return &C.ffi_type_sint32
 	default:
-		panic(fmt.Sprintf("Unsupported wchar_t size: %d", w.size))
+		panic(fmt.Sprintf(constants.FFI_UNSUPPORTED_WCHAR_SIZE, w.size))
 	}
 }
 
@@ -450,7 +451,7 @@ func (w *wcharType) ToC(val object.Object, dest unsafe.Pointer) (func(), error) 
 		case 4:
 			*(*C.wchar_t)(dest) = C.wchar_t(v.Value)
 		default:
-			return nil, fmt.Errorf("unsupported wchar_t size for integer conversion: %d", w.size)
+			return nil, fmt.Errorf(constants.FFI_WCHAR_INT_CONV_ERR, w.size)
 		}
 		return nil, nil
 	case *object.String:
@@ -459,7 +460,7 @@ func (w *wcharType) ToC(val object.Object, dest unsafe.Pointer) (func(), error) 
 		totalSize := C.size_t(numWChars) * C.size_t(w.size)
 		cWStringPtr := C.malloc(totalSize)
 		if cWStringPtr == nil {
-			return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for wchar_t string"}
+			return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_WCHAR_STR_ERR}
 		}
 
 		if w.size == 2 {
@@ -477,13 +478,13 @@ func (w *wcharType) ToC(val object.Object, dest unsafe.Pointer) (func(), error) 
 			wcharSlice[len(runes)] = 0
 		} else {
 			C.free(cWStringPtr)
-			return nil, fmt.Errorf("unsupported wchar_t size for string conversion: %d", w.size)
+			return nil, fmt.Errorf(constants.FFI_WCHAR_STR_CONV_ERR, w.size)
 		}
 
 		*(*unsafe.Pointer)(dest) = cWStringPtr
 		return func() { C.free(cWStringPtr) }, nil
 	default:
-		return nil, fmt.Errorf("cannot convert Pylearn type %s to C wchar_t", val.Type())
+		return nil, fmt.Errorf(constants.FFI_CONVERT_WCHAR_ERR, val.Type())
 	}
 }
 
@@ -495,14 +496,14 @@ func (w *wcharType) FromC(src unsafe.Pointer) (object.Object, error) {
 	case 4:
 		cWCharValue = *(*C.wchar_t)(src)
 	default:
-		return nil, fmt.Errorf("unsupported wchar_t size for reading: %d", w.size)
+		return nil, fmt.Errorf(constants.FFI_WCHAR_READ_ERR, w.size)
 	}
 	return &object.String{Value: string(rune(cWCharValue))}, nil
 }
 
 func pyFreeCResource(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return object.NewError("TypeError", "free_c_resource() takes 1 argument")
+		return object.NewError(constants.TypeError, constants.FFI_FREE_C_RES_ARG_ERR)
 	}
 	switch ptrObj := args[0].(type) {
 	case *Pointer:
@@ -512,7 +513,7 @@ func pyFreeCResource(ctx object.ExecutionContext, args ...object.Object) object.
 		}
 		return object.NULL
 	default:
-		return object.NewError("TypeError", "arg must be a Pointer holding a C resource")
+		return object.NewError(constants.TypeError, constants.FFI_FREE_C_RES_TYPE_ERR)
 	}
 }
 
@@ -533,12 +534,12 @@ type CStructType struct {
 }
 
 func (s *CStructType) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
-	if name == "Size" {
+	if name == constants.FFI_SIZE_METHOD_NAME {
 		return &object.Builtin{
-			Name: "FFIStructType.Size",
+			Name: constants.FFI_STRUCT_SIZE_BUILTIN_NAME,
 			Fn: func(callCtx object.ExecutionContext, args ...object.Object) object.Object {
 				if len(args) != 0 {
-					return object.NewError("TypeError", "Size() takes no arguments")
+					return object.NewError(constants.TypeError, constants.FFI_SIZE_TAKES_NO_ARGS)
 				}
 				return &object.Integer{Value: int64(s.Size())}
 			},
@@ -547,8 +548,8 @@ func (s *CStructType) GetObjectAttribute(ctx object.ExecutionContext, name strin
 	return nil, false
 }
 
-func (s *CStructType) Type() object.ObjectType { return "FFI_STRUCT_TYPE" }
-func (s *CStructType) Inspect() string         { return fmt.Sprintf("<ffi_type struct %s>", s.Name) }
+func (s *CStructType) Type() object.ObjectType { return constants.FFI_STRUCT_TYPE_NAME }
+func (s *CStructType) Inspect() string         { return fmt.Sprintf(constants.FFI_STRUCT_INSPECT, s.Name) }
 
 func (s *CStructType) GetFFIType() *C.ffi_type {
 	s.mu.Lock()
@@ -561,7 +562,7 @@ func (s *CStructType) GetFFIType() *C.ffi_type {
 	numFields := len(s.Fields)
 	cElements := (**C.ffi_type)(C.malloc(C.size_t(numFields+1) * C.size_t(unsafe.Sizeof((*C.ffi_type)(nil)))))
 	if cElements == nil {
-		panic("FFI: failed to malloc for struct elements")
+		panic(constants.FFI_MALLOC_STRUCT_ELEMS_ERR)
 	}
 
 	cElementsSlice := (*[1 << 30]*C.ffi_type)(unsafe.Pointer(cElements))[: numFields+1 : numFields+1]
@@ -572,7 +573,7 @@ func (s *CStructType) GetFFIType() *C.ffi_type {
 
 	ffiType := (*C.ffi_type)(C.malloc(C.size_t(unsafe.Sizeof(C.ffi_type{}))))
 	if ffiType == nil {
-		panic("FFI: failed to malloc for ffi_type struct")
+		panic(constants.FFI_MALLOC_FFI_TYPE_STRUCT_ERR)
 	}
 
 	ffiType.size = 0
@@ -585,7 +586,7 @@ func (s *CStructType) GetFFIType() *C.ffi_type {
 		s.size = uintptr(ffiType.size)
 		s.alignment = uintptr(ffiType.alignment)
 	} else {
-		fmt.Fprintf(os.Stderr, "FFI Warning: could not pre-calculate layout for struct %s\n", s.Name)
+		fmt.Fprintf(os.Stderr, constants.FFI_STRUCT_LAYOUT_WARN, s.Name)
 	}
 
 	s.ffiType = ffiType
@@ -611,7 +612,7 @@ func (s *CStructType) ToC(val object.Object, dest unsafe.Pointer) (func(), error
 		Get(key string) (object.Object, bool)
 	})
 	if !ok {
-		return nil, fmt.Errorf("cannot convert Pylearn type %s to C struct %s", val.Type(), s.Name)
+		return nil, fmt.Errorf(constants.FFI_CONVERT_STRUCT_ERR, val.Type(), s.Name)
 	}
 
 	cleanupFns := make([]func(), 0)
@@ -629,7 +630,7 @@ func (s *CStructType) ToC(val object.Object, dest unsafe.Pointer) (func(), error
 					fn()
 				}
 			}
-			return nil, fmt.Errorf("failed to marshal struct field '%s': %v", field.Name, err)
+			return nil, fmt.Errorf(constants.FFI_MARSHAL_STRUCT_FIELD_ERR, field.Name, err)
 		}
 		if cleanup != nil {
 			cleanupFns = append(cleanupFns, cleanup)
@@ -650,7 +651,7 @@ func (s *CStructType) FromC(src unsafe.Pointer) (object.Object, error) {
 		fieldSrc := unsafe.Pointer(uintptr(src) + field.Offset)
 		fieldVal, err := field.Type.FromC(fieldSrc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal struct field '%s': %v", field.Name, err)
+			return nil, fmt.Errorf(constants.FFI_UNMARSHAL_STRUCT_FIELD_ERR, field.Name, err)
 		}
 		fields[field.Name] = fieldVal
 	}
@@ -683,12 +684,12 @@ type CUnionType struct {
 }
 
 func (u *CUnionType) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
-	if name == "Size" {
+	if name == constants.FFI_SIZE_METHOD_NAME {
 		return &object.Builtin{
-			Name: "FFIUnionType.Size",
+			Name: constants.FFI_UNION_SIZE_BUILTIN_NAME,
 			Fn: func(callCtx object.ExecutionContext, args ...object.Object) object.Object {
 				if len(args) != 0 {
-					return object.NewError("TypeError", "Size() takes no arguments")
+					return object.NewError(constants.TypeError, constants.FFI_SIZE_TAKES_NO_ARGS)
 				}
 				return &object.Integer{Value: int64(u.Size())}
 			},
@@ -697,12 +698,12 @@ func (u *CUnionType) GetObjectAttribute(ctx object.ExecutionContext, name string
 	return nil, false
 }
 
-func (u *CUnionType) Type() object.ObjectType { return "FFI_UNION_TYPE" }
-func (u *CUnionType) Inspect() string         { return fmt.Sprintf("<ffi_type union %s>", u.Name) }
+func (u *CUnionType) Type() object.ObjectType { return constants.FFI_UNION_TYPE_NAME }
+func (u *CUnionType) Inspect() string         { return fmt.Sprintf(constants.FFI_UNION_INSPECT, u.Name) }
 
 func (u *CUnionType) ensureLayoutCalculated() {
 	if u.size == 0 && len(u.Fields) > 0 {
-		panic("CUnionType used without being properly initialized via create_union_type")
+		panic(constants.FFI_UNION_UNINIT_ERR)
 	}
 }
 func (u *CUnionType) Size() uintptr {
@@ -729,7 +730,7 @@ func (u *CUnionType) GetFFIType() *C.ffi_type {
 
 	cElements := (**C.ffi_type)(C.malloc(C.size_t(numFields+1) * C.size_t(unsafe.Sizeof((*C.ffi_type)(nil)))))
 	if cElements == nil {
-		panic("FFI: failed to malloc for union elements")
+		panic(constants.FFI_MALLOC_UNION_ELEMS_ERR)
 	}
 
 	cElementsSlice := (*[1 << 30]*C.ffi_type)(unsafe.Pointer(cElements))[: numFields+1 : numFields+1]
@@ -741,7 +742,7 @@ func (u *CUnionType) GetFFIType() *C.ffi_type {
 	ffiType := (*C.ffi_type)(C.malloc(C.size_t(unsafe.Sizeof(C.ffi_type{}))))
 	if ffiType == nil {
 		C.free(unsafe.Pointer(cElements))
-		panic("FFI: failed to malloc for ffi_type union")
+		panic(constants.FFI_MALLOC_FFI_TYPE_UNION_ERR)
 	}
 
 	ffiType.size = 0
@@ -752,7 +753,7 @@ func (u *CUnionType) GetFFIType() *C.ffi_type {
 	var dummyCif C.ffi_cif
 	if C.ffi_prep_cif(&dummyCif, C.FFI_DEFAULT_ABI, 0, ffiType, nil) == C.FFI_OK {
 	} else {
-		fmt.Fprintf(os.Stderr, "FFI Warning: could not pre-calculate layout for union %s\n", u.Name)
+		fmt.Fprintf(os.Stderr, constants.FFI_UNION_LAYOUT_WARN, u.Name)
 	}
 
 	u.ffiType = ffiType
@@ -765,11 +766,11 @@ func (u *CUnionType) ToC(val object.Object, dest unsafe.Pointer) (func(), error)
 	case *object.Dict:
 		dict = v
 	default:
-		return nil, fmt.Errorf("cannot convert Pylearn type %s to C union %s; expected Dict", val.Type(), u.Name)
+		return nil, fmt.Errorf(constants.FFI_CONVERT_UNION_ERR, val.Type(), u.Name)
 	}
 
 	if len(dict.Pairs) != 1 {
-		return nil, fmt.Errorf("union ToC expects a Dict with exactly one key-value pair to specify the active member")
+		return nil, fmt.Errorf(constants.FFI_UNION_TOC_DICT_ERR)
 	}
 
 	C.memset(dest, 0, C.size_t(u.Size()))
@@ -777,16 +778,16 @@ func (u *CUnionType) ToC(val object.Object, dest unsafe.Pointer) (func(), error)
 	for _, pair := range dict.Pairs {
 		fieldName, ok := pair.Key.(*object.String)
 		if !ok {
-			return nil, fmt.Errorf("union key must be a string representing a member name")
+			return nil, fmt.Errorf(constants.FFI_UNION_KEY_TYPE_ERR)
 		}
 		for _, field := range u.Fields {
 			if field.Name == fieldName.Value {
 				return field.Type.ToC(pair.Value, dest)
 			}
 		}
-		return nil, fmt.Errorf("union '%s' has no member named '%s'", u.Name, fieldName.Value)
+		return nil, fmt.Errorf(constants.FFI_UNION_MEMBER_NOT_FOUND_ERR, u.Name, fieldName.Value)
 	}
-	return nil, fmt.Errorf("internal error during union ToC")
+	return nil, fmt.Errorf(constants.FFI_UNION_TOC_INTERNAL_ERR)
 }
 
 func (u *CUnionType) FromC(src unsafe.Pointer) (object.Object, error) {
@@ -796,7 +797,7 @@ func (u *CUnionType) FromC(src unsafe.Pointer) (object.Object, error) {
 
 	ownedData := C.malloc(C.size_t(u.Size()))
 	if ownedData == nil {
-		return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for union instance"}
+		return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_UNION_INST_ERR}
 	}
 	C.memcpy(ownedData, src, C.size_t(u.Size()))
 
@@ -821,30 +822,30 @@ type UnionObject struct {
 	Address   unsafe.Pointer
 }
 
-func (uo *UnionObject) Type() object.ObjectType { return "FFI_UNION_INSTANCE" }
+func (uo *UnionObject) Type() object.ObjectType { return constants.FFI_UNION_INST_TYPE_NAME }
 func (uo *UnionObject) Inspect() string {
 	if uo.Address == nil {
-		return fmt.Sprintf("<freed union %s>", uo.UnionType.Name)
+		return fmt.Sprintf(constants.FFI_UNION_FREED_INSPECT, uo.UnionType.Name)
 	}
-	return fmt.Sprintf("<union %s instance at %p>", uo.UnionType.Name, uo.Address)
+	return fmt.Sprintf(constants.FFI_UNION_INST_INSPECT, uo.UnionType.Name, uo.Address)
 }
 
 func (uo *UnionObject) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
 	if uo.Address == nil {
-		return object.NewError("ValueError", "cannot access members of a freed union instance"), true
+		return object.NewError(constants.ValueError, constants.FFI_UNION_FREED_ACCESS_ERR), true
 	}
 
 	for _, field := range uo.UnionType.Fields {
 		if field.Name == name {
 			val, err := field.Type.FromC(uo.Address)
 			if err != nil {
-				return object.NewError("FFIError", "failed to read union member '%s': %v", name, err), true
+				return object.NewError(constants.FFI_ERROR_CLASS_NAME, constants.FFI_UNION_READ_MEMBER_ERR, name, err), true
 			}
 			return val, true
 		}
 	}
 
-	if name == "address" {
+	if name == constants.FFI_UNION_ADDRESS_ATTR {
 		return &Pointer{Address: uo.Address, PtrType: C_VOID_P}, true
 	}
 
@@ -853,7 +854,7 @@ func (uo *UnionObject) GetObjectAttribute(ctx object.ExecutionContext, name stri
 
 func (uo *UnionObject) SetObjectAttribute(ctx object.ExecutionContext, name string, value object.Object) (object.Object, bool) {
 	if uo.Address == nil {
-		return object.NewError("ValueError", "cannot access members of a freed union instance"), true
+		return object.NewError(constants.ValueError, constants.FFI_UNION_FREED_ACCESS_ERR), true
 	}
 
 	for _, field := range uo.UnionType.Fields {
@@ -861,7 +862,7 @@ func (uo *UnionObject) SetObjectAttribute(ctx object.ExecutionContext, name stri
 			C.memset(uo.Address, 0, C.size_t(uo.UnionType.Size()))
 			_, err := field.Type.ToC(value, uo.Address)
 			if err != nil {
-				return object.NewError("FFIError", "failed to write to union member '%s': %v", name, err), true
+				return object.NewError(constants.FFI_ERROR_CLASS_NAME, constants.FFI_UNION_WRITE_MEMBER_ERR, name, err), true
 			}
 			return value, true
 		}
@@ -872,15 +873,15 @@ func (uo *UnionObject) SetObjectAttribute(ctx object.ExecutionContext, name stri
 
 func pyCreateUnionType(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return object.NewError("TypeError", "create_union_type() takes 2 arguments (name, fields_list)")
+		return object.NewError(constants.TypeError, constants.FFI_CREATE_UNION_ARG_ERR)
 	}
 	nameObj, ok := args[0].(*object.String)
 	if !ok {
-		return object.NewError("TypeError", "argument 1 (name) must be a string")
+		return object.NewError(constants.TypeError, constants.FFI_ARG1_NAME_STR_ERR)
 	}
 	fieldsListObj, ok := args[1].(*object.List)
 	if !ok {
-		return object.NewError("TypeError", "argument 2 (fields) must be a list")
+		return object.NewError(constants.TypeError, constants.FFI_ARG2_FIELDS_LIST_ERR)
 	}
 
 	var fields []UnionField
@@ -893,20 +894,20 @@ func pyCreateUnionType(ctx object.ExecutionContext, args ...object.Object) objec
 		} else if fieldTuple, ok := fieldItem.(*object.Tuple); ok {
 			elements = fieldTuple.Elements
 		} else {
-			return object.NewError("TypeError", "field %d must be a list or tuple of (name, type)", i)
+			return object.NewError(constants.TypeError, constants.FFI_FIELD_TUPLE_ERR, i)
 		}
 
 		if len(elements) != 2 {
-			return object.NewError("TypeError", "field %d must have exactly 2 elements: (name, type)", i)
+			return object.NewError(constants.TypeError, constants.FFI_FIELD_LEN_ERR, i)
 		}
 
 		fieldNameObj, ok := elements[0].(*object.String)
 		if !ok {
-			return object.NewError("TypeError", "field %d name must be a string", i)
+			return object.NewError(constants.TypeError, constants.FFI_FIELD_NAME_STR_ERR, i)
 		}
 		fieldTypeObj, ok := elements[1].(FFIType)
 		if !ok {
-			return object.NewError("TypeError", "field %d type must be a valid FFI type", i)
+			return object.NewError(constants.TypeError, constants.FFI_FIELD_TYPE_ERR, i)
 		}
 
 		fields = append(fields, UnionField{
@@ -923,7 +924,7 @@ func pyCreateUnionType(ctx object.ExecutionContext, args ...object.Object) objec
 	}
 
 	if len(fields) == 0 {
-		return object.NewError("ValueError", "cannot create a union with no fields")
+		return object.NewError(constants.ValueError, constants.FFI_UNION_NO_FIELDS_ERR)
 	}
 
 	unionType := &CUnionType{
@@ -945,8 +946,8 @@ type Library struct {
 	mu     sync.RWMutex
 }
 
-func (l *Library) Type() object.ObjectType { return "FFI_LIBRARY" }
-func (l *Library) Inspect() string         { return fmt.Sprintf("<ffi.Library '%s' from %s>", l.Name, l.Path) }
+func (l *Library) Type() object.ObjectType { return constants.FFI_LIBRARY_TYPE_NAME }
+func (l *Library) Inspect() string         { return fmt.Sprintf(constants.FFI_LIBRARY_INSPECT, l.Name, l.Path) }
 
 func (l *Library) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
 	l.mu.RLock()
@@ -971,9 +972,9 @@ type Function struct {
 	FixedArgCount int
 }
 
-func (f *Function) Type() object.ObjectType { return "FFI_FUNCTION" }
+func (f *Function) Type() object.ObjectType { return constants.FFI_FUNCTION_TYPE_NAME }
 func (f *Function) Inspect() string {
-	return fmt.Sprintf("<ffi.Function %s from %s>", f.Name, f.Lib.Name)
+	return fmt.Sprintf(constants.FFI_FUNCTION_INSPECT, f.Name, f.Lib.Name)
 }
 
 func generateSignatureKey(name string, retType FFIType, argTypes []FFIType) string {
@@ -983,14 +984,14 @@ func generateSignatureKey(name string, retType FFIType, argTypes []FFIType) stri
 	var typeToString func(t FFIType) string
 	typeToString = func(t FFIType) string {
 		if t == nil {
-			return "void"
+			return constants.FFI_TYPE_VOID
 		}
 		switch tt := t.(type) {
 		case *CPrimitiveType:
 			return tt.name
 		case *CPointerType:
 			if tt.Pointee == nil {
-				return "c_void_p"
+				return constants.FFI_TYPE_C_VOID_P
 			}
 			return typeToString(tt.Pointee) + "*"
 		default:
@@ -1044,7 +1045,7 @@ func (l *Library) DefineFunction(name string, retType FFIType, argTypes []FFITyp
 		sizeOfPtrArray := C.size_t(numArgs) * C.size_t(unsafe.Sizeof((*C.ffi_type)(nil)))
 		cArgTypesPtr = (**C.ffi_type)(C.malloc(sizeOfPtrArray))
 		if cArgTypesPtr == nil {
-			return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for arg types array"}
+			return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_ARG_TYPES_ERR}
 		}
 		cArgTypesSlice := (*[1 << 30]*C.ffi_type)(unsafe.Pointer(cArgTypesPtr))[:numArgs:numArgs]
 		for i, argType := range argTypes {
@@ -1065,7 +1066,7 @@ func (l *Library) DefineFunction(name string, retType FFIType, argTypes []FFITyp
 		if cArgTypesPtr != nil {
 			C.free(unsafe.Pointer(cArgTypesPtr))
 		}
-		return nil, &FFIError{Code: ErrBadSignature, Message: fmt.Sprintf("libffi ffi_prep_cif failed: %d", ffiStatus)}
+		return nil, &FFIError{Code: ErrBadSignature, Message: fmt.Sprintf(constants.FFI_PREP_CIF_ERR, ffiStatus)}
 	}
 
 	fn := &Function{
@@ -1089,7 +1090,7 @@ func (f *Function) Call(pylearnArgs ...object.Object) (object.Object, error) {
 
 func (f *Function) callFixed(pylearnArgs ...object.Object) (object.Object, error) {
 	if len(pylearnArgs) != len(f.ArgTypes) {
-		return nil, &FFIError{Code: ErrArgCount, Message: fmt.Sprintf("arity mismatch: %s expects %d, got %d", f.Name, len(f.ArgTypes), len(pylearnArgs))}
+		return nil, &FFIError{Code: ErrArgCount, Message: fmt.Sprintf(constants.FFI_ARITY_MISMATCH_ERR, f.Name, len(f.ArgTypes), len(pylearnArgs))}
 	}
 
 	numArgs := len(f.ArgTypes)
@@ -1115,7 +1116,7 @@ func (f *Function) callFixed(pylearnArgs ...object.Object) (object.Object, error
 		sizeOfPtrArray := C.size_t(numArgs) * C.size_t(unsafe.Sizeof(uintptr(0)))
 		cArgsPtrsStart = C.malloc(sizeOfPtrArray)
 		if cArgsPtrsStart == nil {
-			return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc arg pointers array"}
+			return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_ARG_PTRS_ERR}
 		}
 		defer C.free(cArgsPtrsStart)
 
@@ -1123,13 +1124,13 @@ func (f *Function) callFixed(pylearnArgs ...object.Object) (object.Object, error
 		for i, argType := range f.ArgTypes {
 			argMemory := C.malloc(C.size_t(argType.Size()))
 			if argMemory == nil {
-				return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for argument"}
+				return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_ARG_ERR}
 			}
 			cArgsValues[i] = argMemory
 
 			cleanup, err := argType.ToC(pylearnArgs[i], argMemory)
 			if err != nil {
-				return nil, &FFIError{Code: ErrArgMarshal, Message: fmt.Sprintf("failed to convert arg %d: %v", i, err)}
+				return nil, &FFIError{Code: ErrArgMarshal, Message: fmt.Sprintf(constants.FFI_CONVERT_ARG_ERR, i, err)}
 			}
 			if cleanup != nil {
 				cleanupFns = append(cleanupFns, cleanup)
@@ -1146,7 +1147,7 @@ func (f *Function) callFixed(pylearnArgs ...object.Object) (object.Object, error
 	}
 	cRetValPtr := C.malloc(C.size_t(retValSize))
 	if cRetValPtr == nil {
-		return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for return value"}
+		return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_RET_ERR}
 	}
 	defer C.free(cRetValPtr)
 
@@ -1158,7 +1159,7 @@ func (f *Function) callFixed(pylearnArgs ...object.Object) (object.Object, error
 	}
 	pylearnResult, err := f.ReturnType.FromC(cRetValPtr)
 	if err != nil {
-		return nil, &FFIError{Code: ErrRetUnmarshal, Message: fmt.Sprintf("failed to convert return value: %v", err)}
+		return nil, &FFIError{Code: ErrRetUnmarshal, Message: fmt.Sprintf(constants.FFI_CONVERT_RET_ERR, err)}
 	}
 
 	return pylearnResult, nil
@@ -1166,7 +1167,7 @@ func (f *Function) callFixed(pylearnArgs ...object.Object) (object.Object, error
 
 func (f *Function) callVariadic(pylearnArgs ...object.Object) (object.Object, error) {
 	if len(pylearnArgs) < f.FixedArgCount {
-		return nil, &FFIError{Code: ErrArgCount, Message: fmt.Sprintf("variadic function %s expects at least %d fixed args, got %d", f.Name, f.FixedArgCount, len(pylearnArgs))}
+		return nil, &FFIError{Code: ErrArgCount, Message: fmt.Sprintf(constants.FFI_VARIADIC_ARITY_ERR, f.Name, f.FixedArgCount, len(pylearnArgs))}
 	}
 
 	totalArgs := len(pylearnArgs)
@@ -1196,14 +1197,14 @@ func (f *Function) callVariadic(pylearnArgs ...object.Object) (object.Object, er
 		case *Callback:
 			allArgTypes[i] = C_VOID_P
 		default:
-			return nil, &FFIError{Code: ErrArgMarshal, Message: fmt.Sprintf("cannot infer FFI type for variadic arg %d of type %s", i, arg.Type())}
+			return nil, &FFIError{Code: ErrArgMarshal, Message: fmt.Sprintf(constants.FFI_VARIADIC_INFER_ERR, i, arg.Type())}
 		}
 	}
 
 	sizeOfPtrArray := C.size_t(totalArgs) * C.size_t(unsafe.Sizeof((*C.ffi_type)(nil)))
 	cAllArgTypesPtr := (**C.ffi_type)(C.malloc(sizeOfPtrArray))
 	if cAllArgTypesPtr == nil {
-		return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for variadic arg types"}
+		return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_VARIADIC_TYPES_ERR}
 	}
 	defer C.free(unsafe.Pointer(cAllArgTypesPtr))
 
@@ -1217,7 +1218,7 @@ func (f *Function) callVariadic(pylearnArgs ...object.Object) (object.Object, er
 		C.uint(totalArgs), cRetType, cAllArgTypesPtr,
 	)
 	if status != C.FFI_OK {
-		return nil, &FFIError{Code: ErrBadSignature, Message: fmt.Sprintf("ffi_prep_cif_var failed: %d", status)}
+		return nil, &FFIError{Code: ErrBadSignature, Message: fmt.Sprintf(constants.FFI_PREP_CIF_VAR_ERR, status)}
 	}
 
 	cArgsValues := make([]unsafe.Pointer, totalArgs)
@@ -1241,7 +1242,7 @@ func (f *Function) callVariadic(pylearnArgs ...object.Object) (object.Object, er
 		sizeOfPtrArray := C.size_t(totalArgs) * C.size_t(unsafe.Sizeof(uintptr(0)))
 		cArgsPtrsStart = C.malloc(sizeOfPtrArray)
 		if cArgsPtrsStart == nil {
-			return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc arg pointers array"}
+			return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_ARG_PTRS_ERR}
 		}
 		defer C.free(cArgsPtrsStart)
 
@@ -1249,13 +1250,13 @@ func (f *Function) callVariadic(pylearnArgs ...object.Object) (object.Object, er
 		for i, argType := range allArgTypes {
 			argMemory := C.malloc(C.size_t(argType.Size()))
 			if argMemory == nil {
-				return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for argument"}
+				return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_ARG_ERR}
 			}
 			cArgsValues[i] = argMemory
 
 			cleanup, err := argType.ToC(pylearnArgs[i], argMemory)
 			if err != nil {
-				return nil, &FFIError{Code: ErrArgMarshal, Message: fmt.Sprintf("failed to convert arg %d: %v", i, err)}
+				return nil, &FFIError{Code: ErrArgMarshal, Message: fmt.Sprintf(constants.FFI_CONVERT_ARG_ERR, i, err)}
 			}
 			if cleanup != nil {
 				cleanupFns = append(cleanupFns, cleanup)
@@ -1272,7 +1273,7 @@ func (f *Function) callVariadic(pylearnArgs ...object.Object) (object.Object, er
 	}
 	cRetValPtr := C.malloc(C.size_t(retValSize))
 	if cRetValPtr == nil {
-		return nil, &FFIError{Code: ErrOutOfMemory, Message: "failed to malloc for return value"}
+		return nil, &FFIError{Code: ErrOutOfMemory, Message: constants.FFI_MALLOC_RET_ERR}
 	}
 	defer C.free(cRetValPtr)
 
@@ -1284,7 +1285,7 @@ func (f *Function) callVariadic(pylearnArgs ...object.Object) (object.Object, er
 	}
 	pylearnResult, err := f.ReturnType.FromC(cRetValPtr)
 	if err != nil {
-		return nil, &FFIError{Code: ErrRetUnmarshal, Message: fmt.Sprintf("failed to convert return value: %v", err)}
+		return nil, &FFIError{Code: ErrRetUnmarshal, Message: fmt.Sprintf(constants.FFI_CONVERT_RET_ERR, err)}
 	}
 
 	return pylearnResult, nil
@@ -1296,16 +1297,16 @@ type Pointer struct {
 	PtrType *CPointerType
 }
 
-func (p *Pointer) Type() object.ObjectType { return "FFI_POINTER" }
+func (p *Pointer) Type() object.ObjectType { return constants.FFI_POINTER_TYPE_NAME_INST }
 func (p *Pointer) Inspect() string {
 	if p.Address == nil {
-		return "<ffi.Pointer NULL>"
+		return constants.FFI_POINTER_NULL_INSPECT
 	}
-	return fmt.Sprintf("<ffi.Pointer at %p>", p.Address)
+	return fmt.Sprintf(constants.FFI_POINTER_INST_INSPECT, p.Address)
 }
 
 func (p *Pointer) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
-	if name == "Address" {
+	if name == constants.FFI_POINTER_ADDRESS_ATTR {
 		return &object.Integer{Value: int64(uintptr(p.Address))}, true
 	}
 	return nil, false
@@ -1315,26 +1316,26 @@ var _ object.AttributeGetter = (*Pointer)(nil)
 
 func pyMalloc(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return object.NewError("TypeError", "malloc() takes 1 argument")
+		return object.NewError(constants.TypeError, constants.FFI_MALLOC_ARG_COUNT_ERR)
 	}
 	sizeObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return object.NewError("TypeError", "size must be an integer")
+		return object.NewError(constants.TypeError, constants.FFI_SIZE_INT_ERR)
 	}
 	ptr := C.malloc(C.size_t(sizeObj.Value))
 	if ptr == nil {
-		return object.NewError("MemoryError", "malloc failed")
+		return object.NewError(constants.MemoryError, constants.FFI_MALLOC_FAIL_ERR)
 	}
 	return &Pointer{Address: ptr, PtrType: C_VOID_P}
 }
 
 func pyFree(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return object.NewError("TypeError", "free() takes 1 argument")
+		return object.NewError(constants.TypeError, constants.FFI_FREE_ARG_COUNT_ERR)
 	}
 	ptrObj, ok := args[0].(*Pointer)
 	if !ok {
-		return object.NewError("TypeError", "arg must be a Pointer")
+		return object.NewError(constants.TypeError, constants.FFI_ARG_MUST_BE_PTR_ERR)
 	}
 	if ptrObj.Address != nil {
 		C.free(ptrObj.Address)
@@ -1345,13 +1346,13 @@ func pyFree(ctx object.ExecutionContext, args ...object.Object) object.Object {
 
 func pyMemcpy(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 3 {
-		return object.NewError("TypeError", "memcpy() takes 3 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_MEMCPY_ARG_COUNT_ERR)
 	}
 	dest, ok1 := args[0].(*Pointer)
 	src, ok2 := args[1].(*Pointer)
 	size, ok3 := args[2].(*object.Integer)
 	if !ok1 || !ok2 || !ok3 {
-		return object.NewError("TypeError", "args must be (Pointer, Pointer, Integer)")
+		return object.NewError(constants.TypeError, constants.FFI_MEMCPY_ARG_TYPE_ERR)
 	}
 	C.memcpy(dest.Address, src.Address, C.size_t(size.Value))
 	return object.NULL
@@ -1359,7 +1360,7 @@ func pyMemcpy(ctx object.ExecutionContext, args ...object.Object) object.Object 
 
 func pyAddressof(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return object.NewError("TypeError", "addressof() takes 1 argument")
+		return object.NewError(constants.TypeError, constants.FFI_ADDRESSOF_ARG_COUNT_ERR)
 	}
 	var address unsafe.Pointer
 	switch obj := args[0].(type) {
@@ -1371,107 +1372,107 @@ func pyAddressof(ctx object.ExecutionContext, args ...object.Object) object.Obje
 	case *Pointer:
 		return obj
 	default:
-		return object.NewError("TypeError", "addressof() unsupported for type %s", args[0].Type())
+		return object.NewError(constants.TypeError, constants.FFI_ADDRESSOF_UNSUPPORTED_ERR, args[0].Type())
 	}
 }
 
 func pyReadMemory(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return object.NewError("TypeError", "read_memory() takes 2 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_READ_MEM_ARG_COUNT_ERR)
 	}
 	ptr, ok1 := args[0].(*Pointer)
 	typ, ok2 := args[1].(FFIType)
 	if !ok1 || !ok2 {
-		return object.NewError("TypeError", "args must be (Pointer, FFIType)")
+		return object.NewError(constants.TypeError, constants.FFI_PTR_TYPE_ARGS_ERR)
 	}
 	if ptr.Address == nil {
-		return object.NewError("ValueError", "cannot read from NULL pointer")
+		return object.NewError(constants.ValueError, constants.FFI_NULL_PTR_READ_ERR)
 	}
 	val, err := typ.FromC(ptr.Address)
 	if err != nil {
-		return object.NewError("FFIError", "read failed: %v", err)
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, constants.FFI_READ_FAIL_ERR, err)
 	}
 	return val
 }
 
 func pyWriteMemory(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 3 {
-		return object.NewError("TypeError", "write_memory() takes 3 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_WRITE_MEM_ARG_COUNT_ERR)
 	}
 	ptr, ok1 := args[0].(*Pointer)
 	typ, ok2 := args[1].(FFIType)
 	val := args[2]
 	if !ok1 || !ok2 {
-		return object.NewError("TypeError", "args must be (Pointer, FFIType, value)")
+		return object.NewError(constants.TypeError, constants.FFI_WRITE_MEM_ARG_TYPE_ERR)
 	}
 	if ptr.Address == nil {
-		return object.NewError("ValueError", "cannot write to NULL pointer")
+		return object.NewError(constants.ValueError, constants.FFI_NULL_PTR_WRITE_ERR)
 	}
 
 	_, err := typ.ToC(val, ptr.Address)
 	if err != nil {
-		return object.NewError("FFIError", "write failed: %v", err)
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, constants.FFI_WRITE_FAIL_ERR, err)
 	}
 	return object.NULL
 }
 
 func pyWriteMemoryWithOffset(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 4 {
-		return object.NewError("TypeError", "write_memory_with_offset() takes 4 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_WRITE_MEM_OFFSET_ARG_COUNT_ERR)
 	}
 	ptr, ok1 := args[0].(*Pointer)
 	off, ok2 := args[1].(*object.Integer)
 	typ, ok3 := args[2].(FFIType)
 	val := args[3]
 	if !ok1 || !ok2 || !ok3 {
-		return object.NewError("TypeError", "args must be (Pointer, Integer, FFIType, value)")
+		return object.NewError(constants.TypeError, constants.FFI_WRITE_MEM_OFFSET_ARG_TYPE_ERR)
 	}
 	if ptr.Address == nil {
-		return object.NewError("ValueError", "cannot write to NULL pointer")
+		return object.NewError(constants.ValueError, constants.FFI_NULL_PTR_WRITE_ERR)
 	}
 	dest := unsafe.Pointer(uintptr(ptr.Address) + uintptr(off.Value))
 	_, err := typ.ToC(val, dest)
 	if err != nil {
-		return object.NewError("FFIError", "write with offset failed: %v", err)
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, constants.FFI_WRITE_OFFSET_FAIL_ERR, err)
 	}
 	return object.NULL
 }
 
 func pyReadMemoryWithOffset(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 3 {
-		return object.NewError("TypeError", "read_memory_with_offset() takes 3 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_READ_MEM_OFFSET_ARG_COUNT_ERR)
 	}
 	ptr, ok1 := args[0].(*Pointer)
 	off, ok2 := args[1].(*object.Integer)
 	typ, ok3 := args[2].(FFIType)
 	if !ok1 || !ok2 || !ok3 {
-		return object.NewError("TypeError", "args must be (Pointer, Integer, FFIType)")
+		return object.NewError(constants.TypeError, constants.FFI_READ_MEM_OFFSET_ARG_TYPE_ERR)
 	}
 	if ptr.Address == nil {
-		return object.NewError("ValueError", "cannot read from NULL pointer")
+		return object.NewError(constants.ValueError, constants.FFI_NULL_PTR_READ_ERR)
 	}
 	src := unsafe.Pointer(uintptr(ptr.Address) + uintptr(off.Value))
 	val, err := typ.FromC(src)
 	if err != nil {
-		return object.NewError("FFIError", "read with offset failed: %v", err)
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, constants.FFI_READ_OFFSET_FAIL_ERR, err)
 	}
 	return val
 }
 
 func pyBufferToBytes(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return object.NewError("TypeError", "buffer_to_bytes() takes 2 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_BUF_TO_BYTES_ARG_COUNT_ERR)
 	}
 	ptr, ok1 := args[0].(*Pointer)
 	length, ok2 := args[1].(*object.Integer)
 	if !ok1 || !ok2 {
-		return object.NewError("TypeError", "args must be (Pointer, Integer)")
+		return object.NewError(constants.TypeError, constants.FFI_PTR_TYPE_ARGS_ERR)
 	}
 	if ptr.Address == nil {
-		return object.NewError("ValueError", "cannot read from NULL pointer")
+		return object.NewError(constants.ValueError, constants.FFI_NULL_PTR_READ_ERR)
 	}
 	if length.Value < 0 {
-		return object.NewError("ValueError", "length cannot be negative")
+		return object.NewError(constants.ValueError, constants.FFI_LEN_NEGATIVE_ERR)
 	}
 	return &object.Bytes{Value: C.GoBytes(ptr.Address, C.int(length.Value))}
 }
@@ -1500,11 +1501,11 @@ func (cb *Callback) Free() {
 
 func pyFreeCallback(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return object.NewError("TypeError", "free_callback() takes 1 argument")
+		return object.NewError(constants.TypeError, constants.FFI_FREE_CB_ARG_COUNT_ERR)
 	}
 	cb, ok := args[0].(*Callback)
 	if !ok {
-		return object.NewError("TypeError", "argument must be a callback object")
+		return object.NewError(constants.TypeError, constants.FFI_ARG_MUST_BE_CB_ERR)
 	}
 	cb.Free()
 	return object.NULL
@@ -1534,15 +1535,15 @@ type Callback struct {
 }
 
 func (cb *Callback) GetObjectAttribute(ctx object.ExecutionContext, name string) (object.Object, bool) {
-	if name == "is_callback" {
+	if name == constants.FFI_IS_CALLBACK_ATTR {
 		return object.TRUE, true
 	}
 	return nil, false
 }
 
-func (cb *Callback) Type() object.ObjectType { return "FFI_CALLBACK" }
+func (cb *Callback) Type() object.ObjectType { return constants.FFI_CALLBACK_TYPE_NAME }
 func (cb *Callback) Inspect() string {
-	return fmt.Sprintf("<ffi.Callback for %s>", cb.pylearnFunc.Inspect())
+	return fmt.Sprintf(constants.FFI_CALLBACK_INSPECT, cb.pylearnFunc.Inspect())
 }
 func (cb *Callback) GetPointer() *Pointer    { return &Pointer{Address: cb.codePtr, PtrType: C_VOID_P} }
 func (cb *Callback) GetFFIType() *C.ffi_type { return &C.ffi_type_pointer }
@@ -1551,15 +1552,15 @@ func (cb *Callback) ToC(obj object.Object, dest unsafe.Pointer) (func(), error) 
 		*(*unsafe.Pointer)(dest) = c.codePtr
 		return nil, nil
 	}
-	return nil, fmt.Errorf("cannot convert %T to callback", obj)
+	return nil, fmt.Errorf(constants.FFI_CONVERT_TO_CB_ERR, obj)
 }
 func (cb *Callback) FromC(src unsafe.Pointer) (object.Object, error) {
-	return nil, fmt.Errorf("cannot convert C pointer to callback object")
+	return nil, fmt.Errorf(constants.FFI_CONVERT_C_PTR_TO_CB_ERR)
 }
 
 func NewCallback(pylearnFunc object.Object, retType FFIType, argTypes []FFIType, ctx object.ExecutionContext) (*Callback, error) {
 	if ctx == nil {
-		return nil, fmt.Errorf("execution context cannot be nil for callback")
+		return nil, fmt.Errorf(constants.FFI_EXEC_CTX_NIL_CB_ERR)
 	}
 	cb := &Callback{
 		pylearnFunc: pylearnFunc,
@@ -1573,7 +1574,7 @@ func NewCallback(pylearnFunc object.Object, retType FFIType, argTypes []FFIType,
 		sizeOfPtrArray := C.size_t(numArgs) * C.size_t(unsafe.Sizeof((*C.ffi_type)(nil)))
 		cArgTypesPtr = (**C.ffi_type)(C.malloc(sizeOfPtrArray))
 		if cArgTypesPtr == nil {
-			return nil, fmt.Errorf("malloc failed for arg types")
+			return nil, fmt.Errorf(constants.FFI_MALLOC_ARG_TYPES_FAIL_ERR)
 		}
 		cb.cArgTypesPtr = cArgTypesPtr
 		cArgTypesSlice := (*[1 << 30]*C.ffi_type)(unsafe.Pointer(cArgTypesPtr))[:numArgs:numArgs]
@@ -1591,14 +1592,14 @@ func NewCallback(pylearnFunc object.Object, retType FFIType, argTypes []FFIType,
 		if cArgTypesPtr != nil {
 			C.free(unsafe.Pointer(cArgTypesPtr))
 		}
-		return nil, fmt.Errorf("ffi_prep_cif failed")
+		return nil, fmt.Errorf(constants.FFI_PREP_CIF_FAIL_ERR)
 	}
 	cb.closure = C.new_closure(&cb.codePtr)
 	if cb.closure == nil {
 		if cArgTypesPtr != nil {
 			C.free(unsafe.Pointer(cArgTypesPtr))
 		}
-		return nil, fmt.Errorf("ffi_closure_alloc failed")
+		return nil, fmt.Errorf(constants.FFI_CLOSURE_ALLOC_FAIL_ERR)
 	}
 	cb.cUserData = C.malloc(C.size_t(unsafe.Sizeof(uintptr(0))))
 	if cb.cUserData == nil {
@@ -1606,7 +1607,7 @@ func NewCallback(pylearnFunc object.Object, retType FFIType, argTypes []FFIType,
 			C.free(unsafe.Pointer(cArgTypesPtr))
 		}
 		C.ffi_closure_free(unsafe.Pointer(cb.closure))
-		return nil, fmt.Errorf("malloc for user_data failed")
+		return nil, fmt.Errorf(constants.FFI_MALLOC_USER_DATA_FAIL_ERR)
 	}
 	*(*uintptr)(cb.cUserData) = uintptr(unsafe.Pointer(cb))
 	registryKey := uintptr(unsafe.Pointer(cb))
@@ -1622,7 +1623,7 @@ func NewCallback(pylearnFunc object.Object, retType FFIType, argTypes []FFIType,
 		}
 		C.free(cb.cUserData)
 		C.ffi_closure_free(unsafe.Pointer(cb.closure))
-		return nil, fmt.Errorf("ffi_prep_closure_loc failed")
+		return nil, fmt.Errorf(constants.FFI_PREP_CLOSURE_LOC_FAIL_ERR)
 	}
 	return cb, nil
 }
@@ -1631,14 +1632,14 @@ func NewCallback(pylearnFunc object.Object, retType FFIType, argTypes []FFIType,
 func goCallbackHandler(cif *C.ffi_cif, ret unsafe.Pointer, args unsafe.Pointer, user_data unsafe.Pointer) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintf(os.Stderr, "\n--- FFI FATAL: Panic in callback function ---\n%v\n", r)
+			fmt.Fprintf(os.Stderr, constants.FFI_FATAL_PANIC_CB_ERR, r)
 		}
 	}()
 
 	cb := (*Callback)(unsafe.Pointer(*(*uintptr)(user_data)))
 
 	if cb.execCtx == nil {
-		fmt.Fprintln(os.Stderr, "FFI FATAL: Callback is missing its ExecutionContext")
+		fmt.Fprintln(os.Stderr, constants.FFI_FATAL_MISSING_CTX_ERR)
 		return
 	}
 
@@ -1648,7 +1649,7 @@ func goCallbackHandler(cif *C.ffi_cif, ret unsafe.Pointer, args unsafe.Pointer, 
 	for i := 0; i < numArgs; i++ {
 		pylearnObj, err := cb.argTypes[i].FromC(cArgsArray[i])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "FFI ERROR: Failed to unmarshal arg %d: %v\n", i, err)
+			fmt.Fprintf(os.Stderr, constants.FFI_UNMARSHAL_CB_ARG_ERR, i, err)
 			pylearnArgs[i] = object.NULL
 		} else {
 			pylearnArgs[i] = pylearnObj
@@ -1658,74 +1659,74 @@ func goCallbackHandler(cif *C.ffi_cif, ret unsafe.Pointer, args unsafe.Pointer, 
 	resultObj := cb.execCtx.Execute(cb.pylearnFunc, pylearnArgs...)
 
 	if object.IsError(resultObj) {
-		fmt.Fprintln(os.Stderr, "\n--- Unhandled exception in FFI callback ---")
+		fmt.Fprintln(os.Stderr, constants.FFI_UNHANDLED_EXC_CB_HEADER)
 		if err, ok := resultObj.(*object.Error); ok {
-			funcName := "<unknown>"
+			funcName := constants.FFI_UNKNOWN_FUNC_NAME
 			if cb.pylearnFunc != nil {
 				funcName = cb.pylearnFunc.Inspect()
 			}
-			fmt.Fprintf(os.Stderr, "  File \"<c_callback>\", in %s\n", funcName)
-			fmt.Fprintf(os.Stderr, "%s: %s\n", err.ErrorClass.Name, err.Message)
+			fmt.Fprintf(os.Stderr, constants.FFI_CB_TRACEBACK_FILE_FMT, funcName)
+			fmt.Fprintf(os.Stderr, constants.FFI_CB_EXC_FMT, err.ErrorClass.Name, err.Message)
 		} else {
 			fmt.Fprintln(os.Stderr, resultObj.Inspect())
 		}
-		fmt.Fprintln(os.Stderr, "--- End of FFI callback exception ---")
+		fmt.Fprintln(os.Stderr, constants.FFI_CB_EXC_FOOTER)
 		return
 	}
 
 	if cb.retType != nil {
 		_, err := cb.retType.ToC(resultObj, ret)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "FFI ERROR: Failed to marshal return value: %v\n", err)
+			fmt.Fprintf(os.Stderr, constants.FFI_MARSHAL_RET_ERR, err)
 		}
 	}
 }
 
 func pyLoadLibrary(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return object.NewError("TypeError", "load_library() takes 1 argument")
+		return object.NewError(constants.TypeError, constants.FFI_LOAD_LIB_ARG_COUNT_ERR)
 	}
 	libNameObj, ok := args[0].(*object.String)
 	if !ok {
-		return object.NewError("TypeError", "arg must be a string")
+		return object.NewError(constants.TypeError, constants.FFI_ARG_MUST_BE_STR_ERR)
 	}
 	lib, err := LoadLibrary(libNameObj.Value)
 	if err != nil {
 		if ffiErr, ok := err.(*FFIError); ok {
-			return object.NewError("FFIError", ffiErr.Error())
+			return object.NewError(constants.FFI_ERROR_CLASS_NAME, ffiErr.Error())
 		}
-		return object.NewError("FFIError", err.Error())
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, err.Error())
 	}
 	return lib
 }
 
 func pyDefineFunction(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) < 4 || len(args) > 5 {
-		return object.NewError("TypeError", "define_function() takes 4 or 5 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_DEF_FUNC_ARG_COUNT_ERR)
 	}
 	lib, ok1 := args[0].(*Library)
 	name, ok2 := args[1].(*object.String)
 	if !ok1 || !ok2 {
-		return object.NewError("TypeError", "args must be (Library, string, ...)")
+		return object.NewError(constants.TypeError, constants.FFI_DEF_FUNC_ARG_TYPE_ERR)
 	}
 	var retType FFIType
 	if args[2] != object.NULL {
 		if rt, ok := args[2].(FFIType); ok {
 			retType = rt
 		} else {
-			return object.NewError("TypeError", "return_type is not a valid FFI type")
+			return object.NewError(constants.TypeError, constants.FFI_RET_TYPE_INVALID_ERR)
 		}
 	}
 	argTypesList, ok := args[3].(*object.List)
 	if !ok {
-		return object.NewError("TypeError", "arg_types must be a list")
+		return object.NewError(constants.TypeError, constants.FFI_ARG_TYPES_NOT_LIST_ERR)
 	}
 	argTypes := make([]FFIType, len(argTypesList.Elements))
 	for i, elem := range argTypesList.Elements {
 		if at, ok := elem.(FFIType); ok {
 			argTypes[i] = at
 		} else {
-			return object.NewError("TypeError", "item in arg_types is not a valid FFI type")
+			return object.NewError(constants.TypeError, constants.FFI_ARG_TYPE_INVALID_ERR)
 		}
 	}
 
@@ -1734,7 +1735,7 @@ func pyDefineFunction(ctx object.ExecutionContext, args ...object.Object) object
 		if b, ok := args[4].(*object.Boolean); ok {
 			isVariadic = b.Value
 		} else {
-			return object.NewError("TypeError", "arg 5 (is_variadic) must be a boolean")
+			return object.NewError(constants.TypeError, constants.FFI_IS_VAR_NOT_BOOL_ERR)
 		}
 	}
 
@@ -1742,76 +1743,76 @@ func pyDefineFunction(ctx object.ExecutionContext, args ...object.Object) object
 
 	if err != nil {
 		if ffiErr, ok := err.(*FFIError); ok {
-			return object.NewError("FFIError", ffiErr.Error())
+			return object.NewError(constants.FFI_ERROR_CLASS_NAME, ffiErr.Error())
 		}
-		return object.NewError("FFIError", err.Error())
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, err.Error())
 	}
 	return fn
 }
 
 func pyCallFunction(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) < 1 {
-		return object.NewError("TypeError", "call_function() requires a function argument")
+		return object.NewError(constants.TypeError, constants.FFI_CALL_FUNC_REQ_FUNC_ERR)
 	}
 	fn, ok := args[0].(*Function)
 	if !ok {
-		return object.NewError("TypeError", "arg must be an FFI Function")
+		return object.NewError(constants.TypeError, constants.FFI_ARG_MUST_BE_FFI_FUNC_ERR)
 	}
 	result, err := fn.Call(args[1:]...)
 	if err != nil {
 		if ffiErr, ok := err.(*FFIError); ok {
-			return object.NewError("FFIError", ffiErr.Error())
+			return object.NewError(constants.FFI_ERROR_CLASS_NAME, ffiErr.Error())
 		}
-		return object.NewError("FFIError", err.Error())
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, err.Error())
 	}
 	return result
 }
 
 func pyCreateCallback(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 3 {
-		return object.NewError("TypeError", "callback() takes 3 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_CALLBACK_ARG_COUNT_ERR)
 	}
 	pylearnFunc := args[0]
 	if !object.IsCallable(pylearnFunc) {
-		return object.NewError("TypeError", "arg 1 must be callable")
+		return object.NewError(constants.TypeError, constants.FFI_CB_ARG1_NOT_CALLABLE_ERR)
 	}
 	var retType FFIType
 	if args[1] != object.NULL {
 		if rt, ok := args[1].(FFIType); ok {
 			retType = rt
 		} else {
-			return object.NewError("TypeError", "restype is not valid FFI type")
+			return object.NewError(constants.TypeError, constants.FFI_CB_RESTYPE_INVALID_ERR)
 		}
 	}
 	argTypesList, ok := args[2].(*object.List)
 	if !ok {
-		return object.NewError("TypeError", "argtypes must be a list")
+		return object.NewError(constants.TypeError, constants.FFI_CB_ARGTYPES_NOT_LIST_ERR)
 	}
 	argTypes := make([]FFIType, len(argTypesList.Elements))
 	for i, elem := range argTypesList.Elements {
 		if at, ok := elem.(FFIType); ok {
 			argTypes[i] = at
 		} else {
-			return object.NewError("TypeError", "item in argtypes not a valid FFI type")
+			return object.NewError(constants.TypeError, constants.FFI_CB_ARGTYPE_INVALID_ERR)
 		}
 	}
 	cb, err := NewCallback(pylearnFunc, retType, argTypes, ctx)
 	if err != nil {
-		return object.NewError("FFIError", err.Error())
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, err.Error())
 	}
 	return cb
 }
 
 func pyStringAt(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) < 1 || len(args) > 3 {
-		return object.NewError("TypeError", "string_at() takes 1 to 3 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_STR_AT_ARG_COUNT_ERR)
 	}
 	ptr, ok := args[0].(*Pointer)
 	if !ok {
-		return object.NewError("TypeError", "arg 1 must be a Pointer")
+		return object.NewError(constants.TypeError, constants.FFI_ARG1_MUST_BE_PTR_ERR)
 	}
 	if ptr.Address == nil {
-		return object.NewError("ValueError", "cannot read from NULL pointer")
+		return object.NewError(constants.ValueError, constants.FFI_NULL_PTR_READ_ERR)
 	}
 
 	targetAddr := ptr.Address
@@ -1821,18 +1822,18 @@ func pyStringAt(ctx object.ExecutionContext, args ...object.Object) object.Objec
 	if len(args) >= 2 && args[1] != object.NULL {
 		lenObj, ok := args[1].(*object.Integer)
 		if !ok {
-			return object.NewError("TypeError", "arg 2 (length) must be an Integer")
+			return object.NewError(constants.TypeError, constants.FFI_ARG2_MUST_BE_INT_ERR)
 		}
 		length = lenObj.Value
 		if length < 0 && length != -1 {
-			return object.NewError("ValueError", "length cannot be negative")
+			return object.NewError(constants.ValueError, constants.FFI_LEN_NEGATIVE_ERR)
 		}
 	}
 
 	if len(args) == 3 && args[2] != object.NULL {
 		offObj, ok := args[2].(*object.Integer)
 		if !ok {
-			return object.NewError("TypeError", "arg 3 (offset) must be an Integer")
+			return object.NewError(constants.TypeError, constants.FFI_ARG3_MUST_BE_INT_ERR)
 		}
 		offset = offObj.Value
 		targetAddr = unsafe.Pointer(uintptr(targetAddr) + uintptr(offset))
@@ -1852,33 +1853,33 @@ func pyStringAt(ctx object.ExecutionContext, args ...object.Object) object.Objec
 
 func pyGetFuncAddress(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return object.NewError("TypeError", "get_func_address() takes 2 arguments")
+		return object.NewError(constants.TypeError, constants.FFI_GET_FUNC_ADDR_ARG_COUNT_ERR)
 	}
 	lib, ok1 := args[0].(*Library)
 	name, ok2 := args[1].(*object.String)
 	if !ok1 || !ok2 {
-		return object.NewError("TypeError", "args must be (Library, string)")
+		return object.NewError(constants.TypeError, constants.FFI_GET_FUNC_ADDR_ARG_TYPE_ERR)
 	}
 	procPtr, err := platform.GetManager().GetProcAddress(lib.handle, name.Value)
 	if err != nil {
-		return object.NewError("FFIError", err.Error())
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, err.Error())
 	}
 	return &Pointer{Address: unsafe.Pointer(procPtr), PtrType: C_VOID_P}
 }
 
 func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return object.NewError("TypeError", "create_struct_type() takes 2 arguments (name, fields_list)")
+		return object.NewError(constants.TypeError, constants.FFI_CREATE_STRUCT_ARG_COUNT_ERR)
 	}
 
 	nameObj, ok := args[0].(*object.String)
 	if !ok {
-		return object.NewError("TypeError", "argument 1 (name) must be a string")
+		return object.NewError(constants.TypeError, constants.FFI_ARG1_NAME_STR_ERR)
 	}
 
 	fieldsListObj, ok := args[1].(*object.List)
 	if !ok {
-		return object.NewError("TypeError", "argument 2 (fields) must be a list")
+		return object.NewError(constants.TypeError, constants.FFI_ARG2_FIELDS_LIST_ERR)
 	}
 
 	var fields []StructField
@@ -1889,21 +1890,21 @@ func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) obje
 		} else if fieldTuple, ok := fieldItem.(*object.Tuple); ok {
 			elements = fieldTuple.Elements
 		} else {
-			return object.NewError("TypeError", "field %d must be a list or tuple of (name, type)", i)
+			return object.NewError(constants.TypeError, constants.FFI_FIELD_TUPLE_ERR, i)
 		}
 
 		if len(elements) != 2 {
-			return object.NewError("TypeError", "field %d must have exactly 2 elements: (name, type)", i)
+			return object.NewError(constants.TypeError, constants.FFI_FIELD_LEN_ERR, i)
 		}
 
 		fieldNameObj, ok := elements[0].(*object.String)
 		if !ok {
-			return object.NewError("TypeError", "field %d name must be a string", i)
+			return object.NewError(constants.TypeError, constants.FFI_FIELD_NAME_STR_ERR, i)
 		}
 
 		fieldTypeObj, ok := elements[1].(FFIType)
 		if !ok {
-			return object.NewError("TypeError", "field %d type must be a valid FFI type", i)
+			return object.NewError(constants.TypeError, constants.FFI_FIELD_TYPE_ERR, i)
 		}
 
 		fields = append(fields, StructField{
@@ -1915,7 +1916,7 @@ func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) obje
 
 	totalSize, totalAlignment, offsets, err := calculateLayout(fields)
 	if err != nil {
-		return object.NewError("FFIError", "failed to calculate struct layout: %v", err)
+		return object.NewError(constants.FFI_ERROR_CLASS_NAME, constants.FFI_CALC_STRUCT_LAYOUT_ERR, err)
 	}
 
 	for i := range fields {
@@ -1934,7 +1935,7 @@ func pyCreateStructType(ctx object.ExecutionContext, args ...object.Object) obje
 
 func pyGetOrCreatePointerType(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return object.NewError("TypeError", "_get_or_create_pointer_type() takes 1 argument (pointee_type)")
+		return object.NewError(constants.TypeError, constants.FFI_GET_CREATE_PTR_ARG_COUNT_ERR)
 	}
 
 	if _, ok := args[0].(*object.Class); ok {
@@ -1946,7 +1947,7 @@ func pyGetOrCreatePointerType(ctx object.ExecutionContext, args ...object.Object
 
 	pointee, ok := args[0].(FFIType)
 	if !ok {
-		return object.NewError("TypeError", "argument must be a valid FFI type")
+		return object.NewError(constants.TypeError, constants.FFI_ARG_VALID_FFI_TYPE_ERR)
 	}
 
 	return &CPointerType{
@@ -1957,7 +1958,7 @@ func pyGetOrCreatePointerType(ctx object.ExecutionContext, args ...object.Object
 
 func pyCreatePointerType(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return object.NewError("TypeError", "_create_pointer_type() takes 2 arguments (pointee_type, array_size)")
+		return object.NewError(constants.TypeError, constants.FFI_CREATE_PTR_ARG_COUNT_ERR)
 	}
 
 	var pointee FFIType
@@ -1965,17 +1966,17 @@ func pyCreatePointerType(ctx object.ExecutionContext, args ...object.Object) obj
 		var ok bool
 		pointee, ok = args[0].(FFIType)
 		if !ok {
-			return object.NewError("TypeError", "argument 1 (pointee_type) must be an FFI type or NULL")
+			return object.NewError(constants.TypeError, constants.FFI_CREATE_PTR_ARG1_ERR)
 		}
 	}
 
 	sizeObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return object.NewError("TypeError", "argument 2 (array_size) must be an integer")
+		return object.NewError(constants.TypeError, constants.FFI_CREATE_PTR_ARG2_ERR)
 	}
 	arraySize := int(sizeObj.Value)
 	if arraySize < 0 {
-		return object.NewError("ValueError", "array_size must be non-negative")
+		return object.NewError(constants.ValueError, constants.FFI_ARRAY_SIZE_NEG_ERR)
 	}
 
 	return &CPointerType{
@@ -1992,16 +1993,16 @@ func init() {
 	shortSize := unsafe.Sizeof(C.short(0))
 
 	if charSize != 1 {
-		panic(fmt.Sprintf("Unsupported C char size: %d", charSize))
+		panic(fmt.Sprintf(constants.FFI_UNSUPPORTED_C_CHAR_SIZE, charSize))
 	}
-	C_CHAR = &CPrimitiveType{name: "c_char", ffiType: &C.ffi_type_sint8, size: charSize}
-	C_UCHAR = &CPrimitiveType{name: "c_uchar", ffiType: &C.ffi_type_uint8, size: charSize}
+	C_CHAR = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_CHAR, ffiType: &C.ffi_type_sint8, size: charSize}
+	C_UCHAR = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_UCHAR, ffiType: &C.ffi_type_uint8, size: charSize}
 
 	if shortSize != 2 {
-		panic(fmt.Sprintf("Unsupported C short size: %d", shortSize))
+		panic(fmt.Sprintf(constants.FFI_UNSUPPORTED_C_SHORT_SIZE, shortSize))
 	}
-	C_SHORT = &CPrimitiveType{name: "c_short", ffiType: &C.ffi_type_sint16, size: shortSize}
-	C_USHORT = &CPrimitiveType{name: "c_ushort", ffiType: &C.ffi_type_uint16, size: shortSize}
+	C_SHORT = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_SHORT, ffiType: &C.ffi_type_sint16, size: shortSize}
+	C_USHORT = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_USHORT, ffiType: &C.ffi_type_uint16, size: shortSize}
 
 	var longFFIType, ulongFFIType *C.ffi_type
 	switch longSize {
@@ -2010,20 +2011,20 @@ func init() {
 	case 8:
 		longFFIType, ulongFFIType = &C.ffi_type_sint64, &C.ffi_type_uint64
 	default:
-		panic(fmt.Sprintf("Unsupported C long size: %d", longSize))
+		panic(fmt.Sprintf(constants.FFI_UNSUPPORTED_C_LONG_SIZE, longSize))
 	}
-	C_LONG = &CPrimitiveType{name: "c_long", ffiType: longFFIType, size: longSize}
-	C_ULONG = &CPrimitiveType{name: "c_ulong", ffiType: ulongFFIType, size: longSize}
+	C_LONG = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_LONG, ffiType: longFFIType, size: longSize}
+	C_ULONG = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_ULONG, ffiType: ulongFFIType, size: longSize}
 
-	C_LONGLONG = &CPrimitiveType{name: "c_longlong", ffiType: &C.ffi_type_sint64, size: 8}
-	C_ULONGLONG = &CPrimitiveType{name: "c_ulonglong", ffiType: &C.ffi_type_uint64, size: 8}
+	C_LONGLONG = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_LONGLONG, ffiType: &C.ffi_type_sint64, size: 8}
+	C_ULONGLONG = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_ULONGLONG, ffiType: &C.ffi_type_uint64, size: 8}
 
 	if boolSize != 1 {
-		panic(fmt.Sprintf("Unsupported C _Bool size: %d", boolSize))
+		panic(fmt.Sprintf(constants.FFI_UNSUPPORTED_C_BOOL_SIZE, boolSize))
 	}
-	C_BOOL = &CPrimitiveType{name: "c_bool", ffiType: &C.ffi_type_sint8, size: boolSize}
+	C_BOOL = &CPrimitiveType{name: constants.FFI_TYPE_NAME_C_BOOL, ffiType: &C.ffi_type_sint8, size: boolSize}
 
-	C_WCHAR_T = &wcharType{name: "c_wchar_t", size: wcharSize}
+	C_WCHAR_T = &wcharType{name: constants.FFI_TYPE_NAME_C_WCHAR_T, size: wcharSize}
 
 	C_CHAR_P = &CPointerType{Pointee: C_CHAR}
 	C_WCHAR_P = &CPointerType{Pointee: C_WCHAR_T}
@@ -2036,66 +2037,72 @@ func init() {
 	C_HANDLE = &CPointerType{Pointee: nil}
 
 	env := object.NewEnvironment()
-	env.Set("load_library", &object.Builtin{Name: "_ffi.load_library", Fn: pyLoadLibrary})
-	env.Set("define_function", &object.Builtin{Name: "_ffi.define_function", Fn: pyDefineFunction})
-	env.Set("call_function", &object.Builtin{Name: "_ffi.call_function", Fn: pyCallFunction})
-	env.Set("malloc", &object.Builtin{Name: "_ffi.malloc", Fn: pyMalloc})
-	env.Set("free", &object.Builtin{Name: "_ffi.free", Fn: pyFree})
-	env.Set("memcpy", &object.Builtin{Name: "_ffi.memcpy", Fn: pyMemcpy})
-	env.Set("addressof", &object.Builtin{Name: "_ffi.addressof", Fn: pyAddressof})
-	env.Set("read_memory", &object.Builtin{Name: "_ffi.read_memory", Fn: pyReadMemory})
-	env.Set("write_memory", &object.Builtin{Name: "_ffi.write_memory", Fn: pyWriteMemory})
-	env.Set("write_memory_with_offset", &object.Builtin{Name: "_ffi.write_memory_with_offset", Fn: pyWriteMemoryWithOffset})
-	env.Set("read_memory_with_offset", &object.Builtin{Name: "_ffi.read_memory_with_offset", Fn: pyReadMemoryWithOffset})
-	env.Set("callback", &object.Builtin{Name: "_ffi.callback", Fn: pyCreateCallback})
-	env.Set("buffer_to_bytes", &object.Builtin{Name: "_ffi.buffer_to_bytes", Fn: pyBufferToBytes})
 
-	env.Set("_get_or_create_pointer_type", &object.Builtin{Name: "_ffi._get_or_create_pointer_type", Fn: pyGetOrCreatePointerType})
-	env.Set("_create_pointer_type", &object.Builtin{Name: "_ffi._create_pointer_type", Fn: pyCreatePointerType})
+	// Bind FFI Functions
+	env.Set(constants.FFI_ENV_LOAD_LIBRARY, &object.Builtin{Name: constants.FFI_BUILTIN_LOAD_LIBRARY, Fn: pyLoadLibrary})
+	env.Set(constants.FFI_ENV_DEFINE_FUNCTION, &object.Builtin{Name: constants.FFI_BUILTIN_DEFINE_FUNCTION, Fn: pyDefineFunction})
+	env.Set(constants.FFI_ENV_CALL_FUNCTION, &object.Builtin{Name: constants.FFI_BUILTIN_CALL_FUNCTION, Fn: pyCallFunction})
+	env.Set(constants.FFI_ENV_MALLOC, &object.Builtin{Name: constants.FFI_BUILTIN_MALLOC, Fn: pyMalloc})
+	env.Set(constants.FFI_ENV_FREE, &object.Builtin{Name: constants.FFI_BUILTIN_FREE, Fn: pyFree})
+	env.Set(constants.FFI_ENV_MEMCPY, &object.Builtin{Name: constants.FFI_BUILTIN_MEMCPY, Fn: pyMemcpy})
+	env.Set(constants.FFI_ENV_ADDRESSOF, &object.Builtin{Name: constants.FFI_BUILTIN_ADDRESSOF, Fn: pyAddressof})
+	env.Set(constants.FFI_ENV_READ_MEMORY, &object.Builtin{Name: constants.FFI_BUILTIN_READ_MEMORY, Fn: pyReadMemory})
+	env.Set(constants.FFI_ENV_WRITE_MEMORY, &object.Builtin{Name: constants.FFI_BUILTIN_WRITE_MEMORY, Fn: pyWriteMemory})
+	env.Set(constants.FFI_ENV_WRITE_MEMORY_OFFSET, &object.Builtin{Name: constants.FFI_BUILTIN_WRITE_MEMORY_OFFSET, Fn: pyWriteMemoryWithOffset})
+	env.Set(constants.FFI_ENV_READ_MEMORY_OFFSET, &object.Builtin{Name: constants.FFI_BUILTIN_READ_MEMORY_OFFSET, Fn: pyReadMemoryWithOffset})
+	env.Set(constants.FFI_ENV_CALLBACK, &object.Builtin{Name: constants.FFI_BUILTIN_CALLBACK, Fn: pyCreateCallback})
+	env.Set(constants.FFI_ENV_BUFFER_TO_BYTES, &object.Builtin{Name: constants.FFI_BUILTIN_BUFFER_TO_BYTES, Fn: pyBufferToBytes})
 
-	env.Set("create_struct_type", &object.Builtin{Name: "_ffi.create_struct_type", Fn: pyCreateStructType})
-	env.Set("create_union_type", &object.Builtin{Name: "_ffi.create_union_type", Fn: pyCreateUnionType})
-	env.Set("free_callback", &object.Builtin{Name: "_ffi.free_callback", Fn: pyFreeCallback})
-	env.Set("string_at", &object.Builtin{Name: "_ffi.string_at", Fn: pyStringAt})
-	env.Set("get_func_address", &object.Builtin{Name: "_ffi.get_func_address", Fn: pyGetFuncAddress})
+	// Bind Type Creation Helpers
+	env.Set(constants.FFI_ENV_GET_CREATE_PTR_TYPE, &object.Builtin{Name: constants.FFI_BUILTIN_GET_CREATE_PTR_TYPE, Fn: pyGetOrCreatePointerType})
+	env.Set(constants.FFI_ENV_CREATE_PTR_TYPE, &object.Builtin{Name: constants.FFI_BUILTIN_CREATE_PTR_TYPE, Fn: pyCreatePointerType})
+	env.Set(constants.FFI_ENV_CREATE_STRUCT_TYPE, &object.Builtin{Name: constants.FFI_BUILTIN_CREATE_STRUCT_TYPE, Fn: pyCreateStructType})
+	env.Set(constants.FFI_ENV_CREATE_UNION_TYPE, &object.Builtin{Name: constants.FFI_BUILTIN_CREATE_UNION_TYPE, Fn: pyCreateUnionType})
+
+	// Bind Other Helpers
+	env.Set(constants.FFI_ENV_FREE_CALLBACK, &object.Builtin{Name: constants.FFI_BUILTIN_FREE_CALLBACK, Fn: pyFreeCallback})
+	env.Set(constants.FFI_ENV_STRING_AT, &object.Builtin{Name: constants.FFI_BUILTIN_STRING_AT, Fn: pyStringAt})
+	env.Set(constants.FFI_ENV_GET_FUNC_ADDRESS, &object.Builtin{Name: constants.FFI_BUILTIN_GET_FUNC_ADDRESS, Fn: pyGetFuncAddress})
+	env.Set(constants.FFI_ENV_FREE_C_RESOURCE, &object.Builtin{Name: constants.FFI_BUILTIN_FREE_C_RESOURCE, Fn: pyFreeCResource})
 
 	registerPlatformSpecifics(env)
 
-	env.Set("free_c_resource", &object.Builtin{Name: "_ffi.free_c_resource", Fn: pyFreeCResource})
+	// Bind C Types
+	env.Set(constants.FFI_TYPE_NAME_C_INT8, C_INT8)
+	env.Set(constants.FFI_TYPE_NAME_C_UINT8, C_UINT8)
+	env.Set(constants.FFI_TYPE_NAME_C_INT32, C_INT32)
+	env.Set(constants.FFI_TYPE_NAME_C_UINT32, C_UINT32)
+	env.Set(constants.FFI_TYPE_NAME_C_INT64, C_INT64)
+	env.Set(constants.FFI_TYPE_NAME_C_UINT64, C_UINT64)
+	env.Set(constants.FFI_TYPE_NAME_C_FLOAT, C_FLOAT32)
+	env.Set(constants.FFI_TYPE_NAME_C_DOUBLE, C_FLOAT64)
+	env.Set(constants.FFI_TYPE_C_VOID_P, C_VOID_P)
 
-	env.Set("c_int8", C_INT8)
-	env.Set("c_uint8", C_UINT8)
-	env.Set("c_int32", C_INT32)
-	env.Set("c_uint32", C_UINT32)
-	env.Set("c_int64", C_INT64)
-	env.Set("c_uint64", C_UINT64)
-	env.Set("c_float", C_FLOAT32)
-	env.Set("c_double", C_FLOAT64)
-	env.Set("c_void_p", C_VOID_P)
+	env.Set(constants.FFI_TYPE_NAME_C_CHAR, C_CHAR)
+	env.Set(constants.FFI_TYPE_NAME_C_UCHAR, C_UCHAR)
+	env.Set(constants.FFI_TYPE_NAME_C_SHORT, C_SHORT)
+	env.Set(constants.FFI_TYPE_NAME_C_USHORT, C_USHORT)
+	env.Set(constants.FFI_TYPE_NAME_C_LONG, C_LONG)
+	env.Set(constants.FFI_TYPE_NAME_C_ULONG, C_ULONG)
+	env.Set(constants.FFI_TYPE_NAME_C_LONGLONG, C_LONGLONG)
+	env.Set(constants.FFI_TYPE_NAME_C_ULONGLONG, C_ULONGLONG)
+	env.Set(constants.FFI_TYPE_NAME_C_BOOL, C_BOOL)
+	env.Set(constants.FFI_TYPE_NAME_C_WCHAR_T, C_WCHAR_T)
+	env.Set(constants.FFI_TYPE_NAME_C_CHAR_P, C_CHAR_P)
+	env.Set(constants.FFI_TYPE_NAME_C_WCHAR_P, C_WCHAR_P)
 
-	env.Set("c_char", C_CHAR)
-	env.Set("c_uchar", C_UCHAR)
-	env.Set("c_short", C_SHORT)
-	env.Set("c_ushort", C_USHORT)
-	env.Set("c_long", C_LONG)
-	env.Set("c_ulong", C_ULONG)
-	env.Set("c_longlong", C_LONGLONG)
-	env.Set("c_ulonglong", C_ULONGLONG)
-	env.Set("c_bool", C_BOOL)
-	env.Set("c_wchar_t", C_WCHAR_T)
-	env.Set("c_char_p", C_CHAR_P)
-	env.Set("c_wchar_p", C_WCHAR_P)
+	env.Set(constants.FFI_TYPE_NAME_C_FILE_P, C_FILE_P)
+	env.Set(constants.FFI_TYPE_NAME_C_DIR_P, C_DIR_P)
+	env.Set(constants.FFI_TYPE_NAME_C_PID_T, C_PID_T)
+	env.Set(constants.FFI_TYPE_NAME_C_TIME_T, C_TIME_T)
+	env.Set(constants.FFI_TYPE_NAME_C_HANDLE, C_HANDLE)
 
-	env.Set("c_file_p", C_FILE_P)
-	env.Set("c_dir_p", C_DIR_P)
-	env.Set("c_pid_t", C_PID_T)
-	env.Set("c_time_t", C_TIME_T)
-	env.Set("c_handle", C_HANDLE)
+	// Create and bind FFIError class
+	ffiErrorClass := object.CreateExceptionClass(constants.FFI_ERROR_CLASS_NAME, object.ExceptionClass)
+	object.BuiltinExceptionClasses[constants.FFI_ERROR_CLASS_NAME] = ffiErrorClass
+	env.Set(constants.FFI_ENV_ERROR, ffiErrorClass)
 
-	ffiErrorClass := object.CreateExceptionClass("FFIError", object.ExceptionClass)
-	object.BuiltinExceptionClasses["FFIError"] = ffiErrorClass
-	env.Set("error", ffiErrorClass)
-
-	module := &object.Module{Name: "_ffi_native", Path: "<builtin_ffi>", Env: env}
-	object.RegisterNativeModule("_ffi_native", module)
+	// Register Native Module
+	module := &object.Module{Name: constants.FFI_MODULE_NAME, Path: constants.FFI_MODULE_PATH, Env: env}
+	object.RegisterNativeModule(constants.FFI_MODULE_NAME, module)
 }

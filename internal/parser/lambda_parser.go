@@ -2,8 +2,8 @@ package parser
 
 import (
 	"github.com/deniskipeles/pylearn/internal/ast"
+	"github.com/deniskipeles/pylearn/internal/constants" // Import the constants package
 	"github.com/deniskipeles/pylearn/internal/lexer"
-	// "github.com/deniskipeles/pylearn/internal/constants" // Import the constants package
 )
 
 // parseLambdaLiteral parses a lambda expression: lambda <params>: <expression>
@@ -53,7 +53,7 @@ func (p *Parser) parseLambdaParameters() []*ast.Parameter {
 	// A full implementation would reuse a more generic parameter list parser.
 	for {
 		if !p.curTokenIs(lexer.IDENT) {
-			p.errorExpected("identifier in lambda parameter list", p.curToken.String())
+			p.errorExpected(constants.ParserLambdaParamIdentError, p.curToken.String())
 			return nil
 		}
 		param := &ast.Parameter{
@@ -76,7 +76,7 @@ func (p *Parser) parseLambdaParameters() []*ast.Parameter {
 		} else if p.peekTokenIs(lexer.COLON) {
 			break // End of parameter list
 		} else {
-			p.peekErrorMsg("expected ',' or ':' after lambda parameter")
+			p.peekErrorMsg(constants.ParserLambdaCommaOrColonError)
 			return nil
 		}
 	}

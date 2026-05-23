@@ -1,7 +1,6 @@
 //go:build en
 package constants
 
-// pylearn/internal/parser/parser.go
 const (
 	ParserExpectedDefOrClassAfterDecorator     = "expected 'def' or 'class' after decorator(s)"
 	ParserExpectedDefAfterAsync                = "expected 'def' after 'async', got %s"
@@ -110,10 +109,22 @@ const (
 
 // Parser error messages for imports
 const (
-	// ParserExpectedClosingParenImportList = "expected closing ')' in import list, got %s"
-	// ParserExpectedParenStarOrIdentImport = "expected '(', '*', or identifier after 'import'"
 	ParserExpectedDotInModulePath        = "expected '.' in module path, got %s"
 	ParserExpectedIdentAfterDot          = "expected identifier after '.', got %s"
 	ParserExpectedIdentInImportList      = "expected identifier in import list, got %s"
-	// ParserExpectedIdentifierAfterDot     = "line %d:%d: expected identifier after '.'"
+	ParserInvalidDeletionTargetAtLine_DIGITFORMAT      = "invalid deletion target at line %d"
+	ParserIdentifierAfterGlobal      = "identifier after 'global'"
+	ParserIdentifierAfterCommaInGlobalStatement      = "identifier after comma in 'global' statement"
+	ParserExpectedConditionAfterAssert      = "expected condition after 'assert'"
+	ParserExpectedMessageExpressionAfterCommaInAssertStatement     = "expected message expression after comma in 'assert' statement"
+	ParserModuleNameAfterImport     = "module name after 'import'"
+	ParserAliasIdentifierAfter_AS      = "alias identifier after 'as'"
+	ParserFormatString      = "format_str"
+	ParserSyntaxErrorOperatorCannotBeUsedWithMultipleTargets      = "SyntaxError: '%s' operator cannot be used with multiple targets"
+)
+
+// Lambda Parser (from parser/lambda_parser.go)
+const (
+	ParserLambdaParamIdentError   = "identifier in lambda parameter list"
+	ParserLambdaCommaOrColonError = "expected ',' or ':' after lambda parameter"
 )

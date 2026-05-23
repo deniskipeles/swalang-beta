@@ -1,5 +1,4 @@
 //go:build linux || darwin || windows
-// pylearn/internal/stdlib/ffi/c_definitions.go
 package ffi3
 
 /*

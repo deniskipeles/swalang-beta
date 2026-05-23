@@ -1,9 +1,7 @@
 package pysys
 
 import (
-	// Remove interpreter import
-	// "github.com/deniskipeles/pylearn/internal/interpreter"
-
+	"github.com/deniskipeles/pylearn/internal/constants"
 	"github.com/deniskipeles/pylearn/internal/object" // Keep object import
 )
 
@@ -19,20 +17,17 @@ func InitializeSysModule(argvList *object.List) {
 	env := object.NewEnvironment()
 
 	// Add variables and functions to the environment
-	// Platform variable is initialized in sys_platform.go's init()
-	// Exit Builtin is defined in sys_exit.go (with correct signature)
-	env.Set("argv", argvList)
-	env.Set("exit", Exit)
-	env.Set("platform", Platform)
+	env.Set(constants.SYS_ARGV_KEY, argvList)
+	env.Set(constants.SYS_EXIT_KEY, Exit)
+	env.Set(constants.SYS_PLATFORM_KEY, Platform)
 
 	// Create the Module object
 	sysModule := &object.Module{
-		Name: "sys",
-		Path: "<builtin>",
+		Name: constants.SYS_MODULE_NAME,
+		Path: constants.SYS_MODULE_BUILTIN_PATH,
 		Env:  env,
 	}
 
 	// Register the module using the central registry function
-	// Assumes object.RegisterNativeModule exists in internal/object/registry.go
-	object.RegisterNativeModule("sys", sysModule)
+	object.RegisterNativeModule(constants.SYS_MODULE_NAME, sysModule)
 }

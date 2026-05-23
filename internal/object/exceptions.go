@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	// "github.com/deniskipeles/pylearn/internal/ast"
 	"github.com/deniskipeles/pylearn/internal/constants"
 )
 
@@ -93,10 +92,10 @@ func CreateExceptionClass(name string, base *Class) *Class {
 			self.Env = NewEnvironment()
 		}
 		// Store all message arguments in a tuple at self.args, mimicking Python.
-		self.Env.Set("args", &Tuple{Elements: args[1:]})
+		self.Env.Set(constants.EXCEPTION_ARGS_ATTR, &Tuple{Elements: args[1:]})
 		return NULL
 	}
-	methods[constants.DunderInit] = &Builtin{Fn: exceptionInitFn, Name: name + "." + constants.DunderInit}
+	methods[constants.DunderInit] = &Builtin{Fn: exceptionInitFn, Name: name + constants.DotOperator + constants.DunderInit}
 
 	// A Go-based __str__ that retrieves the message from `self.args`.
 	exceptionStrFn := func(ctx ExecutionContext, args ...Object) Object {
@@ -109,17 +108,17 @@ func CreateExceptionClass(name string, base *Class) *Class {
 			return NewError(constants.TypeError, constants.STR_MUST_BE_CALLED_ON_AN_EXCEPTION_INSTANCE_NOT_OTHER, args[0].Type())
 		}
 		if self.Env == nil {
-			return NewString("") // No env means no message stored
+			return NewString(constants.EmptyString) // No env means no message stored
 		}
 
-		argsTupleObj, found := self.Env.Get("args")
+		argsTupleObj, found := self.Env.Get(constants.EXCEPTION_ARGS_ATTR)
 		if !found {
-			return NewString("")
+			return NewString(constants.EmptyString)
 		}
 
 		argsTuple, ok := argsTupleObj.(*Tuple)
 		if !ok || len(argsTuple.Elements) == 0 {
-			return NewString("")
+			return NewString(constants.EmptyString)
 		}
 
 		// If there's only one argument, return its string representation.
@@ -137,7 +136,7 @@ func CreateExceptionClass(name string, base *Class) *Class {
 		// If there are multiple arguments, return the string representation of the tuple.
 		return NewString(argsTuple.Inspect())
 	}
-	methods[constants.DunderStr] = &Builtin{Fn: exceptionStrFn, Name: name + "." + constants.DunderStr}
+	methods[constants.DunderStr] = &Builtin{Fn: exceptionStrFn, Name: name + constants.DotOperator + constants.DunderStr}
 
 	superclasses := []*Class{}
 	if base != nil {

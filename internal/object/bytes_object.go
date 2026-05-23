@@ -1,4 +1,3 @@
-// pylearn/internal/object/bytes_object.go
 package object
 
 import (
@@ -67,19 +66,19 @@ func (b *Bytes) GetObjectItem(key Object) Object {
 // pyBytesContainsFn implements bytes.__contains__(sub)
 func pyBytesContainsFn(ctx ExecutionContext, args ...Object) Object {
 	if len(args) != 2 {
-		return NewError(constants.TypeError, "__contains__() takes exactly one argument (%d given)", len(args)-1)
+		return NewError(constants.TypeError, constants.OBJECT_BYTES_CONTAINS_ARG_COUNT_ERROR, len(args)-1)
 	}
 
 	selfBytes, ok := args[0].(*Bytes)
 	if !ok {
-		return NewError(constants.InternalError, "__contains__ called on non-Bytes object")
+		return NewError(constants.InternalError, constants.OBJECT_BYTES_CONTAINS_ON_NON_BYTES_ERROR)
 	}
 
 	// Python's `in` for bytes accepts an integer or a bytes-like object
 	switch sub := args[1].(type) {
 	case *Integer:
 		if sub.Value < 0 || sub.Value > 255 {
-			return NewError(constants.ValueError, "byte must be in range(0, 256)")
+			return NewError(constants.ValueError, constants.OBJECT_BYTES_RANGE_ERROR)
 		}
 		return NativeBoolToBooleanObject(bytes.Contains(selfBytes.Value, []byte{byte(sub.Value)}))
 	case *Bytes:
@@ -87,18 +86,18 @@ func pyBytesContainsFn(ctx ExecutionContext, args ...Object) Object {
 	case *ByteArray:
 		return NativeBoolToBooleanObject(bytes.Contains(selfBytes.Value, sub.Value))
 	default:
-		return NewError(constants.TypeError, "a bytes-like object is required for 'in' operator, not '%s'", args[1].Type())
+		return NewError(constants.TypeError, constants.OBJECT_BYTES_LIKE_REQUIRED_ERROR, args[1].Type())
 	}
 }
 
 // pyBytesDecodeFn implements bytes.decode(encoding='utf-8', errors='strict')
 func pyBytesDecodeFn(ctx ExecutionContext, args ...Object) Object {
 	if len(args) < 1 || len(args) > 2 { // self, [encoding]
-		return NewError(constants.TypeError, "decode() takes at most 1 argument (%d given)", len(args)-1)
+		return NewError(constants.TypeError, constants.OBJECT_BYTES_DECODE_ARG_COUNT_ERROR, len(args)-1)
 	}
 	selfBytes, ok := args[0].(*Bytes)
 	if !ok {
-		return NewError(constants.TypeError, "decode() must be called on a bytes object")
+		return NewError(constants.TypeError, constants.OBJECT_BYTES_DECODE_ON_NON_BYTES_ERROR)
 	}
 	// For simplicity, we ignore the encoding argument and assume utf-8
 	return &String{Value: string(selfBytes.Value)}
@@ -109,22 +108,22 @@ func pyBytesJoinFn(ctx ExecutionContext, args ...Object) Object {
 	// args[0] is self (the separator Bytes object)
 	// args[1] is the iterable
 	if len(args) != 2 {
-		return NewError(constants.TypeError, "join() takes exactly one argument (%d given)", len(args)-1)
+		return NewError(constants.TypeError, constants.OBJECT_BYTES_JOIN_ARG_COUNT_ERROR, len(args)-1)
 	}
 	separator, ok := args[0].(*Bytes)
 	if !ok {
-		return NewError(constants.TypeError, "join() must be called on a bytes object")
+		return NewError(constants.TypeError, constants.OBJECT_BYTES_JOIN_ON_NON_BYTES_ERROR)
 	}
 	iterable, ok := args[1].(*List) // For now, assume the iterable is a List
 	if !ok {
-		return NewError(constants.TypeError, "join() argument must be an iterable of bytes, not %s", args[1].Type())
+		return NewError(constants.TypeError, constants.OBJECT_BYTES_JOIN_ITERABLE_ERROR, args[1].Type())
 	}
 
 	var buffer bytes.Buffer
 	for i, item := range iterable.Elements {
 		itemBytes, ok := item.(*Bytes)
 		if !ok {
-			return NewError(constants.TypeError, "sequence item %d: expected bytes instance, %s found", i, item.Type())
+			return NewError(constants.TypeError, constants.OBJECT_BYTES_SEQUENCE_ITEM_ERROR, i, item.Type())
 		}
 		if i > 0 {
 			buffer.Write(separator.Value)
@@ -151,8 +150,8 @@ func pyBytesMulFn(ctx ExecutionContext, args ...Object) Object {
 	if count < 0 {
 		count = 0 // Multiplying by a negative number results in empty bytes
 	}
-    
-    // Use the efficient bytes.Repeat function
+
+	// Use the efficient bytes.Repeat function
 	repeated := bytes.Repeat(selfBytes.Value, count)
 	return &Bytes{Value: repeated}
 }
@@ -161,7 +160,7 @@ func pyBytesMulFn(ctx ExecutionContext, args ...Object) Object {
 func (b *Bytes) GetObjectAttribute(ctx ExecutionContext, name string) (Object, bool) {
 	makeBytesMethod := func(methodName string, goFn BuiltinFunction) *Builtin {
 		return &Builtin{
-			Name: "bytes." + methodName,
+			Name: constants.OBJECT_BYTES_METHOD_PREFIX + methodName,
 			Fn: func(callCtx ExecutionContext, scriptProvidedArgs ...Object) Object {
 				methodArgs := make([]Object, 0, 1+len(scriptProvidedArgs))
 				methodArgs = append(methodArgs, b)
@@ -173,10 +172,10 @@ func (b *Bytes) GetObjectAttribute(ctx ExecutionContext, name string) (Object, b
 	switch name {
 	case constants.DunderContains:
 		return makeBytesMethod(constants.DunderContains, pyBytesContainsFn), true
-	case "decode": // Use literal string name for the method
-		return makeBytesMethod("decode", pyBytesDecodeFn), true
-	case "join":
-		return makeBytesMethod("join", pyBytesJoinFn), true
+	case constants.OBJECT_BYTES_DECODE_METHOD_NAME:
+		return makeBytesMethod(constants.OBJECT_BYTES_DECODE_METHOD_NAME, pyBytesDecodeFn), true
+	case constants.OBJECT_BYTES_JOIN_METHOD_NAME:
+		return makeBytesMethod(constants.OBJECT_BYTES_JOIN_METHOD_NAME, pyBytesJoinFn), true
 	case constants.DunderMul, constants.DunderRMul:
 		// Both regular and reflected multiplication map to the same Go function.
 		return makeBytesMethod(name, pyBytesMulFn), true
@@ -197,12 +196,7 @@ type ByteArray struct{ Value []byte }
 func (ba *ByteArray) Type() ObjectType { return BYTEARRAY_OBJ }
 func (ba *ByteArray) Inspect() string {
 	// Re-use the Bytes inspect logic by creating a temporary Bytes object, then wrap in bytearray()
-	return "bytearray(" + (&Bytes{Value: ba.Value}).Inspect() + ")"
+	return constants.OBJECT_BYTEARRAY_INSPECT_PREFIX + (&Bytes{Value: ba.Value}).Inspect() + constants.OBJECT_BYTEARRAY_INSPECT_SUFFIX
 }
 
-// NOTE: Item setting/deleting and other mutable methods (append, extend, pop, etc.)
-// would be implemented here, similar to the List object. For now, we are only
-// implementing the constructor via the built-in bytearray().
-
 var _ Object = (*ByteArray)(nil)
-// ByteArray is mutable, so it is NOT Hashable.

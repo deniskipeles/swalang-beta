@@ -1,6 +1,5 @@
 //go:build en
 
-// pylearn/internal/constants/builtins.go
 package constants
 
 // pylearn/internal/builtins/builtins_collections.go

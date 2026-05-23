@@ -223,23 +223,3 @@ const (
 	ErrSubclassArg2            = "issubclass() arg 2 must be a class or tuple of classes"
 	ErrInternal                = "InternalError: %s"
 )
-// const (
-// 	ErrWrongNumArgs            = "%s() takes %d positional arguments but %d were given"
-// 	ErrWrongNumArgsAtLeast     = "%s() takes at least %d arguments (%d given)"
-// 	ErrWrongNumArgsBetween     = "%s() takes from %d to %d arguments but %d were given"
-// 	ErrWrongNumArgsExact       = "%s() takes exactly %d arguments (%d given)"
-// 	ErrUnsupportedOperand      = "unsupported operand type(s) for %s: '%s' and '%s'"
-// 	ErrUnsupportedUnaryOperand = "bad operand type for unary %s: '%s'"
-// 	ErrNotIterable             = "'%s' object is not iterable"
-// 	ErrNotSubscriptable        = "'%s' object is not subscriptable"
-// 	ErrNotCallable             = "'%s' object is not callable"
-// 	ErrNoAttribute             = "'%s' object has no attribute '%s'"
-// 	ErrUnhandledAttribute      = "'%s' object has no attribute '%s'"
-// 	ErrUnHashableType          = "unhashable type: '%s'"
-// 	ErrMissingRequiredArg      = "%s() missing 1 required positional argument: '%s'"
-// 	ErrUnexpectedKeywordArg    = "%s() got an unexpected keyword argument '%s'"
-// 	ErrIsinstanceArg2          = "isinstance() arg 2 must be a type or tuple of types, not %s"
-// 	ErrSubclassArg1            = "issubclass() arg 1 must be a class"
-// 	ErrSubclassArg2            = "issubclass() arg 2 must be a class or tuple of classes"
-// 	ErrInternal                = "InternalError: %s"
-// )

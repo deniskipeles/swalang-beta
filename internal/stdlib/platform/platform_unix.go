@@ -1,6 +1,4 @@
 //go:build linux || darwin
-// pylearn/internal/stdlib/ffi/platform/platform_unix.go
-
 package platform
 
 /*
@@ -12,6 +10,8 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/deniskipeles/pylearn/internal/constants"
 )
 
 // unixManager implements the LibManager interface for Linux and macOS.
@@ -33,7 +33,7 @@ func (m *unixManager) LoadLibrary(name string) (LibraryHandle, error) {
 	handle := C.dlopen(cname, C.RTLD_LAZY|C.RTLD_GLOBAL)
 	if handle == nil {
 		// dlerror() returns a human-readable error string.
-		return 0, fmt.Errorf("dlopen failed: %s", C.GoString(C.dlerror()))
+		return 0, fmt.Errorf(constants.PLATFORM_DLOPEN_FAILED_ERROR, C.GoString(C.dlerror()))
 	}
 	return LibraryHandle(handle), nil
 }
@@ -42,7 +42,7 @@ func (m *unixManager) LoadLibrary(name string) (LibraryHandle, error) {
 func (m *unixManager) FreeLibrary(handle LibraryHandle) error {
 	res := C.dlclose(unsafe.Pointer(handle))
 	if res != 0 {
-		return fmt.Errorf("dlclose failed: %s", C.GoString(C.dlerror()))
+		return fmt.Errorf(constants.PLATFORM_DLCLOSE_FAILED_ERROR, C.GoString(C.dlerror()))
 	}
 	return nil
 }
@@ -59,7 +59,7 @@ func (m *unixManager) GetProcAddress(handle LibraryHandle, procName string) (Fun
 	// Check for errors after the call.
 	errStr := C.dlerror()
 	if errStr != nil {
-		return 0, fmt.Errorf("dlsym failed for '%s': %s", procName, C.GoString(errStr))
+		return 0, fmt.Errorf(constants.PLATFORM_DLSYM_FAILED_ERROR, procName, C.GoString(errStr))
 	}
 	return FuncPtr(ptr), nil
 }
@@ -69,5 +69,5 @@ func (m *unixManager) LibraryExtension() string {
 	// macOS uses .dylib, but .so is often used and symlinked.
 	// We'll default to .so for broader compatibility. A more advanced
 	// implementation could check runtime.GOOS.
-	return ".so"
+	return constants.PLATFORM_UNIX_LIB_EXTENSION
 }

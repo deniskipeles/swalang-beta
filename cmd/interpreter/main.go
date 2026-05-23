@@ -1,3 +1,4 @@
+// =========================== /teamspace/studios/this_studio/swalang-beta/cmd/interpreter/main.go start here ===========================
 package main
 
 import (
@@ -23,7 +24,7 @@ import (
 func main() {
 	goArgs := os.Args
 
-	if len(goArgs) > 1 && goArgs[1] == "get" {
+	if len(goArgs) > 1 && goArgs[1] == constants.CmdInterpreterMainGetCommand {
 		package_manager.HandleGetCommand(goArgs[2:])
 		return
 	}
@@ -80,14 +81,14 @@ func main() {
 	evaluated := interpreter.Eval(program, mainCtx)
 
 	// --- Asyncio Auto-Bootloader ---
-	mainFuncObj, mainFound := env.Get("main_program")
+	mainFuncObj, mainFound := env.Get(constants.CmdInterpreterMainMainProgramFunc)
 	if mainFound {
 		if mainPylFunc, isPylFunc := mainFuncObj.(*object.Function); isPylFunc {
 			if mainPylFunc.IsAsync {
-				fmt.Println("⚡ Found async main_program. Booting Swalang asyncio engine...")
+				fmt.Println(constants.CmdInterpreterMainBootAsyncInfo)
 				
 				// Inject the asyncio launch code directly into the environment!
-				bootCode := "import asyncio\nasyncio.run(main_program())\n"
+				bootCode := constants.CmdInterpreterMainBootCode
 				bootL := lexer.New(bootCode)
 				bootP := parser.New(bootL)
 				bootProg := bootP.ParseProgram()
@@ -95,12 +96,12 @@ func main() {
 				evalResult := interpreter.Eval(bootProg, mainCtx)
 				if object.IsError(evalResult) {
 					errObj := evalResult.(*object.Error)
-					fmt.Fprintf(os.Stderr, "Asyncio Crash: %s\n", errObj.Message)
+					fmt.Fprintf(os.Stderr, constants.CmdInterpreterMainAsyncCrashErr, errObj.Message)
 					os.Exit(1)
 				}
 				os.Exit(0)
 			} else {
-				fmt.Println("Found 'main_program' but it's not async. Script will exit.")
+				fmt.Println(constants.CmdInterpreterMainMainProgramNotAsyncWarn)
 			}
 		}
 	}
@@ -127,25 +128,25 @@ func printParserErrors(out io.Writer, errors []string) {
 func startREPL(env *object.Environment) {
 	scanner := bufio.NewScanner(os.Stdin)
 
-	fmt.Println("Welcome to Swalang REPL!")
-	fmt.Println("Enter code to evaluate, or press Ctrl+D to exit.")
+	fmt.Println(constants.CmdInterpreterReplWelcome)
+	fmt.Println(constants.CmdInterpreterReplExitInfo)
 
 	mainCtx := interpreter.NewInterpreterContext(env)
 	ffi3.SetGlobalExecutionContext(mainCtx)
 
 	for {
-		fmt.Fprintf(os.Stderr, "swalang>>> ")
+		fmt.Fprintf(os.Stderr, constants.CmdInterpreterReplPrompt)
 
 		scanned := scanner.Scan()
 		if !scanned {
 			if err := scanner.Err(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+				fmt.Fprintf(os.Stderr, constants.CmdInterpreterReplReadErr, err)
 			}
 			break
 		}
 
 		line := scanner.Text()
-		if line == "" {
+		if line == constants.EmptyString {
 			continue
 		}
 
@@ -162,7 +163,7 @@ func startREPL(env *object.Environment) {
 
 		if evaluated != nil && evaluated.Type() == object.ERROR_OBJ {
 			errObj := evaluated.(*object.Error)
-			fmt.Fprintf(os.Stderr, "Runtime Error: %s\n", errObj.Message)
+			fmt.Fprintf(os.Stderr, constants.CmdInterpreterReplRuntimeErr, errObj.Message)
 			continue
 		}
 
@@ -171,5 +172,5 @@ func startREPL(env *object.Environment) {
 		}
 	}
 
-	fmt.Println("\nGoodbye!")
+	fmt.Println(constants.CmdInterpreterReplGoodbye)
 }

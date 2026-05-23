@@ -85,7 +85,6 @@ func (s *Super) GetObjectAttribute(ctx ExecutionContext, name string) (Object, b
 				}
 				return &BoundMethod{Instance: classToBindTo, Method: desc.Function}, true
 			default:
-				// --- THIS IS THE FIX ---
 				// If the found attribute is a regular Pylearn function, bind it to the
 				// instance from the super() call to create a BoundMethod.
 				if regularFunc, isFunc := attrValue.(*Function); isFunc {
@@ -114,7 +113,6 @@ func (s *Super) GetObjectAttribute(ctx ExecutionContext, name string) (Object, b
 					}
 					return boundBuiltin, true
 				}
-				// --- END OF FIX ---
 
 				// If the attribute was not a function or builtin (e.g., a class variable),
 				// return it directly.
@@ -199,7 +197,6 @@ func (i *Instance) Inspect() string {
 }
 
 // GetObjectAttribute for Instance - uses MRO for methods and class variables
-// GetObjectAttribute for Instance - uses MRO for methods and class variables
 func (i *Instance) GetObjectAttribute(ctx ExecutionContext, name string) (Object, bool) {
 	// 1. Check instance's own environment (instance variables) first
 	if i.Env != nil {
@@ -238,12 +235,11 @@ func (i *Instance) GetObjectAttribute(ctx ExecutionContext, name string) (Object
 			case *Property:
 				// It's a property. We need to call its getter function.
 				if desc.FGet == nil || desc.FGet == NULL {
-					return NewError(constants.AttributeError, "unreadable attribute"), true
+					return NewError(constants.AttributeError, constants.CLASS_PROPERTY_UNREADABLE_ERROR), true
 				}
 				// The getter function (fget) needs to be called with the instance `i` as its `self` argument.
 				return ctx.Execute(desc.FGet, i), true
 
-			// --- THIS IS THE CRITICAL FIX ---
 			case *Builtin:
 				// It's a native Go method (like Exception.__init__ or __str__).
 				// We must bind it to the instance `i` by creating a new Builtin
@@ -262,7 +258,6 @@ func (i *Instance) GetObjectAttribute(ctx ExecutionContext, name string) (Object
 					},
 				}
 				return boundBuiltin, true
-			// --- END OF FIX ---
 
 			default:
 				// If it's a regular Pylearn function from the class's methods dict, bind it.
@@ -390,29 +385,19 @@ func init() {
 	}
 
 	// Implement Python's __new__ allocator
-	ObjectClass.Methods["__new__"] = &Builtin{
-		Name: "object.__new__",
+	ObjectClass.Methods[constants.DunderNew] = &Builtin{
+		Name: constants.OBJECT_NEW_BUILTIN_NAME,
 		Fn: func(ctx ExecutionContext, args ...Object) Object {
 			if len(args) < 1 {
-				return NewError("TypeError", "object.__new__(): not enough arguments")
+				return NewError(constants.TypeError, constants.OBJECT_NEW_ARG_COUNT_ERROR)
 			}
 			cls, ok := args[0].(*Class)
 			if !ok {
-				return NewError("TypeError", "object.__new__(X): X is not a type object")
+				return NewError(constants.TypeError, constants.OBJECT_NEW_TYPE_ERROR)
 			}
 			return &Instance{Class: cls, Env: NewEnvironment()}
 		},
 	}
 
 	ObjectClass.MRO = []*Class{ObjectClass} // MRO of object is [object]
-
-	// Add default __str__ and __repr__ to object that other classes can inherit
-	// This needs the object.Function type to be defined, and a way to create them from Go.
-	// This is a bit circular if Function needs ast.BlockStatement.
-	// For now, these can be placeholder builtins or actual simple Pylearn functions.
-	// Or, the fallback in str()/repr() builtins can handle this if no user-defined version.
-
-	// Example placeholder for object.__repr__ (could be a Builtin that calls Inspect)
-	// This would be more complex to set up here correctly.
-	// The interpreter's str()/repr() builtins will provide default behavior if not found via MRO.
 }

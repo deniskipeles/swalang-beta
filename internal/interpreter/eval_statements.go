@@ -583,7 +583,7 @@ func evalRaiseStatement(node *ast.RaiseStatement, ctx *InterpreterContext) objec
 		if ctx.ActiveException != nil {
 			return ctx.ActiveException
 		}
-		return object.NewError(constants.RuntimeError, "RuntimeError: No active exception to reraise")
+		return object.NewError(constants.RuntimeError, constants.InterpreterEvalRaiseStatementRuntimeErrorNoActiveExceptionToReraise)
 	}
 
 	raisedObj := Eval(node.Exception, ctx)

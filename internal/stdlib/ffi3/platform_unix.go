@@ -1,5 +1,4 @@
 //go:build linux || darwin
-// pylearn/internal/stdlib/ffi3/platform_unix.go
 
 package ffi3
 
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/deniskipeles/pylearn/internal/constants"
 	"github.com/deniskipeles/pylearn/internal/object"
 	"github.com/deniskipeles/pylearn/internal/stdlib/platform"
 )
@@ -25,15 +25,15 @@ func registerPlatformSpecifics(env *object.Environment) {}
 func findProjectRoot() (string, bool) {
 	dir, err := os.Getwd()
 	if err != nil {
-		return "", false
+		return constants.EmptyString, false
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, constants.FFI_GO_MOD_FILE)); err == nil {
 			return dir, true
 		}
 		parentDir := filepath.Dir(dir)
 		if parentDir == dir {
-			return "", false
+			return constants.EmptyString, false
 		}
 		dir = parentDir
 	}
@@ -71,34 +71,34 @@ func discoverDynamicPaths(baseDir string) []string {
 }
 
 func findLibrary(name string) string {
-	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
+	if strings.Contains(name, constants.Slash) || strings.Contains(name, constants.Backslash) {
 		if info, err := os.Stat(name); err == nil && !info.IsDir() {
 			return name
 		}
 	}
 
-	var allSearchPaths[]string
+	var allSearchPaths []string
 
 	// 1. Production Layout: Resolve relative to the Swalang executable
 	if exePath, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exePath) // e.g., root-folder/bin
-		rootDir := filepath.Dir(exeDir) // e.g., root-folder
+		exeDir := filepath.Dir(exePath)       // e.g., root-folder/bin
+		rootDir := filepath.Dir(exeDir)       // e.g., root-folder
 		
 		allSearchPaths = append(allSearchPaths, exeDir)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, "lib"))...)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, "bin"))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, constants.FFI_LIB_DIR))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, constants.FFI_BIN_DIR))...)
 	}
 
 	// 2. Development Layout: Resolve via go.mod
 	if projectRoot, found := findProjectRoot(); found {
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "bin"))...)
-		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, "lib"))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, constants.FFI_BIN_DIR))...)
+		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(projectRoot, constants.FFI_LIB_DIR))...)
 	}
 
 	for _, searchDir := range allSearchPaths {
-		possibleNames :=[]string{
+		possibleNames := []string{
 			name,
-			"lib" + name + libManager.LibraryExtension(),
+			constants.FFI_LIB_PREFIX + name + libManager.LibraryExtension(),
 			name + libManager.LibraryExtension(),
 		}
 		for _, libName := range possibleNames {
@@ -109,8 +109,14 @@ func findLibrary(name string) string {
 		}
 	}
 
-	systemPaths :=[]string{"/lib", "/usr/lib", "/usr/local/lib", "/lib/x86_64-linux-gnu", "/usr/lib/x86_64-linux-gnu"}
-	possibleNames :=[]string{name, "lib" + name + libManager.LibraryExtension()}
+	systemPaths := []string{
+		constants.FFI_UNIX_LIB_PATH,
+		constants.FFI_UNIX_USR_LIB_PATH,
+		constants.FFI_UNIX_USR_LOCAL_LIB_PATH,
+		constants.FFI_UNIX_LIB_X86_PATH,
+		constants.FFI_UNIX_USR_LIB_X86_PATH,
+	}
+	possibleNames := []string{name, constants.FFI_LIB_PREFIX + name + libManager.LibraryExtension()}
 
 	for _, sysPath := range systemPaths {
 		for _, libName := range possibleNames {
@@ -137,17 +143,17 @@ func LoadLibrary(name string) (*Library, error) {
 	
 	if err != nil {
 		originalErr := err
-		if strings.Contains(err.Error(), "invalid ELF header") {
+		if strings.Contains(err.Error(), constants.FFI_ELF_HEADER_ERROR_SUBSTR) {
 			handle, err = libManager.LoadLibrary(name)
 			if err != nil {
-				return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v (ELF error: %v)", name, err, originalErr)}
+				return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf(constants.FFI_LOAD_ELF_ERR_FORMAT, name, err, originalErr)}
 			}
 		} else {
 			if libPath != name {
 				handle, err = libManager.LoadLibrary(name)
 			}
 			if err != nil {
-				return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf("could not load library '%s': %v \n(Original path error: %v)", name, err, originalErr)}
+				return nil, &FFIError{Code: ErrLibNotFound, Message: fmt.Sprintf(constants.FFI_LOAD_LIB_ERR_FORMAT, name, err, originalErr)}
 			}
 		}
 	}

@@ -15,9 +15,6 @@ import (
 func GetObjectIterator(ctx ExecutionContext, obj Object, tokenOnError lexer.Token) (Iterator, Object) { // Returns Iterator, Pylearn Error Object
 
 	// 1. Check for __iter__ method on object.Instance
-	// if inst, ok := obj.(*Instance); ok && inst.Class != nil { // Check non-nil Class
-	// 	if iterMethod, methodOk := inst.Class.Methods[constants.DunderIter]; methodOk {
-	// 		boundIter := &BoundMethod{Instance: inst, Method: iterMethod}
 	if inst, ok := obj.(*Instance); ok && inst.Class != nil {
 		if iterMethodObj, methodOk := inst.Class.Methods[constants.DunderIter]; methodOk {
 			// <<< FIX: Check if the retrieved method is actually a function >>>
@@ -179,7 +176,7 @@ func UnpackIterator(it Iterator) ([]Object, error) {
 			break
 		}
 		if IsError(item) {
-			return nil, fmt.Errorf("error during unpacking: %s", item.Inspect())
+			return nil, fmt.Errorf(constants.ITERATOR_UNPACK_ERROR_FORMAT, item.Inspect())
 		}
 		items = append(items, item)
 	}

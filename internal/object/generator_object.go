@@ -1,6 +1,10 @@
 // pylearn/internal/object/generator_object.go
 package object
 
+import (
+	"github.com/deniskipeles/pylearn/internal/constants"
+)
+
 const GENERATOR_OBJ ObjectType = "GENERATOR"
 
 // Generator represents a suspended function execution.
@@ -24,7 +28,7 @@ type Generator struct {
 
 func (g *Generator) Type() ObjectType { return GENERATOR_OBJ }
 func (g *Generator) Inspect() string {
-	return "<generator object " + g.Name + ">"
+	return constants.OBJECT_GENERATOR_INSPECT_PREFIX + g.Name + constants.OBJECT_GENERATOR_INSPECT_SUFFIX
 }
 
 // Next implements the Iterator interface by calling the function
@@ -36,7 +40,7 @@ func (g *Generator) Next() (Object, bool) {
 		if g.NextFn != nil {
 			return g.NextFn()
 		}
-		return NewError("InternalError", "generator not properly initialized"), true
+		return NewError(constants.InternalError, constants.OBJECT_GENERATOR_NOT_INIT_ERROR), true
 	}
 	return g.SendFn(NULL)
 }
@@ -47,7 +51,7 @@ type YieldValue struct {
 	Value Object // The value yielded OUT to the caller
 }
 
-func (yv *YieldValue) Type() ObjectType { return "YIELD_VALUE" }
+func (yv *YieldValue) Type() ObjectType { return constants.OBJECT_TYPE_YIELD_VALUE }
 func (yv *YieldValue) Inspect() string  { return yv.Value.Inspect() }
 
 var _ Object = (*Generator)(nil)
@@ -56,13 +60,13 @@ var _ Object = (*YieldValue)(nil)
 
 func (g *Generator) GetObjectAttribute(ctx ExecutionContext, name string) (Object, bool) {
 	switch name {
-	case "send":
+	case constants.OBJECT_GENERATOR_SEND_METHOD_NAME:
 		// Create a Builtin that wraps the generator's SendFn
 		sendBuiltin := &Builtin{
-			Name: "generator.send",
+			Name: constants.OBJECT_GENERATOR_SEND_BUILTIN_NAME,
 			Fn: func(callCtx ExecutionContext, args ...Object) Object {
 				if len(args) != 1 {
-					return NewError("TypeError", "send() takes exactly one argument")
+					return NewError(constants.TypeError, constants.OBJECT_GENERATOR_SEND_ARG_ERROR)
 				}
 				// The generator `g` is captured by this closure.
 				result, stop := g.SendFn(args[0])

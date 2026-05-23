@@ -1,3 +1,4 @@
+// pylearn/internal/object/list_object.go
 package object
 
 import (
@@ -11,39 +12,58 @@ import (
 type List struct{ Elements []Object }
 
 func (l *List) Type() ObjectType { return LIST_OBJ }
-func (l *List) Inspect() string { /* ... keep inspect logic ... */
-	var out bytes.Buffer; elements := []string{}; for _, e := range l.Elements { elements = append(elements, e.Inspect()) }; out.WriteString(constants.LIST_INSPECT_OPEN_BRACKET); out.WriteString(strings.Join(elements, constants.LIST_INSPECT_SEPARATOR)); out.WriteString(constants.LIST_INSPECT_CLOSE_BRACKET); return out.String()
+func (l *List) Inspect() string {
+	var out bytes.Buffer
+	elements := []string{}
+	for _, e := range l.Elements {
+		elements = append(elements, e.Inspect())
+	}
+	out.WriteString(constants.LIST_INSPECT_OPEN_BRACKET)
+	out.WriteString(strings.Join(elements, constants.LIST_INSPECT_SEPARATOR))
+	out.WriteString(constants.LIST_INSPECT_CLOSE_BRACKET)
+	return out.String()
 }
 // List Item Access (Get)
 func (l *List) GetObjectItem(key Object) Object {
 	idxObj, ok := key.(*Integer)
-	if !ok { return NewError(constants.TypeError, constants.LIST_ITEM_INDEX_TYPE_ERROR, key.Type()) }
+	if !ok {
+		return NewError(constants.TypeError, constants.LIST_ITEM_INDEX_TYPE_ERROR, key.Type())
+	}
 	idx := idxObj.Value
 	listLen := int64(len(l.Elements))
-	if idx < 0 { idx += listLen }
-	if idx < 0 || idx >= listLen { return NewError(constants.IndexError, constants.LIST_ITEM_INDEX_OUT_OF_RANGE) }
-	elem := l.Elements[idx]; if elem == nil { return NULL }; return elem
+	if idx < 0 {
+		idx += listLen
+	}
+	if idx < 0 || idx >= listLen {
+		return NewError(constants.IndexError, constants.LIST_ITEM_INDEX_OUT_OF_RANGE)
+	}
+	elem := l.Elements[idx]
+	if elem == nil {
+		return NULL
+	}
+	return elem
 }
 // List Item Access (Set)
 func (l *List) SetObjectItem(key Object, value Object) Object {
 	idxObj, ok := key.(*Integer)
-	if !ok { return NewError(constants.TypeError, constants.LIST_ITEM_INDEX_TYPE_ERROR, key.Type()) }
+	if !ok {
+		return NewError(constants.TypeError, constants.LIST_ITEM_INDEX_TYPE_ERROR, key.Type())
+	}
 	idx := idxObj.Value
 	listLen := int64(len(l.Elements))
-	if idx < 0 { idx += listLen }
-	if idx < 0 || idx >= listLen { return NewError(constants.IndexError, constants.LIST_ASSIGNMENT_INDEX_OUT_OF_RANGE) }
+	if idx < 0 {
+		idx += listLen
+	}
+	if idx < 0 || idx >= listLen {
+		return NewError(constants.IndexError, constants.LIST_ASSIGNMENT_INDEX_OUT_OF_RANGE)
+	}
 	l.Elements[idx] = value
 	return nil // Indicate success
 }
-// TODO: List Attribute Access (e.g., .append(), .pop())
-// func (l *List) GetObjectAttribute(name string) (Object, bool) { ... }
+
 var _ Object = (*List)(nil)
 var _ ItemGetter = (*List)(nil) // List implements item getting
 var _ ItemSetter = (*List)(nil) // List implements item setting
-// --- Go functions for List methods ---
-
-
-
 
 // GetObjectAttribute for List to expose methods
 func (l *List) GetObjectAttribute(ctx ExecutionContext, name string) (Object, bool) {
@@ -88,9 +108,6 @@ func (l *List) GetObjectAttribute(ctx ExecutionContext, name string) (Object, bo
 	return nil, false
 }
 var _ AttributeGetter = (*List)(nil) // Ensure List implements AttributeGetter
-
-
-
 
 // pyListAppendFn implements list.append(item)
 func pyListAppendFn(ctx ExecutionContext, args ...Object) Object {
@@ -147,10 +164,14 @@ func pyListInsertFn(ctx ExecutionContext, args ...Object) Object {
 		return NewError(constants.TypeError, constants.LIST_INSERT_ARG_COUNT_ERROR, len(args)-1)
 	}
 	selfList, ok := args[0].(*List)
-	if !ok { return NewError(constants.TypeError, constants.LIST_INSERT_ON_LIST_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.LIST_INSERT_ON_LIST_ERROR)
+	}
 
 	indexObj, okIndex := args[1].(*Integer)
-	if !okIndex { return NewError(constants.TypeError, constants.LIST_INSERT_INDEX_TYPE_ERROR, args[1].Type()) }
+	if !okIndex {
+		return NewError(constants.TypeError, constants.LIST_INSERT_INDEX_TYPE_ERROR, args[1].Type())
+	}
 	itemToInsert := args[2]
 
 	idx := int(indexObj.Value)
@@ -162,8 +183,6 @@ func pyListInsertFn(ctx ExecutionContext, args ...Object) Object {
 	// index >= len: insert at end (effectively len)
 	if idx < 0 {
 		idx = 0 // Python clamps negative idx to 0 for insert, unlike typical slicing.
-		// A more Pythonic negative handling might be idx = listLen + idx; if idx < 0 { idx = 0 },
-		// but standard insert clamps at 0 for negatives. Let's stick to simple clamping.
 	}
 	if idx > listLen {
 		idx = listLen
@@ -184,7 +203,9 @@ func pyListInsertFn(ctx ExecutionContext, args ...Object) Object {
 func pyListPopFn(ctx ExecutionContext, args ...Object) Object {
 	// args[0] is self (List), args[1] is index (optional)
 	selfList, ok := args[0].(*List)
-	if !ok { return NewError(constants.TypeError, constants.LIST_POP_ON_LIST_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.LIST_POP_ON_LIST_ERROR)
+	}
 
 	numScriptArgs := len(args) - 1
 	if numScriptArgs > 1 {
@@ -227,13 +248,14 @@ func pyListRemoveFn(ctx ExecutionContext, args ...Object) Object {
 		return NewError(constants.TypeError, constants.LIST_REMOVE_ARG_COUNT_ERROR, len(args)-1)
 	}
 	selfList, ok := args[0].(*List)
-	if !ok { return NewError(constants.TypeError, constants.LIST_REMOVE_ON_LIST_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.LIST_REMOVE_ON_LIST_ERROR)
+	}
 	valueToRemove := args[1]
 
 	foundIndex := -1
 	for i, item := range selfList.Elements {
 		// Use CompareObjects for equality, passing the context
-		// Assuming CompareObjects returns TRUE, FALSE, or Error
 		comparisonResult := CompareObjects(constants.EqualsOperator, item, valueToRemove, ctx)
 		if IsError(comparisonResult) {
 			return comparisonResult // Propagate error from comparison
@@ -256,7 +278,9 @@ func pyListRemoveFn(ctx ExecutionContext, args ...Object) Object {
 // pyListIndexFn implements list.index(value, start=0, end=len(list))
 func pyListIndexFn(ctx ExecutionContext, args ...Object) Object {
 	selfList, ok := args[0].(*List)
-	if !ok { return NewError(constants.TypeError, constants.LIST_INDEX_ON_LIST_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.LIST_INDEX_ON_LIST_ERROR)
+	}
 
 	numScriptArgs := len(args) - 1
 	if numScriptArgs < 1 || numScriptArgs > 3 {
@@ -269,34 +293,50 @@ func pyListIndexFn(ctx ExecutionContext, args ...Object) Object {
 
 	if numScriptArgs >= 2 && args[2] != NULL {
 		startInt, okStart := args[2].(*Integer)
-		if !okStart { return NewError(constants.TypeError, constants.LIST_INDEX_SLICE_INDICES_ERROR) }
+		if !okStart {
+			return NewError(constants.TypeError, constants.LIST_INDEX_SLICE_INDICES_ERROR)
+		}
 		startIdx = int(startInt.Value)
 	}
 	if numScriptArgs == 3 && args[3] != NULL {
 		endInt, okEnd := args[3].(*Integer)
-		if !okEnd { return NewError(constants.TypeError, constants.LIST_INDEX_SLICE_INDICES_ERROR) }
+		if !okEnd {
+			return NewError(constants.TypeError, constants.LIST_INDEX_SLICE_INDICES_ERROR)
+		}
 		endIdx = int(endInt.Value)
 	}
 
 	// Python slice semantics for start/end for list.index
-	if startIdx < 0 { startIdx = runesSourceLen + startIdx }
-	if startIdx < 0 { startIdx = 0 }
-	// For list.index, if start is beyond len, it's fine, loop just won't run
-	// if startIdx > runesSourceLen { startIdx = runesSourceLen }
+	if startIdx < 0 {
+		startIdx = runesSourceLen + startIdx
+	}
+	if startIdx < 0 {
+		startIdx = 0
+	}
 
-	if endIdx < 0 { endIdx = runesSourceLen + endIdx }
-	if endIdx < 0 { endIdx = 0 }
-	if endIdx > runesSourceLen { endIdx = runesSourceLen }
+	if endIdx < 0 {
+		endIdx = runesSourceLen + endIdx
+	}
+	if endIdx < 0 {
+		endIdx = 0
+	}
+	if endIdx > runesSourceLen {
+		endIdx = runesSourceLen
+	}
 
 	if startIdx >= endIdx { // If effective slice is empty or invalid
 		return NewError(constants.ValueError, constants.LIST_INDEX_VALUE_NOT_IN_LIST, valueToFind.Inspect())
 	}
-	
+
 	for i := startIdx; i < endIdx; i++ {
-		if i >= len(selfList.Elements) { break } // Safety, should be covered by endIdx logic
+		if i >= len(selfList.Elements) {
+			break
+		} // Safety
 		item := selfList.Elements[i]
 		comparisonResult := CompareObjects(constants.EqualsOperator, item, valueToFind, ctx)
-		if IsError(comparisonResult) { return comparisonResult }
+		if IsError(comparisonResult) {
+			return comparisonResult
+		}
 		if comparisonResult == TRUE {
 			return &Integer{Value: int64(i)}
 		}
@@ -310,13 +350,17 @@ func pyListCountFn(ctx ExecutionContext, args ...Object) Object {
 		return NewError(constants.TypeError, constants.LIST_COUNT_ARG_COUNT_ERROR, len(args)-1)
 	}
 	selfList, ok := args[0].(*List)
-	if !ok { return NewError(constants.TypeError, constants.LIST_COUNT_ON_LIST_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.LIST_COUNT_ON_LIST_ERROR)
+	}
 	valueToCount := args[1]
 
 	count := 0
 	for _, item := range selfList.Elements {
 		comparisonResult := CompareObjects(constants.EqualsOperator, item, valueToCount, ctx)
-		if IsError(comparisonResult) { return comparisonResult }
+		if IsError(comparisonResult) {
+			return comparisonResult
+		}
 		if comparisonResult == TRUE {
 			count++
 		}
@@ -327,8 +371,12 @@ func pyListCountFn(ctx ExecutionContext, args ...Object) Object {
 // pyListLenFn implements list.__len__()
 func pyListLenFn(ctx ExecutionContext, args ...Object) Object {
 	selfList, ok := args[0].(*List)
-	if !ok { return NewError(constants.TypeError, constants.LIST_LEN_ON_LIST_ERROR) }
-	if len(args) != 1 { return NewError(constants.TypeError, constants.LIST_LEN_ON_LIST_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.LIST_LEN_ON_LIST_ERROR)
+	}
+	if len(args) != 1 {
+		return NewError(constants.TypeError, constants.LIST_LEN_ON_LIST_ERROR)
+	}
 	return &Integer{Value: int64(len(selfList.Elements))}
 }
 
@@ -339,7 +387,9 @@ func pyListAddFn(ctx ExecutionContext, args ...Object) Object {
 		return NewError(constants.TypeError, constants.LIST_ADD_ARG_COUNT_ERROR)
 	}
 	selfList, okSelf := args[0].(*List)
-	if !okSelf { return NewError(constants.TypeError, constants.LIST_ADD_ON_LIST_ERROR) }
+	if !okSelf {
+		return NewError(constants.TypeError, constants.LIST_ADD_ON_LIST_ERROR)
+	}
 	otherList, okOther := args[1].(*List)
 	if !okOther {
 		return NewError(constants.TypeError, constants.LIST_ADD_CONCAT_ERROR, args[1].Type())
@@ -353,13 +403,10 @@ func pyListAddFn(ctx ExecutionContext, args ...Object) Object {
 
 // pyListMulFn implements list * int
 func pyListMulFn(ctx ExecutionContext, args ...Object) Object {
-	// For both list * int and int * list, the arguments will be (list, int)
-	// because of how we register __mul__ and __rmul__.
 	selfList, okList := args[0].(*List)
 	countObj, okInt := args[1].(*Integer)
 	if !okList || !okInt {
-		// This should be caught by the interpreter's infix logic, but as a safeguard:
-		return NewError(constants.TypeError, "unsupported operand type(s) for *: '%s' and '%s'", args[0].Type(), args[1].Type())
+		return NewError(constants.TypeError, constants.LIST_MUL_OPERAND_TYPE_ERROR, args[0].Type(), args[1].Type())
 	}
 
 	count := countObj.Value
@@ -370,11 +417,11 @@ func pyListMulFn(ctx ExecutionContext, args ...Object) Object {
 	if len(selfList.Elements) == 0 || count == 0 {
 		return &List{Elements: []Object{}}
 	}
-	
+
 	newSize := int64(len(selfList.Elements)) * count
 	// Basic check to prevent enormous memory allocation
 	if newSize > 10000000 {
-		return NewError("MemoryError", "result of list multiplication is too large")
+		return NewError(constants.MemoryError, constants.LIST_MUL_SIZE_LIMIT_ERROR)
 	}
 
 	newElements := make([]Object, 0, newSize)
@@ -387,17 +434,20 @@ func pyListMulFn(ctx ExecutionContext, args ...Object) Object {
 
 // pyListContainsFn implements list.__contains__(item)
 func pyListContainsFn(ctx ExecutionContext, args ...Object) Object {
-	// args[0] is self (List), args[1] is item
 	if len(args) != 2 {
 		return NewError(constants.TypeError, constants.LIST_CONTAINS_ARG_COUNT_ERROR)
 	}
 	selfList, okSelf := args[0].(*List)
-	if !okSelf { return NewError(constants.TypeError, constants.LIST_CONTAINS_ON_LIST_ERROR) }
+	if !okSelf {
+		return NewError(constants.TypeError, constants.LIST_CONTAINS_ON_LIST_ERROR)
+	}
 	itemToFind := args[1]
 
 	for _, item := range selfList.Elements {
 		comparisonResult := CompareObjects(constants.EqualsOperator, item, itemToFind, ctx)
-		if IsError(comparisonResult) { return comparisonResult }
+		if IsError(comparisonResult) {
+			return comparisonResult
+		}
 		if comparisonResult == TRUE {
 			return TRUE
 		}

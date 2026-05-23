@@ -100,7 +100,7 @@ func evalPrefixExpression(node *ast.PrefixExpression, ctx *InterpreterContext) o
 		case *object.Integer:
 			return &object.Integer{Value: ^r.Value}
 		default:
-			return object.NewErrorWithLocation(token, constants.TypeError, "bad operand type for unary ~: '%s'", right.Type())
+			return object.NewErrorWithLocation(token, constants.TypeError, constants.EvalExpressionsBadOperandTypeForUnary_TILDE, right.Type())
 		}
 	default:
 		return object.NewErrorWithLocation(token, constants.SyntaxError, constants.EvalExpressionsUnknownPrefixOperator, op)

@@ -124,26 +124,25 @@ func pyTupleIndexFn(ctx ExecutionContext, args ...Object) Object {
 	if len(args) >= 3 { // start provided
 		startInt, okStart := args[2].(*Integer)
 		if !okStart {
-			return NewError(constants.TypeError, constants.TUPLE_INDEX_SLICE_INDICES_ERROR, "start", args[2].Type())
+			return NewError(constants.TypeError, constants.TUPLE_INDEX_SLICE_INDICES_ERROR, constants.TUPLE_INDEX_START_PARAM, args[2].Type())
 		}
 		startIdx = int(startInt.Value)
 	}
 	if len(args) == 4 { // end provided
 		endInt, okEnd := args[3].(*Integer)
 		if !okEnd {
-			return NewError(constants.TypeError, constants.TUPLE_INDEX_SLICE_INDICES_ERROR, "end", args[3].Type())
+			return NewError(constants.TypeError, constants.TUPLE_INDEX_SLICE_INDICES_ERROR, constants.TUPLE_INDEX_END_PARAM, args[3].Type())
 		}
 		endIdx = int(endInt.Value)
 	}
 
-	// Python slice semantics for start/end for index
+	// Python slice semantics for start/end
 	if startIdx < 0 {
 		startIdx = tupleLen + startIdx
 	}
 	if startIdx < 0 {
 		startIdx = 0
 	}
-	// if startIdx > tupleLen { startIdx = tupleLen } // If start > len, Python find/index returns error or empty
 
 	if endIdx < 0 {
 		endIdx = tupleLen + endIdx
@@ -291,8 +290,6 @@ func (t *Tuple) GetObjectAttribute(ctx ExecutionContext, name string) (Object, b
 		return makeTupleMethod(constants.DunderRMul, pyTupleMulFn), true // Same implementation as __mul__
 	case constants.DunderContains:
 		return makeTupleMethod(constants.DunderContains, pyTupleContainsFn), true
-		// Comparison dunders will be handled by the generic CompareObjects logic
-		// if Tuple implements Hashable correctly and its elements are comparable.
 	}
 	return nil, false
 }

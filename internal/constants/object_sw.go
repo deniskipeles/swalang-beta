@@ -1,5 +1,5 @@
 //go:build sw
-// pylearn/internal/constants/object.go
+
 package constants
 
 const (
@@ -36,7 +36,6 @@ const (
 
 	// Type objects (from object/type_objects.go)
 	TYPE_CREATE_BUILTIN_ERROR = "critical: Base 'Exception' class not found for error: %s" // For creating exception classes if ObjectClass not init
-
 )
 
 // WebSocket object (from object/websocket_object.go)
@@ -107,6 +106,8 @@ const (
 	TUPLE_CONTAINS_ARG_COUNT_ERROR      = "__contains__() takes 1 argument (item)"
 	TUPLE_CONTAINS_ON_TUPLE_ERROR       = "__contains__ must be called on a Tuple object"
 	TUPLE_METHOD_PREFIX                 = "tuple." // Prefix for tuple method names
+	TUPLE_INDEX_START_PARAM = "start"
+	TUPLE_INDEX_END_PARAM   = "end"
 )
 
 // String object (from object/string_object.go)
@@ -179,6 +180,7 @@ const (
 	STRING_FIND_SLICE_INDEX_ERROR          = "slice indices must be integers or None, not %s"
 	STRING_FORMAT_UNSUPPORTED_PLACEHOLDER  = "unsupported format string placeholder: {%s} (only {} and {index} supported)"
 	STRING_FORMAT_SINGLE_BRACE_NOT_ALLOWED = "Single '}' encountered in format string"
+	STRING_MUL_OPERAND_TYPE_ERROR = "unsupported operand type(s) for *: '%s' and '%s'"
 )
 
 // Static/Class Method (from object/static_or_class_method_object.go)
@@ -334,6 +336,9 @@ const (
 	LIST_CONTAINS_ON_LIST_ERROR        = "__contains__() must be called on a List object"
 	LIST_METHOD_PREFIX                 = "List." // Prefix for list method names
 	LIST_POP_ON_LIST_ERROR             = "pop() must be called on a List object"
+	MemoryError                 = "MemoryError"
+	LIST_MUL_SIZE_LIMIT_ERROR   = "result of list multiplication is too large"
+	LIST_MUL_OPERAND_TYPE_ERROR = "unsupported operand type(s) for *: '%s' and '%s'"
 )
 
 // Object (from object/object.go)
@@ -418,6 +423,7 @@ const (
 	ITERATOR_SET_OP_ITERABLE_TYPE_ERROR = "'%s' object is not iterable for set operation '%s'"
 	ITERATOR_SET_OP_UNHASHABLE_TYPE     = "unhashable type '%s' in iterable for set operation '%s'"
 	ITERATOR_SET_OP_FAILED_TO_HASH      = "failed to hash element from iterable for set operation '%s': %v"
+	ITERATOR_UNPACK_ERROR_FORMAT = "error during unpacking: %s"
 )
 
 // HTTP Server object (from object/http_server_object.go)
@@ -611,6 +617,7 @@ const (
 	INIT_MUST_CALL_ON_AN_EXCEPTION_INSTANCE_NOT_OTHER     = "__init__ must be called on an Exception instance, not %s"
 	STR_TAKES_EXACTLY_ONE_ARGUMENT__SELF                  = "__str__ takes exactly one argument (self)"
 	STR_MUST_BE_CALLED_ON_AN_EXCEPTION_INSTANCE_NOT_OTHER = "__str__ must be called on an Exception instance, not %s"
+	EXCEPTION_ARGS_ATTR  = "args"
 )
 
 const (
@@ -671,4 +678,66 @@ const (
 	OBJECT_TYPE_REGEX_PATTERN  = "REGEX_PATTERN"
 	OBJECT_TYPE_REGEX_MATCH    = "REGEX_MATCH"
 	OBJECT_TYPE_REGEX_ITERATOR = "REGEX_ITERATOR"
+)
+
+// Bytes object (from object/bytes_object.go)
+const (
+	OBJECT_BYTES_CONTAINS_ARG_COUNT_ERROR   = "__contains__() takes exactly one argument (%d given)"
+	OBJECT_BYTES_CONTAINS_ON_NON_BYTES_ERROR = "__contains__ called on non-Bytes object"
+	OBJECT_BYTES_RANGE_ERROR                = "byte must be in range(0, 256)"
+	OBJECT_BYTES_LIKE_REQUIRED_ERROR        = "a bytes-like object is required for 'in' operator, not '%s'"
+	OBJECT_BYTES_DECODE_ARG_COUNT_ERROR     = "decode() takes at most 1 argument (%d given)"
+	OBJECT_BYTES_DECODE_ON_NON_BYTES_ERROR   = "decode() must be called on a bytes object"
+	OBJECT_BYTES_JOIN_ARG_COUNT_ERROR       = "join() takes exactly one argument (%d given)"
+	OBJECT_BYTES_JOIN_ON_NON_BYTES_ERROR     = "join() must be called on a bytes object"
+	OBJECT_BYTES_JOIN_ITERABLE_ERROR        = "join() argument must be an iterable of bytes, not %s"
+	OBJECT_BYTES_SEQUENCE_ITEM_ERROR        = "sequence item %d: expected bytes instance, %s found"
+	OBJECT_BYTES_METHOD_PREFIX              = "bytes."
+	OBJECT_BYTES_DECODE_METHOD_NAME         = "decode"
+	OBJECT_BYTES_JOIN_METHOD_NAME           = "join"
+	OBJECT_BYTEARRAY_INSPECT_PREFIX         = "bytearray("
+	OBJECT_BYTEARRAY_INSPECT_SUFFIX         = ")"
+)
+
+// Class/Instance/Super object (from object/class_object.go)
+const (
+	CLASS_PROPERTY_UNREADABLE_ERROR = "unreadable attribute"
+	DunderNew                       = "__new__"
+	OBJECT_NEW_BUILTIN_NAME         = "object.__new__"
+	OBJECT_NEW_ARG_COUNT_ERROR      = "object.__new__(): not enough arguments"
+	OBJECT_NEW_TYPE_ERROR           = "object.__new__(X): X is not a type object"
+)
+
+// Generator object (from object/generator_object.go)
+const (
+	OBJECT_GENERATOR_INSPECT_PREFIX    = "<generator object "
+	OBJECT_GENERATOR_INSPECT_SUFFIX    = ">"
+	OBJECT_GENERATOR_NOT_INIT_ERROR    = "generator not properly initialized"
+	OBJECT_TYPE_YIELD_VALUE            = "YIELD_VALUE"
+	OBJECT_GENERATOR_SEND_METHOD_NAME  = "send"
+	OBJECT_GENERATOR_SEND_BUILTIN_NAME = "generator.send"
+	OBJECT_GENERATOR_SEND_ARG_ERROR    = "send() takes exactly one argument"
+)
+
+// Pointer object (from object/pointer.go)
+const (
+	OBJECT_TYPE_POINTER              = "Pointer"
+	OBJECT_POINTER_INSPECT_FORMAT    = "Pointer(%p)"
+	OBJECT_POINTER_ADDRESS_ATTR      = "Address"
+	OBJECT_POINTER_HAS_NO_ATTR_ERROR = "Pointer object has no attribute '%s'"
+)
+
+// Property object (from object/property_object.go)
+const (
+	OBJECT_TYPE_PROPERTY                          = "property"
+	OBJECT_PROPERTY_INSPECT_FORMAT                = "<property object at %p>"
+	OBJECT_PROPERTY_METHOD_PREFIX                 = "property."
+	OBJECT_PROPERTY_SETTER_METHOD_NAME            = "setter"
+	OBJECT_PROPERTY_DELETER_METHOD_NAME           = "deleter"
+	OBJECT_PROPERTY_SETTER_ARG_COUNT_ERROR        = "setter() takes exactly 1 argument (the setter function)"
+	OBJECT_PROPERTY_SETTER_ON_NON_PROPERTY_ERROR = "setter must be called on a property object"
+	OBJECT_PROPERTY_SETTER_ARG_TYPE_ERROR         = "setter argument must be a callable"
+	OBJECT_PROPERTY_DELETER_ARG_COUNT_ERROR       = "deleter() takes exactly 1 argument (the deleter function)"
+	OBJECT_PROPERTY_DELETER_ON_NON_PROPERTY_ERROR = "deleter must be called on a property object"
+	OBJECT_PROPERTY_DELETER_ARG_TYPE_ERROR        = "deleter argument must be a callable"
 )

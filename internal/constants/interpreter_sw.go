@@ -1,5 +1,4 @@
 //go:build sw
-// constants/interpreter.go
 package constants
 
 const (
@@ -8,7 +7,7 @@ const (
 	ContextGoExecuteReturnErrorValue1ObjectIsNotCallable = "'%s' object is not callable"
 )
 
-// pylearn/internal/interpreter/apply.go
+// interpreter/apply.go
 const (
 	InterpreterApplyFunctionKwargMultipleValuesError    = "%s() got multiple values for argument '%s'"
 	InterpreterApplyFunctionUnexpectedKwargError        = "%s() got an unexpected keyword argument '%s'"
@@ -20,11 +19,13 @@ const (
 	InterpreterApplyFunctionUnsupportedNativeMethodType = "Unsupported native method type"
 	InterpreterApplyFunctionUnexpectedKwargInBuiltin    = "%s() got an unexpected keyword argument '%s'"
 	InterpreterApplyFunctionObjectNotCallable           = "'%s' object is not callable"
+	InterpreterApplyFunctionOrClassStopIterInstanceEnvSetValue = "value"
+	InterpreterApplyFunctionOrClassGeneratorReturn = "generator return"
 
 	FunctionLiteralFunctionPlaceholder = "<function>"
 )
 
-// pylearn/internal/interpreter/async_setup.go
+// interpreter/async_setup.go
 const (
 	InterpreterAsyncSetupSleepArgCountError     = "async_builtins.sleep() takes 1 argument (duration_seconds)"
 	InterpreterAsyncSetupSleepDurationTypeError = "async_builtins.sleep() duration must be an integer"
@@ -36,12 +37,12 @@ const (
 	BuiltinsSleepFuncName              = "sleep"
 )
 
-// pylearn/internal/interpreter/eval_await.go
+// interpreter/eval_await.go
 const (
 	AwaitUsedButNoAsyncRuntimeIsAvailable = "await used, but no async runtime is available"
 )
 
-// pylearn/internal/interpreter/dynamic_loader.go
+// interpreter/dynamic_loader.go
 const (
 	InterpreterDynamicLoaderLoadModulePathArgCountError = "load_module_from_path() takes exactly 1 argument (path), got %d"
 	InterpreterDynamicLoaderLoadModulePathArgTypeError  = "load_module_from_path() argument must be a string, not %s"
@@ -58,7 +59,7 @@ const (
 	ErrorDuringExecutionModule = "Error during execution of module '%s'"
 )
 
-// pylearn/internal/interpreter/eval_expressions.go
+// interpreter/eval_expressions.go
 const (
 	EvalExpressionsNameNotDefined                     = "name '%s' is not defined"
 	EvalExpressionsPropagatedFromIsTruthy             = " (propagated from IsTruthy): %v"
@@ -108,16 +109,18 @@ const (
 	EvalExpressionsFloatDivisionByZero                = "division by zero"
 	EvalExpressionsUnhashableType                     = "unhashable type: '%s'"
 	EvalExpressionsFailedToHashElementForSet          = "failed to hash element for set: %v"
+	EvalExpressionsBadOperandTypeForUnary_TILDE       = "bad operand type for unary ~: '%s'"
 )
 
-// pylearn/internal/interpreter/eval_slices.go
+// interpreter/eval_slices.go
 const (
 	InterpreterEvalSlicesObjectNotSliceable    = "'%s' object is not sliceable"
 	InterpreterEvalSlicesIndexTypeError        = "slice indices must be integers or None, not %s"
 	InterpreterEvalSlicesStepCannotBeZeroError = "slice step cannot be zero"
+	InterpreterEvalSliceIndicesMustBeIntegersError = "slice indices must be integers"
 )
 
-// pylearn/internal/interpreter/eval_statements.go
+// interpreter/eval_statements.go
 const (
 	InterpreterEvalStatementsBreakOutsideLoop                               = "'%s' outside loop"
 	InterpreterEvalStatementsIsTruthyPropagatedError                        = " (propagated from IsTruthy): %v"
@@ -146,9 +149,10 @@ const (
 	STRINGFORMATER_ObectDoesNotSupportItemAssignment                        = "'%s' object does not support item assignment"
 	STRINGFORMATER_ObectHasNoAttribute_STRINGFORMATER_OrCannotBeAssignedTo  = "'%s' object has no attribute '%s' or cannot be assigned to"
 	CannotAssignTo_STRINGFORMATER                                           = "cannot assign to %s"
+	InterpreterEvalRaiseStatementRuntimeErrorNoActiveExceptionToReraise     = "RuntimeError: No active exception to reraise"
 )
 
-// pylearn/internal/interpreter/interpreter.go
+// interpreter/interpreter.go
 const (
 	InterpreterEvalParamDefaultError                                          = "Error evaluating default for parameter '%s': %s"
 	InterpreterEvalObjectNotAwaitable                                         = "object %s is not awaitable"
@@ -159,7 +163,7 @@ const (
 	ErrorEvaluatingDefaultForParameter_STRINGFORMATER_InLambda_STRINGFORMATER = "Error evaluating default for parameter '%s' in lambda: %s"
 )
 
-// pylearn/internal/interpreter/modules.go
+// interpreter/modules.go
 const (
 	InterpreterModulesWarnAbsolutePath                                                           = "Warning: could not get absolute path for %s: %v\n"
 	InterpreterModulesComplexImportError                                                         = "complex module paths in 'from' import not yet supported (e.g., 'from a.b import c')"
@@ -188,4 +192,12 @@ const (
 	USR_SLASH_LOCAL_SLASH_LIB_SLASH_OurLanguageDirectory_SLASH_PLUGINS = "/usr/local/lib/pylearn/plugins"
 	ModulesDirectoryForThirdPartyPackagesInstalled                     = "modules"
 	LibDirectoryForProjectSpecificModules                              = "lib"
+)
+
+// Standard Library Path (from interpreter/stdlib_path.go)
+const (
+	SWALANG_STDLIB_PATH_ENV       = "SWALANG_STDLIB_PATH"
+	STDLIB_DIR_NAME               = "stdlib"
+	STDLIB_LIB_FALLBACK_PATH      = "lib/stdlib"
+	STDLIB_INTERNAL_FALLBACK_PATH = "internal/stdlib"
 )

@@ -85,6 +85,8 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/deniskipeles/pylearn/internal/constants"
 )
 
 // calculateLayout is the Go wrapper around the C helper function. It bridges the
@@ -98,7 +100,7 @@ func calculateLayout(fields []StructField) (totalSize, totalAlignment uintptr, o
 	// Allocate C memory for the input array.
 	cTypeInfos := (*C.type_info_t)(C.malloc(C.size_t(numFields) * C.size_t(unsafe.Sizeof(C.type_info_t{}))))
 	if cTypeInfos == nil {
-		return 0, 0, nil, fmt.Errorf("malloc failed for type_info array")
+		return 0, 0, nil, fmt.Errorf(constants.FFI_LAYOUT_MALLOC_FAILED)
 	}
 	defer C.free(unsafe.Pointer(cTypeInfos))
 
@@ -112,7 +114,7 @@ func calculateLayout(fields []StructField) (totalSize, totalAlignment uintptr, o
 	// Call the C function to perform the calculation.
 	cLayout := C.calculate_struct_layout(cTypeInfos, C.int(numFields))
 	if cLayout.offsets == nil {
-		return 0, 0, nil, fmt.Errorf("calculate_struct_layout failed, likely out of memory")
+		return 0, 0, nil, fmt.Errorf(constants.FFI_LAYOUT_CALCULATION_FAILED)
 	}
 	defer C.free_layout_info(cLayout)
 
