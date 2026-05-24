@@ -16,7 +16,7 @@ type DictPair struct{ Key, Value Object }
 func (d *Dict) Type() ObjectType { return DICT_OBJ }
 func (d *Dict) Inspect() string {
 	var out bytes.Buffer
-	pairs :=[]string{}
+	pairs := []string{}
 	keys := make([]HashKey, 0, len(d.Pairs))
 	for k := range d.Pairs {
 		keys = append(keys, k)
@@ -167,7 +167,7 @@ func pyDictItemsFn(ctx ExecutionContext, args ...Object) Object {
 	itemsList := make([]Object, 0, len(self.Pairs))
 	for _, pair := range self.Pairs {
 		// Use Tuple so it can be unpacked by the 'for x, y in dict.items()' loop
-		itemPair := &Tuple{Elements:[]Object{pair.Key, pair.Value}}
+		itemPair := &Tuple{Elements: []Object{pair.Key, pair.Value}}
 		itemsList = append(itemsList, itemPair)
 	}
 	return &List{Elements: itemsList}

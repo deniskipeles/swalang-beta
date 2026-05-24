@@ -1,4 +1,5 @@
 //go:build linux || darwin
+
 package platform
 
 /*
@@ -55,7 +56,7 @@ func (m *unixManager) GetProcAddress(handle LibraryHandle, procName string) (Fun
 	// Clear any old error conditions before calling dlsym.
 	C.dlerror()
 	ptr := C.dlsym(unsafe.Pointer(handle), cprocName)
-	
+
 	// Check for errors after the call.
 	errStr := C.dlerror()
 	if errStr != nil {

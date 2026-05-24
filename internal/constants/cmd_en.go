@@ -4,13 +4,13 @@ package constants
 
 // cmd/interpreter/main.go
 const (
-	CmdInterpreterMainStdin                       = "<stdin>"
-	CmdInterpreterMainErrorReadingFile            = "Error reading file '%s': %v\n"
-	CmdInterpreterMainParserErrorsEncountered    = "Parser errors encountered:"
-	CmdInterpreterMainParserErrorFormat          = "\t%s\n"
-	CmdInterpreterMainTracebackHeader             = "Traceback (most recent call last):\n"
-	CmdInterpreterMainFileAndLineFormat           = "  File \"%s\", line %d\n"
-	CmdInterpreterMainErrorMessageFormat          = "%s\n"
+	CmdInterpreterMainStdin                   = "<stdin>"
+	CmdInterpreterMainErrorReadingFile        = "Error reading file '%s': %v\n"
+	CmdInterpreterMainParserErrorsEncountered = "Parser errors encountered:"
+	CmdInterpreterMainParserErrorFormat       = "\t%s\n"
+	CmdInterpreterMainTracebackHeader         = "Traceback (most recent call last):\n"
+	CmdInterpreterMainFileAndLineFormat       = "  File \"%s\", line %d\n"
+	CmdInterpreterMainErrorMessageFormat      = "%s\n"
 )
 
 // cmd/interpreter/main.go additions

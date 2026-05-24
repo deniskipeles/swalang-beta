@@ -434,26 +434,26 @@ func (p *Parser) parseTernaryExpression(valueIfTrue ast.Expression) ast.Expressi
 	// Its precedence should be slightly lower than the TERNARY precedence
 	// to handle chaining correctly (e.g., `a if b else c if d else e`).
 	expr.ValueIfFalse = p.parseExpression(OR)
- 	if expr.ValueIfFalse == nil {
- 		return nil
- 	}
+	if expr.ValueIfFalse == nil {
+		return nil
+	}
 
 	return expr
 }
 
 func (p *Parser) parseWithStatement() *ast.WithStatement {
-	stmt := &ast.WithStatement{Token: p.curToken} 
+	stmt := &ast.WithStatement{Token: p.curToken}
 
-	p.nextToken() 
-	stmt.ContextManager = p.parseExpression(LOWEST) 
+	p.nextToken()
+	stmt.ContextManager = p.parseExpression(LOWEST)
 	if stmt.ContextManager == nil {
 		p.errors = append(p.errors, fmt.Sprintf(constants.ParserExpectedExpressionAfterWith, p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 
 	if p.peekTokenIs(lexer.AS) {
-		p.nextToken() 
-		p.nextToken() 
+		p.nextToken()
+		p.nextToken()
 
 		if !p.curTokenIs(lexer.IDENT) {
 			p.errorExpected(constants.ParserIdentifierAfterAs, p.curToken.String())
@@ -462,11 +462,15 @@ func (p *Parser) parseWithStatement() *ast.WithStatement {
 		stmt.TargetVariable = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
 
-	if !p.expectPeek(lexer.COLON) { return nil }
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
 
 	stmt.Body = p.parseSuite()
-	if stmt.Body == nil { return nil }
-	
+	if stmt.Body == nil {
+		return nil
+	}
+
 	return stmt
 }
 
@@ -484,7 +488,7 @@ func (p *Parser) parseTryStatement() ast.Statement {
 
 	hasHandlers := false
 	stmt.Handlers = []*ast.ExceptHandler{}
-	
+
 	// FIX: We do NOT skip DEDENTs here. parseSuite() leaves p.curToken exactly on the DEDENT.
 	// If the next logical block is an except block, p.peekToken will naturally be EXCEPT.
 	for p.curTokenIs(lexer.DEDENT) && p.peekTokenIs(lexer.EXCEPT) {
@@ -520,12 +524,14 @@ func (p *Parser) parseTryStatement() ast.Statement {
 }
 
 func (p *Parser) parseExceptHandler() *ast.ExceptHandler {
-	handler := &ast.ExceptHandler{Token: p.curToken} 
-	p.nextToken()                                    
+	handler := &ast.ExceptHandler{Token: p.curToken}
+	p.nextToken()
 
 	if !p.curTokenIs(lexer.COLON) {
 		handler.Type = p.parseExpression(LOWEST)
-		if handler.Type == nil { return nil } 
+		if handler.Type == nil {
+			return nil
+		}
 	}
 
 	if p.peekTokenIs(lexer.AS) {
@@ -533,8 +539,8 @@ func (p *Parser) parseExceptHandler() *ast.ExceptHandler {
 			p.errors = append(p.errors, fmt.Sprintf(constants.ParserBareExceptCannotUseAs, handler.Token.Line, handler.Token.Column))
 			return nil
 		}
-		p.nextToken() 
-		p.nextToken() 
+		p.nextToken()
+		p.nextToken()
 
 		if !p.curTokenIs(lexer.IDENT) {
 			p.errorExpected(constants.ParserIdentifierAfterAsExcept, p.curToken.String())
@@ -543,11 +549,15 @@ func (p *Parser) parseExceptHandler() *ast.ExceptHandler {
 		handler.Var = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
 
-	if !p.expectPeek(lexer.COLON) { return nil }
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
 
 	handler.Body = p.parseSuite()
-	if handler.Body == nil { return nil }
-	
+	if handler.Body == nil {
+		return nil
+	}
+
 	return handler
 }
 
@@ -827,9 +837,9 @@ func (p *Parser) parseClassStatement() ast.Statement {
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	if p.peekTokenIs(lexer.LPAREN) {
-		p.nextToken() 
+		p.nextToken()
 		stmt.Superclasses = p.parseIdentifierList(lexer.RPAREN)
-		if stmt.Superclasses == nil && len(p.errors) > 0 { 
+		if stmt.Superclasses == nil && len(p.errors) > 0 {
 			return nil
 		}
 		if !p.curTokenIs(lexer.RPAREN) {
@@ -840,7 +850,9 @@ func (p *Parser) parseClassStatement() ast.Statement {
 		stmt.Superclasses = []*ast.Identifier{}
 	}
 
-	if !p.expectPeek(lexer.COLON) { return nil }
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
 
 	stmt.Body = p.parseSuite()
 	if stmt.Body == nil {
@@ -943,19 +955,19 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 // It assumes p.curToken is the COLON preceding the suite.
 func (p *Parser) parseSuite() *ast.BlockStatement {
 	colonToken := p.curToken
-	
+
 	if p.peekTokenIs(lexer.INDENT) {
-		p.nextToken() // Consume COLON, move to INDENT
+		p.nextToken()                  // Consume COLON, move to INDENT
 		return p.parseBlockStatement() // Parses until DEDENT
 	}
-	
+
 	// It's a single-line suite.
 	p.nextToken() // Consume COLON, move to the first token of the statement
 	stmt := p.parseStatement()
 	if stmt == nil {
 		return nil
 	}
-	
+
 	return &ast.BlockStatement{
 		Token:      colonToken,
 		Statements: []ast.Statement{stmt},
@@ -967,12 +979,18 @@ func (p *Parser) parseIfStatement() ast.Statement {
 	p.nextToken()
 
 	stmt.Condition = p.parseExpression(LOWEST)
-	if stmt.Condition == nil { return nil }
+	if stmt.Condition == nil {
+		return nil
+	}
 
-	if !p.expectPeek(lexer.COLON) { return nil }
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
 
 	stmt.Consequence = p.parseSuite()
-	if stmt.Consequence == nil { return nil }
+	if stmt.Consequence == nil {
+		return nil
+	}
 
 	stmt.ElifBlocks = []*ast.ElifBlock{}
 	for p.peekTokenIs(lexer.ELIF) {
@@ -980,13 +998,19 @@ func (p *Parser) parseIfStatement() ast.Statement {
 		elifToken := p.curToken
 		p.nextToken()
 		condition := p.parseExpression(LOWEST)
-		if condition == nil { return nil }
+		if condition == nil {
+			return nil
+		}
 
-		if !p.expectPeek(lexer.COLON) { return nil }
+		if !p.expectPeek(lexer.COLON) {
+			return nil
+		}
 
 		body := p.parseSuite()
-		if body == nil { return nil }
-		
+		if body == nil {
+			return nil
+		}
+
 		stmt.ElifBlocks = append(stmt.ElifBlocks, &ast.ElifBlock{Token: elifToken, Condition: condition, Consequence: body})
 	}
 
@@ -996,10 +1020,14 @@ func (p *Parser) parseIfStatement() ast.Statement {
 			p.errors = append(p.errors, fmt.Sprintf(constants.ParserInternalErrorExpectedElse, p.curToken.Type))
 			return nil
 		}
-		if !p.expectPeek(lexer.COLON) { return nil }
-		
+		if !p.expectPeek(lexer.COLON) {
+			return nil
+		}
+
 		stmt.Alternative = p.parseSuite()
-		if stmt.Alternative == nil { return nil }
+		if stmt.Alternative == nil {
+			return nil
+		}
 	}
 	return stmt
 }
@@ -1009,27 +1037,37 @@ func (p *Parser) parseWhileStatement() ast.Statement {
 	p.nextToken()
 
 	stmt.Condition = p.parseExpression(LOWEST)
-	if stmt.Condition == nil { return nil }
+	if stmt.Condition == nil {
+		return nil
+	}
 
-	if !p.expectPeek(lexer.COLON) { return nil }
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
 
 	stmt.Body = p.parseSuite()
-	if stmt.Body == nil { return nil }
-	
+	if stmt.Body == nil {
+		return nil
+	}
+
 	return stmt
 }
 
 func (p *Parser) parseForStatement() ast.Statement {
 	stmt := &ast.ForStatement{Token: p.curToken}
 
-	if !p.expectPeek(lexer.IDENT) { return nil }
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
 
 	variables := []*ast.Identifier{}
 	variables = append(variables, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
 
 	for p.peekToken.Type == lexer.COMMA {
-		p.nextToken() 
-		if !p.expectPeek(lexer.IDENT) { return nil }
+		p.nextToken()
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
 		variables = append(variables, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
 	}
 
@@ -1039,17 +1077,25 @@ func (p *Parser) parseForStatement() ast.Statement {
 		stmt.Variables = variables
 	}
 
-	if !p.expectPeek(lexer.IN) { return nil }
+	if !p.expectPeek(lexer.IN) {
+		return nil
+	}
 	p.nextToken()
 
 	stmt.Iterable = p.parseExpression(LOWEST)
-	if stmt.Iterable == nil { return nil }
+	if stmt.Iterable == nil {
+		return nil
+	}
 
-	if !p.expectPeek(lexer.COLON) { return nil }
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
 
 	stmt.Body = p.parseSuite()
-	if stmt.Body == nil { return nil }
-	
+	if stmt.Body == nil {
+		return nil
+	}
+
 	return stmt
 }
 
@@ -1075,14 +1121,14 @@ func (p *Parser) parseIdentifier() ast.Expression {
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
 	lit := &ast.IntegerLiteral{Token: p.curToken}
-	
+
 	// Try parsing as uint64 first to allow values up to 18446744073709551615
 	uval, err := strconv.ParseUint(p.curToken.Literal, 0, 64)
 	if err == nil {
 		lit.Value = int64(uval) // Safely wrap to signed int64
 		return lit
 	}
-	
+
 	// Fallback to ParseInt for standard negative numbers
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
@@ -1708,12 +1754,16 @@ func (p *Parser) parseDefStatement(isAsync bool) ast.Statement {
 		IsAsync: isAsync,
 	}
 
-	if !p.expectPeek(lexer.IDENT) { return nil }
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
 	funcLit.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	if !p.expectPeek(lexer.LPAREN) { return nil }
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
 
-	params, varArgParam, kwArgParam := p.parseFunctionParameters() 
+	params, varArgParam, kwArgParam := p.parseFunctionParameters()
 	if len(p.errors) > 0 && params == nil && varArgParam == nil && kwArgParam == nil {
 		return nil
 	}
@@ -1722,13 +1772,15 @@ func (p *Parser) parseDefStatement(isAsync bool) ast.Statement {
 	funcLit.VarArgParam = varArgParam
 	funcLit.KwArgParam = kwArgParam
 
-	if !p.curTokenIs(lexer.RPAREN) { 
+	if !p.curTokenIs(lexer.RPAREN) {
 		p.errorExpected(constants.ParserCloseParenParamList, p.curToken.String())
 		return nil
 	}
 
-	if !p.expectPeek(lexer.COLON) { return nil }
-	
+	if !p.expectPeek(lexer.COLON) {
+		return nil
+	}
+
 	// Parse the function body using the new suite logic
 	funcLit.Body = p.parseSuite()
 	if funcLit.Body == nil {
@@ -1738,7 +1790,7 @@ func (p *Parser) parseDefStatement(isAsync bool) ast.Statement {
 	assignStmt := &ast.LetStatement{
 		Token: funcLit.Name.Token,
 		Name:  funcLit.Name,
-		Value: funcLit, 
+		Value: funcLit,
 	}
 	return assignStmt
 }

@@ -1,4 +1,5 @@
 //go:build en
+
 package constants
 
 // Common Keywords and Special Names
@@ -175,13 +176,9 @@ const (
 	AttributeError        = "AttributeError"
 	ZeroDivisionError     = "ZeroDivisionError"
 	AssertionError        = "AssertionError"
-	// ErrIndexOutOfRange     = "ErrIndexOutOfRange"
-	// ErrDivByZero     = "ErrDivByZero"
-	// ErrNameNotDefined     = "ErrNameNotDefined"
-	// ErrKeyNotFound     = "ErrKeyNotFound"
-	ImportError         = "ImportError"
-	ModuleImportError   = "ModuleImportError"
-	ModuleNotFoundError = "ModuleNotFoundError"
+	ImportError           = "ImportError"
+	ModuleImportError     = "ModuleImportError"
+	ModuleNotFoundError   = "ModuleNotFoundError"
 
 	OSError              = "OSError"
 	NotImplementedError  = "NotImplementedError"

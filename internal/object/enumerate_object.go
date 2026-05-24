@@ -4,9 +4,8 @@ package object
 import (
 	"fmt"
 
-	"github.com/deniskipeles/pylearn/internal/constants" 
+	"github.com/deniskipeles/pylearn/internal/constants"
 )
-
 
 const ENUMERATE_ITERATOR_OBJ ObjectType = constants.ENUMERATE_ITERATOR_OBJ_TYPE
 

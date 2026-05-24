@@ -1,9 +1,6 @@
 //go:build en
-// pylearn/internal/constants/all_en.go
-package constants
 
-// pylearn/internal/object/exceptions.go
-// const EXCEPTION_MRO_COMPUTATION_FAILED = "FATAL: Could not compute MRO for built-in exception '%s': %v\n"
+package constants
 
 const (
 	SingleQuoteRune    = '\''
@@ -131,13 +128,13 @@ const (
 	SemiColon          = ";"
 	SemiColonWithSpace = "; "
 	OpenParen          = "("
-	Newline        = "\n"
-	WindowsNewline = "\r\n"
-	PlusChar       = "+"
-	CloseParen     = ")"
-	MinusSign      = "-"
-	PlusSign       = "+"
-	Dot            = "."
+	Newline            = "\n"
+	WindowsNewline     = "\r\n"
+	PlusChar           = "+"
+	CloseParen         = ")"
+	MinusSign          = "-"
+	PlusSign           = "+"
+	Dot                = "."
 )
 
 // String numbers

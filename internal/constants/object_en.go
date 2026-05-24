@@ -9,7 +9,7 @@ const (
 	OBJECT_TYPE_INSTANCE = "INSTANCE"
 
 	// Super object (from object/class_object.go)
-	SUPER_OBJECT_UNINITIALIZED_ERROR          = "super(): Pylearn super object is not properly initialized"
+	SUPER_OBJECT_UNINITIALIZED_ERROR          = "super(): Swalang super object is not properly initialized"
 	SUPER_OBJECT_START_CLASS_NOT_IN_MRO_ERROR = "super(): 'StartClass' (%s) not in MRO of 'TargetType' (%s)"
 
 	// Class object (from object/class_object.go)
@@ -442,7 +442,7 @@ const (
 	HTTP_REQUEST_HEADER_KEY_VALUE_ERROR              = "header keys and values must be strings (key: %s, val: %s)"
 	HTTP_JSON_DECODE_EMPTY_CONTENT                   = "Empty response content cannot be decoded as JSON"
 	HTTP_JSON_DECODE_ERROR_FORMAT                    = "%s (from content: %q)"
-	HTTP_JSON_CONVERSION_ERROR                       = "Error converting decoded JSON to Pylearn objects: %v"
+	HTTP_JSON_CONVERSION_ERROR                       = "Error converting decoded JSON to Swalang objects: %v"
 	HTTP_JSON_UNSUPPORTED_TYPE                       = "unsupported type %T in JSON conversion"
 	HTTP_REQUEST_HEADERS_TYPE_ERROR                  = "headers argument must be a Dict or None, not %s"
 	HTTP_REQUEST_PARAMS_TYPE_ERROR                   = "params argument must be a Dict or None, not %s"
@@ -510,8 +510,8 @@ const (
 	HELPER_APPLY_BOUND_METHOD_INSTANCE_NIL_CLASS           = "<InstanceWithNilClass>"
 	HELPER_IS_INSTANCE_ARG2_TYPE_ERROR                     = "isinstance() arg 2 must be a type or tuple of types, not %s"
 	HELPER_IS_INSTANCE_INTERNAL_NIL_CLASS                  = "object.Instance has nil Class"
-	HELPER_IS_INSTANCE_INTERNAL_NIL_ERROR_CLASS            = "Pylearn Error object has no ErrorClass"
-	HELPER_IS_INSTANCE_INTERNAL_NIL_STOP_ITERATION_CLASS   = "Pylearn StopIterationError object has no ErrorClass"
+	HELPER_IS_INSTANCE_INTERNAL_NIL_ERROR_CLASS            = "Swalang Error object has no ErrorClass"
+	HELPER_IS_INSTANCE_INTERNAL_NIL_STOP_ITERATION_CLASS   = "Swalang StopIterationError object has no ErrorClass"
 	HELPER_IS_INSTANCE_MRO_NIL_ERROR                       = "Cannot perform isinstance check: object's class or MRO is nil"
 	HELPER_IS_SUBCLASS_NOT_IMPLEMENTED                     = "issubclass check"
 	HELPER_COMPARE_OBJECTS_UNSUPPORTED_OP                  = "CompareObjects called with unsupported operator '%s'"
@@ -611,7 +611,7 @@ const (
 // Exceptions (from object/exceptions.go)
 const (
 	EXCEPTION_MRO_COMPUTATION_FAILED                      = "FATAL: Could not compute MRO for built-in exception '%s': %v"
-	ERROR_OBJECT_NO_CLASS                                 = "Pylearn Error object has no ErrorClass"
+	ERROR_OBJECT_NO_CLASS                                 = "Swalang Error object has no ErrorClass"
 	EXCEPTION_INIT_MSG_PARAM_NAME                         = "msg"
 	INIT_REQUIRES_SELF_ARGUMENT                           = "__init__ requires a 'self' argument"
 	INIT_MUST_CALL_ON_AN_EXCEPTION_INSTANCE_NOT_OTHER     = "__init__ must be called on an Exception instance, not %s"
@@ -682,6 +682,7 @@ const (
 
 // Bytes object (from object/bytes_object.go)
 const (
+	OBJECT_BYTEARRAY_TYPE   = "BYTEARRAY"
 	OBJECT_BYTES_CONTAINS_ARG_COUNT_ERROR   = "__contains__() takes exactly one argument (%d given)"
 	OBJECT_BYTES_CONTAINS_ON_NON_BYTES_ERROR = "__contains__ called on non-Bytes object"
 	OBJECT_BYTES_RANGE_ERROR                = "byte must be in range(0, 256)"
@@ -710,6 +711,7 @@ const (
 
 // Generator object (from object/generator_object.go)
 const (
+	OBJECT_GENERATOR_TYPE    = "GENERATOR"
 	OBJECT_GENERATOR_INSPECT_PREFIX    = "<generator object "
 	OBJECT_GENERATOR_INSPECT_SUFFIX    = ">"
 	OBJECT_GENERATOR_NOT_INIT_ERROR    = "generator not properly initialized"

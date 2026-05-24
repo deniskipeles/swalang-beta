@@ -1,4 +1,5 @@
 //go:build sw
+
 package constants
 
 const (
@@ -9,18 +10,18 @@ const (
 
 // interpreter/apply.go
 const (
-	InterpreterApplyFunctionKwargMultipleValuesError    = "%s() got multiple values for argument '%s'"
-	InterpreterApplyFunctionUnexpectedKwargError        = "%s() got an unexpected keyword argument '%s'"
-	InterpreterApplyFunctionMissingPositionalArgError   = "%s() missing 1 required positional argument: '%s'"
-	InterpreterApplyFunctionTooManyPositionalArgsError  = "%s() takes %d positional arguments but %d were given"
-	InterpreterApplyFunctionInitReturnNoneError         = "__init__() should return None, not %s"
-	InterpreterApplyFunctionTakesNoArgumentsError       = "%s() takes no arguments"
-	InterpreterApplyFunctionBoundGoMethodTypeError      = "BoundGoMethod has incorrect instance type"
-	InterpreterApplyFunctionUnsupportedNativeMethodType = "Unsupported native method type"
-	InterpreterApplyFunctionUnexpectedKwargInBuiltin    = "%s() got an unexpected keyword argument '%s'"
-	InterpreterApplyFunctionObjectNotCallable           = "'%s' object is not callable"
+	InterpreterApplyFunctionKwargMultipleValuesError           = "%s() got multiple values for argument '%s'"
+	InterpreterApplyFunctionUnexpectedKwargError               = "%s() got an unexpected keyword argument '%s'"
+	InterpreterApplyFunctionMissingPositionalArgError          = "%s() missing 1 required positional argument: '%s'"
+	InterpreterApplyFunctionTooManyPositionalArgsError         = "%s() takes %d positional arguments but %d were given"
+	InterpreterApplyFunctionInitReturnNoneError                = "__init__() should return None, not %s"
+	InterpreterApplyFunctionTakesNoArgumentsError              = "%s() takes no arguments"
+	InterpreterApplyFunctionBoundGoMethodTypeError             = "BoundGoMethod has incorrect instance type"
+	InterpreterApplyFunctionUnsupportedNativeMethodType        = "Unsupported native method type"
+	InterpreterApplyFunctionUnexpectedKwargInBuiltin           = "%s() got an unexpected keyword argument '%s'"
+	InterpreterApplyFunctionObjectNotCallable                  = "'%s' object is not callable"
 	InterpreterApplyFunctionOrClassStopIterInstanceEnvSetValue = "value"
-	InterpreterApplyFunctionOrClassGeneratorReturn = "generator return"
+	InterpreterApplyFunctionOrClassGeneratorReturn             = "generator return"
 
 	FunctionLiteralFunctionPlaceholder = "<function>"
 )
@@ -29,7 +30,7 @@ const (
 const (
 	InterpreterAsyncSetupSleepArgCountError     = "async_builtins.sleep() takes 1 argument (duration_seconds)"
 	InterpreterAsyncSetupSleepDurationTypeError = "async_builtins.sleep() duration must be an integer"
-	InterpreterAsyncSetupRuntimeNotInitialized  = "Pylearn async runtime not initialized. Cannot use aio.sleep."
+	InterpreterAsyncSetupRuntimeNotInitialized  = "Swalang async runtime not initialized. Cannot use aio.sleep."
 	InterpreterAsyncSetupModulePath             = "<builtin_async>"
 
 	BuiltinsAsyncBuiltinsModule        = "async_builtins"
@@ -103,9 +104,9 @@ const (
 	EvalExpressionsTypeErrorCannotSetAttribute        = "'%s' object cannot set attribute '%s'"
 	EvalExpressionsSyntaxErrorCannotAssignTo          = "cannot assign to %s"
 	EvalExpressionsObjectNotAwaitable                 = "object %s is not awaitable"
-	EvalExpressionsAsyncResultNilGoResult             = "Pylearn AsyncResultWrapper contains a nil GoAsyncResult"
+	EvalExpressionsAsyncResultNilGoResult             = "Swalang AsyncResultWrapper contains a nil GoAsyncResult"
 	EvalExpressionsAwaitGoError                       = "(from await): %v"
-	EvalExpressionsAwaitUnexpectedGoType              = "(await): Go async operation returned unexpected non-Pylearn type %T"
+	EvalExpressionsAwaitUnexpectedGoType              = "(await): Go async operation returned unexpected non-Swalang type %T"
 	EvalExpressionsFloatDivisionByZero                = "division by zero"
 	EvalExpressionsUnhashableType                     = "unhashable type: '%s'"
 	EvalExpressionsFailedToHashElementForSet          = "failed to hash element for set: %v"
@@ -114,9 +115,9 @@ const (
 
 // interpreter/eval_slices.go
 const (
-	InterpreterEvalSlicesObjectNotSliceable    = "'%s' object is not sliceable"
-	InterpreterEvalSlicesIndexTypeError        = "slice indices must be integers or None, not %s"
-	InterpreterEvalSlicesStepCannotBeZeroError = "slice step cannot be zero"
+	InterpreterEvalSlicesObjectNotSliceable        = "'%s' object is not sliceable"
+	InterpreterEvalSlicesIndexTypeError            = "slice indices must be integers or None, not %s"
+	InterpreterEvalSlicesStepCannotBeZeroError     = "slice step cannot be zero"
 	InterpreterEvalSliceIndicesMustBeIntegersError = "slice indices must be integers"
 )
 
@@ -129,7 +130,7 @@ const (
 	InterpreterEvalStatementsNoLoopVariableSpecified                        = "no loop variable specified"
 	InterpreterEvalStatementsSuperclassNotDefined                           = "superclass '%s' not defined for class '%s'"
 	InterpreterEvalStatementsSuperclassNotAClass                            = "superclass '%s' for class '%s' is not a class (got %s)"
-	InterpreterEvalStatementsObjectClassNotInitialized                      = "Pylearn's root 'object' class not initialized."
+	InterpreterEvalStatementsObjectClassNotInitialized                      = "Swalang's root 'object' class not initialized."
 	InterpreterEvalStatementsWithEnterAttributeError                        = "'%s' object has no attribute '__enter__'"
 	InterpreterEvalStatementsWithEnterNotCallable                           = "'%s' object's __enter__ is not callable"
 	InterpreterEvalStatementsWithExitAttributeError                         = "'%s' object has no attribute '__exit__'"
@@ -156,9 +157,9 @@ const (
 const (
 	InterpreterEvalParamDefaultError                                          = "Error evaluating default for parameter '%s': %s"
 	InterpreterEvalObjectNotAwaitable                                         = "object %s is not awaitable"
-	InterpreterEvalAsyncResultNilGoError                                      = "Pylearn AsyncResultWrapper contains a nil GoAsyncResult"
+	InterpreterEvalAsyncResultNilGoError                                      = "Swalang AsyncResultWrapper contains a nil GoAsyncResult"
 	InterpreterEvalAwaitFromAwaitError                                        = "(from await): %v"
-	InterpreterEvalAwaitGoReturnError                                         = "(await): Go async operation returned unexpected non-Pylearn type %T"
+	InterpreterEvalAwaitGoReturnError                                         = "(await): Go async operation returned unexpected non-Swalang type %T"
 	InterpreterEvalSyntaxErrorNode                                            = "evaluation not implemented for AST node type %T"
 	ErrorEvaluatingDefaultForParameter_STRINGFORMATER_InLambda_STRINGFORMATER = "Error evaluating default for parameter '%s' in lambda: %s"
 )
@@ -185,11 +186,11 @@ const (
 
 	Init_DOT_Py                   = "__init__.py"
 	DOT_Py                        = ".py"
-	PluginPathEnvironmentVariable = "PYLEARN_PLUGIN_PATH"
+	PluginPathEnvironmentVariable = "SWALANG_PLUGIN_PATH"
 	PluginsDirectory              = "plugins"
-	DOT_OurLanguageDirectory      = ".pylearn"
+	DOT_OurLanguageDirectory      = ".swalang"
 
-	USR_SLASH_LOCAL_SLASH_LIB_SLASH_OurLanguageDirectory_SLASH_PLUGINS = "/usr/local/lib/pylearn/plugins"
+	USR_SLASH_LOCAL_SLASH_LIB_SLASH_OurLanguageDirectory_SLASH_PLUGINS = "/usr/local/lib/swalang/plugins"
 	ModulesDirectoryForThirdPartyPackagesInstalled                     = "modules"
 	LibDirectoryForProjectSpecificModules                              = "lib"
 )

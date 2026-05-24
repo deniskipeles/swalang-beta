@@ -1,10 +1,8 @@
 //go:build en
 
-// pylearn/internal/constants/ast.go
-//
 package constants
 
-// pylearn/internal/ast/ast.go
+// internal/ast/ast.go
 const (
 	AstProgramTokenLiteralDefault         = ""
 	AstExpressionStatementStringDefault   = ""

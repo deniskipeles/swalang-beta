@@ -82,7 +82,9 @@ func (p *CPrimitiveType) GetObjectAttribute(ctx object.ExecutionContext, name st
 }
 
 func (p *CPrimitiveType) Type() object.ObjectType { return constants.FFI_PRIMITIVE_TYPE_NAME }
-func (p *CPrimitiveType) Inspect() string         { return fmt.Sprintf(constants.FFI_PRIMITIVE_INSPECT, p.name) }
+func (p *CPrimitiveType) Inspect() string {
+	return fmt.Sprintf(constants.FFI_PRIMITIVE_INSPECT, p.name)
+}
 func (p *CPrimitiveType) GetFFIType() *C.ffi_type { return p.ffiType }
 func (p *CPrimitiveType) Size() uintptr           { return p.size }
 func (p *CPrimitiveType) Alignment() uintptr      { return p.size }

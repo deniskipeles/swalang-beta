@@ -2,7 +2,7 @@
 
 package constants
 
-// pylearn/internal/builtins/builtins_collections.go
+// internal/builtins/builtins_collections.go
 const (
 	BuiltinsCollectionsLenArgCountError           = "len() takes exactly one argument (%d given)"
 	BuiltinsCollectionsLenAttrNotCallable         = "__len__ attribute of type %s is not callable"
@@ -17,10 +17,10 @@ const (
 	BuiltinsLenFuncName                           = "len"
 )
 
-// pylearn/internal/builtins/builtins_debug.go
+// internal/builtins/builtins_debug.go
 const (
 	BuiltinsDebugHelpArgCountError      = "Expected 0 or 1 arguments for help()"
-	BuiltinsDebugHelpWelcomeMessage     = "Welcome to Pylearn help utility!"
+	BuiltinsDebugHelpWelcomeMessage     = "Welcome to Swalang help utility!"
 	BuiltinsDebugHelpNotImplemented     = "Interactive help is not implemented. Pass an object to help()."
 	BuiltinsDebugHelpOnObjectFormat     = "Help on %s object:\n"
 	BuiltinsDebugHelpDocumentationTitle = "\nDocumentation:\n"
@@ -30,7 +30,7 @@ const (
 	BuiltinsHelpFuncName                = "help"
 )
 
-// pylearn/internal/builtins/builtins_fstring.go
+// internal/builtins/builtins_fstring.go
 const (
 	BuiltinsFstringFormatStringFnArgCountError    = "f() takes exactly 1 argument (the f-string literal), got %d"
 	BuiltinsFstringFormatStringFnArgTypeError     = "f() argument must be a string, not %s"
@@ -41,7 +41,7 @@ const (
 	BuiltinsFstringContentMustBeExpression        = "f-string: content of {} ('%s') must be an expression"
 	BuiltinsFstringStrBuiltinNotFound             = "'str' built-in not found for f-string formatting"
 	BuiltinsFstringErrorConvertingResult          = "Error converting f-string expression result for '%s' to string: %s"
-	BuiltinsFstringStrDidNotReturnString          = "Pylearn str() on f-string expression result did not return a string (got %s)"
+	BuiltinsFstringStrDidNotReturnString          = "Swalang str() on f-string expression result did not return a string (got %s)"
 	BuiltinsFstringSingleBraceNotAllowed          = "f-string: single '}' is not allowed outside of an expression"
 	BuiltinsFormatStringFuncName                  = "format_str"
 	BuiltinsFormatStrFuncName                     = "f"
@@ -49,7 +49,7 @@ const (
 	BuiltinFormatSpecifier_F_RequiresFloatOrIntegerNot_STRINGFORMATER = "format specifier 'f' requires a float or integer, not %s"
 )
 
-// pylearn/internal/builtins/builtins_io.go
+// internal/builtins/builtins_io.go
 const (
 	BuiltinsIOStrBuiltinNotFound         = "'str' built-in not found"
 	BuiltinsIOErrorDuringStr             = "<Error during str(): %s -> %s>"
@@ -88,7 +88,7 @@ const (
 	BuiltinsOpenFuncName                 = "open"
 )
 
-// pylearn/internal/builtins/builtins_iter.go
+// internal/builtins/builtins_iter.go
 const (
 	BuiltinsIterTokenLiteral            = "<iter>"
 	BuiltinsIterArgCountError           = "iter() takes 1 or 2 arguments (%d given)"
@@ -121,7 +121,7 @@ const (
 	BuiltinsAnyFuncName                 = "any"
 )
 
-// pylearn/internal/builtins/builtins_math.go
+// internal/builtins/builtins_math.go
 const (
 	BuiltinsMathAbsArgCountError                 = "abs() takes exactly one argument (%d given)"
 	BuiltinsMathBadOperandTypeAbs                = "bad operand type for abs(): %s"
@@ -168,7 +168,7 @@ const (
 	BuiltinsHashFuncName   = "hash"
 )
 
-// pylearn/internal/builtins/builtins_object.go
+// internal/builtins/builtins_object.go
 const (
 	BuiltinsObjectIsInstanceArgCountError       = "isinstance() takes exactly 2 arguments (%d given)"
 	BuiltinsObjectInstanceNilClassError         = "object.Instance has nil Class"
@@ -239,7 +239,7 @@ const (
 	BuiltinsModuleType      = "module"
 )
 
-// pylearn/internal/builtins/builtins_string.go
+// internal/builtins/builtins_string.go
 const (
 	BuiltinsStringChrArgCountError          = "chr() takes exactly one argument (%d given)"
 	BuiltinsStringChrIntInterpretationError = "'int' object cannot be interpreted as an integer for chr()"
@@ -263,7 +263,7 @@ const (
 	BuiltinsFormatFuncName = "format"
 )
 
-// pylearn/internal/builtins/builtins_types.go
+// internal/builtins/builtins_types.go
 const (
 	BuiltinsTypesTypeArgCountError                              = "type() takes exactly one argument (%d given)"
 	BuiltinsTypesTypeNotImplementedError                        = "type() for classes not fully implemented"
@@ -337,8 +337,4 @@ const (
 	BuiltinsFrozensetFuncName  = "frozenset"
 	BuiltinsByteArrayFuncName  = "bytearray"
 	BuiltinsMemoryViewFuncName = "memoryview"
-	// BuiltinsTupleFuncName      = "tuple"
-	// BuiltinsSetFuncName        = "set"
-	// BuiltinsBytesFuncName      = "bytes"
-	// BuiltinsComplexFuncName    = "complex"
 )

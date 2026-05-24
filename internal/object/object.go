@@ -1,10 +1,9 @@
-//go:build en
 package object
 
 import (
 	"fmt"
-	"strings"
 	"github.com/deniskipeles/pylearn/internal/constants"
+	"strings"
 )
 
 // ObjectType represents the type of an object in our runtime.

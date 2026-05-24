@@ -5,7 +5,7 @@ import (
 	"github.com/deniskipeles/pylearn/internal/constants"
 )
 
-const GENERATOR_OBJ ObjectType = "GENERATOR"
+const GENERATOR_OBJ ObjectType = constants.OBJECT_GENERATOR_TYPE
 
 // Generator represents a suspended function execution.
 // It is now decoupled from any specific execution engine (interpreter/vm).

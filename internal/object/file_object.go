@@ -15,17 +15,17 @@ import (
 
 // File (Enhanced)
 type File struct {
-    mu       sync.Mutex // For thread-safe operations on the file
-    File     *os.File   // The underlying Go file
-    Name     string     // Path used to open the file
-    Mode     string     // Mode string (e.g., "r", "wb")
-    IsBinary bool       // True if opened in binary mode
-    Closed   bool
+	mu       sync.Mutex // For thread-safe operations on the file
+	File     *os.File   // The underlying Go file
+	Name     string     // Path used to open the file
+	Mode     string     // Mode string (e.g., "r", "wb")
+	IsBinary bool       // True if opened in binary mode
+	Closed   bool
 
-    // For buffered reading (especially text mode)
-    Reader *bufio.Reader // <<< THIS FIELD MUST BE PRESENT
-    // For iteration
-    iterExhausted bool   // <<< THIS FIELD MUST BE PRESENT
+	// For buffered reading (especially text mode)
+	Reader *bufio.Reader // <<< THIS FIELD MUST BE PRESENT
+	// For iteration
+	iterExhausted bool // <<< THIS FIELD MUST BE PRESENT
 }
 
 func (f *File) Type() ObjectType { return FILE_OBJ }
@@ -39,7 +39,9 @@ func (f *File) Inspect() string {
 	// if f.File != nil { fdStr = fmt.Sprintf("fd=%d", f.File.Fd()) }
 	return fmt.Sprintf(constants.FILE_OBJECT_INSPECT_FORMAT, f.Name, f.Mode, status)
 }
+
 var _ Object = (*File)(nil)
+
 // File objects are not hashable
 // File objects can be iterable (line by line)
 
@@ -48,17 +50,23 @@ var _ Object = (*File)(nil)
 func pyFileReadFn(ctx ExecutionContext, args ...Object) Object {
 	// args[0] is self (File), args[1] is size (optional, int)
 	selfFile, ok := args[0].(*File)
-	if !ok { return NewError(constants.TypeError, constants.FILE_OBJECT_READ_ON_FILE_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.FILE_OBJECT_READ_ON_FILE_ERROR)
+	}
 
 	selfFile.mu.Lock()
 	defer selfFile.mu.Unlock()
-	if selfFile.Closed { return NewError(constants.ValueError, constants.FILE_OBJECT_READ_CLOSED_ERROR) }
+	if selfFile.Closed {
+		return NewError(constants.ValueError, constants.FILE_OBJECT_READ_CLOSED_ERROR)
+	}
 
 	size := -1 // Default: read until EOF
 	if len(args) == 2 {
 		if args[1] != NULL {
 			sizeInt, okSize := args[1].(*Integer)
-			if !okSize { return NewError(constants.TypeError, constants.FILE_OBJECT_READ_SIZE_TYPE_ERROR) }
+			if !okSize {
+				return NewError(constants.TypeError, constants.FILE_OBJECT_READ_SIZE_TYPE_ERROR)
+			}
 			size = int(sizeInt.Value)
 		}
 	}
@@ -77,7 +85,9 @@ func pyFileReadFn(ctx ExecutionContext, args ...Object) Object {
 			}
 			data = data[:n] // Slice to actual number of bytes read
 		}
-		if err != nil { return NewError(constants.OSError, constants.FILE_OBJECT_READ_BINARY_ERROR_MSG, err) }
+		if err != nil {
+			return NewError(constants.OSError, constants.FILE_OBJECT_READ_BINARY_ERROR_MSG, err)
+		}
 		return &Bytes{Value: data}
 	} else { // Text mode
 		// Use the buffered Reader
@@ -94,18 +104,24 @@ func pyFileReadFn(ctx ExecutionContext, args ...Object) Object {
 			}
 			data = data[:n]
 		}
-		if err != nil { return NewError(constants.OSError, constants.FILE_OBJECT_READ_TEXT_ERROR_MSG, err) }
+		if err != nil {
+			return NewError(constants.OSError, constants.FILE_OBJECT_READ_TEXT_ERROR_MSG, err)
+		}
 		return &String{Value: string(data)}
 	}
 }
 
 func pyFileReadLineFn(ctx ExecutionContext, args ...Object) Object {
 	selfFile, ok := args[0].(*File)
-	if !ok { return NewError(constants.TypeError, constants.FILE_OBJECT_READLINE_ON_FILE_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.FILE_OBJECT_READLINE_ON_FILE_ERROR)
+	}
 
 	selfFile.mu.Lock()
 	defer selfFile.mu.Unlock()
-	if selfFile.Closed { return NewError(constants.ValueError, constants.FILE_OBJECT_READ_CLOSED_ERROR) }
+	if selfFile.Closed {
+		return NewError(constants.ValueError, constants.FILE_OBJECT_READ_CLOSED_ERROR)
+	}
 
 	// TODO: Handle optional size argument for readline
 	if len(args) > 1 {
@@ -143,23 +159,29 @@ func pyFileReadLineFn(ctx ExecutionContext, args ...Object) Object {
 
 func pyFileReadLinesFn(ctx ExecutionContext, args ...Object) Object {
 	selfFile, ok := args[0].(*File)
-	if !ok { return NewError(constants.TypeError, constants.FILE_OBJECT_READLINES_ON_FILE_ERROR) }
-	
+	if !ok {
+		return NewError(constants.TypeError, constants.FILE_OBJECT_READLINES_ON_FILE_ERROR)
+	}
+
 	// TODO: Handle optional hint argument
 	if len(args) > 1 {
 		return NewError(constants.NotImplementedError, constants.FILE_OBJECT_READLINES_HINT_NOT_IMPL)
 	}
-	
+
 	selfFile.mu.Lock()
 	defer selfFile.mu.Unlock()
-	if selfFile.Closed { return NewError(constants.ValueError, constants.FILE_OBJECT_READ_CLOSED_ERROR) }
+	if selfFile.Closed {
+		return NewError(constants.ValueError, constants.FILE_OBJECT_READ_CLOSED_ERROR)
+	}
 
 	linesList := &List{Elements: []Object{}}
 	var Reader io.Reader
 	if selfFile.IsBinary {
 		Reader = selfFile.File // Or wrap in bufio.NewReader for consistency with readline
 	} else {
-		if selfFile.Reader == nil { return NewError(constants.InternalError, constants.FILE_OBJECT_READER_NOT_INIT_ERROR) }
+		if selfFile.Reader == nil {
+			return NewError(constants.InternalError, constants.FILE_OBJECT_READER_NOT_INIT_ERROR)
+		}
 		Reader = selfFile.Reader
 	}
 
@@ -180,18 +202,28 @@ func pyFileReadLinesFn(ctx ExecutionContext, args ...Object) Object {
 			// A persistent bufio.Reader for binary files could be an option.
 			tempLineReader := bufio.NewReader(selfFile.File) // Assuming selfFile.File is the raw *os.File
 			b, errRead := tempLineReader.ReadBytes(constants.NewlineRune)
-			if errRead != nil && errRead != io.EOF { return NewError(constants.OSError, constants.FILE_OBJECT_READLINES_BINARY_READ_ERROR, errRead) }
-			if len(b) == 0 && errRead == io.EOF { break } // End of file
+			if errRead != nil && errRead != io.EOF {
+				return NewError(constants.OSError, constants.FILE_OBJECT_READLINES_BINARY_READ_ERROR, errRead)
+			}
+			if len(b) == 0 && errRead == io.EOF {
+				break
+			} // End of file
 			lineObject = &Bytes{Value: b}
 		} else {
-			if selfFile.Reader == nil {return NewError(constants.InternalError, constants.FILE_OBJECT_READLINES_TEXT_READER_NOT_INIT)}
+			if selfFile.Reader == nil {
+				return NewError(constants.InternalError, constants.FILE_OBJECT_READLINES_TEXT_READER_NOT_INIT)
+			}
 			s, errRead := selfFile.Reader.ReadString(constants.NewlineRune)
-			if errRead != nil && errRead != io.EOF { return NewError(constants.OSError, constants.FILE_OBJECT_READLINES_TEXT_READ_ERROR, errRead) }
-			if len(s) == 0 && errRead == io.EOF { break } // End of file
+			if errRead != nil && errRead != io.EOF {
+				return NewError(constants.OSError, constants.FILE_OBJECT_READLINES_TEXT_READ_ERROR, errRead)
+			}
+			if len(s) == 0 && errRead == io.EOF {
+				break
+			} // End of file
 			lineObject = &String{Value: s}
 		}
 		linesList.Elements = append(linesList.Elements, lineObject)
-		if selfFile.IsBinary && len(lineObject.(*Bytes).Value) > 0 && lineObject.(*Bytes).Value[len(lineObject.(*Bytes).Value)-1] != constants.NewlineRune{
+		if selfFile.IsBinary && len(lineObject.(*Bytes).Value) > 0 && lineObject.(*Bytes).Value[len(lineObject.(*Bytes).Value)-1] != constants.NewlineRune {
 			// If binary line didn't end with newline and it wasn't EOF, means we hit EOF mid-line
 			break
 		}
@@ -207,18 +239,21 @@ func pyFileReadLinesFn(ctx ExecutionContext, args ...Object) Object {
 	return linesList
 }
 
-
 func pyFileWriteFn(ctx ExecutionContext, args ...Object) Object {
 	// args[0] is self (File), args[1] is data (String or Bytes)
 	if len(args) != 2 {
 		return NewError(constants.TypeError, constants.FILE_OBJECT_WRITE_ARG_COUNT_ERROR, len(args)-1)
 	}
 	selfFile, ok := args[0].(*File)
-	if !ok { return NewError(constants.TypeError, constants.FILE_OBJECT_WRITE_ON_FILE_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.FILE_OBJECT_WRITE_ON_FILE_ERROR)
+	}
 
 	selfFile.mu.Lock()
 	defer selfFile.mu.Unlock()
-	if selfFile.Closed { return NewError(constants.ValueError, constants.FILE_OBJECT_WRITE_CLOSED_ERROR) }
+	if selfFile.Closed {
+		return NewError(constants.ValueError, constants.FILE_OBJECT_WRITE_CLOSED_ERROR)
+	}
 
 	var bytesToWrite []byte
 	switch data := args[1].(type) {
@@ -249,7 +284,9 @@ func pyFileCloseFn(ctx ExecutionContext, args ...Object) Object {
 		return NewError(constants.TypeError, constants.FILE_OBJECT_CLOSE_ARG_COUNT_ERROR, len(args)-1)
 	}
 	selfFile, ok := args[0].(*File)
-	if !ok { return NewError(constants.TypeError, constants.FILE_OBJECT_CLOSE_ON_FILE_ERROR) }
+	if !ok {
+		return NewError(constants.TypeError, constants.FILE_OBJECT_CLOSE_ON_FILE_ERROR)
+	}
 
 	selfFile.mu.Lock()
 	defer selfFile.mu.Unlock()
@@ -266,7 +303,6 @@ func pyFileCloseFn(ctx ExecutionContext, args ...Object) Object {
 	selfFile.Reader = nil // Clear Reader
 	return NULL
 }
-
 
 // pyFileEnterFn implements File.__enter__
 func pyFileEnterFn(ctx ExecutionContext, args ...Object) Object {
@@ -313,8 +349,6 @@ func pyFileExitFn(ctx ExecutionContext, args ...Object) Object {
 	return FALSE // Or NULL, which evaluates to False
 }
 
-
-
 // --- GetObjectAttribute for File ---
 func (f *File) GetObjectAttribute(ctx ExecutionContext, name string) (Object, bool) {
 	makeFileMethod := func(methodName string, goFn BuiltinFunction) *Builtin {
@@ -360,8 +394,8 @@ func (f *File) GetObjectAttribute(ctx ExecutionContext, name string) (Object, bo
 	}
 	return nil, false
 }
-var _ AttributeGetter = (*File)(nil)
 
+var _ AttributeGetter = (*File)(nil)
 
 // --- Iterator Protocol for File (line by line) ---
 func (f *File) Next() (Object, bool) {
@@ -405,7 +439,7 @@ func (f *File) Next() (Object, bool) {
 			line = &String{Value: lineStr}
 		}
 	}
-	
+
 	f.mu.Unlock() // Unlock before returning
 
 	if err == io.EOF {
@@ -423,4 +457,5 @@ func (f *File) Next() (Object, bool) {
 	}
 	return line, false
 }
+
 var _ Iterator = (*File)(nil) // File implements the Iterator interface

@@ -3,8 +3,8 @@ package object
 
 // Environment holds the bindings (variable names to objects)
 type Environment struct {
-	store map[string]Object // Stores the actual bindings
-	outer *Environment      // Pointer to the enclosing environment (for scope)
+	store       map[string]Object // Stores the actual bindings
+	outer       *Environment      // Pointer to the enclosing environment (for scope)
 	globalNames map[string]bool
 }
 
@@ -68,20 +68,19 @@ func (e *Environment) Update(name string, val Object) (Object, bool) {
 		root.store[name] = val
 		return val, true
 	}
-    // <<< END OF MODIFICATION >>>
-    _, ok := e.store[name]
-    if ok {
-        e.store[name] = val // Found in current scope, update it
-        return val, true
-    }
-    if e.outer != nil {
-        // Try updating in the outer scope
-        return e.outer.Update(name, val)
-    }
-    // Variable not found in any scope
-    return nil, false
+	// <<< END OF MODIFICATION >>>
+	_, ok := e.store[name]
+	if ok {
+		e.store[name] = val // Found in current scope, update it
+		return val, true
+	}
+	if e.outer != nil {
+		// Try updating in the outer scope
+		return e.outer.Update(name, val)
+	}
+	// Variable not found in any scope
+	return nil, false
 }
-
 
 // --- ADD THIS METHOD ---
 // Delete removes a name binding *only* from the current environment scope.
@@ -97,8 +96,8 @@ func (e *Environment) Delete(name string) bool {
 	// For now, it only deletes if found directly in the instance's environment.
 	return false
 }
-// --- END ADD ---
 
+// --- END ADD ---
 
 // Items returns a map of the bindings stored *only* in this specific environment layer.
 // It does NOT include items from outer environments.

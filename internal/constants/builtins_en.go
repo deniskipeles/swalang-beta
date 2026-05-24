@@ -232,11 +232,12 @@ const (
 	BuiltinsTupleFuncName   = "tuple"
 	BuiltinsSetFuncName     = "set"
 	BuiltinsBytesFuncName   = "bytes"
-	BuiltinsFunctionType    = "function"
-	BuiltinsObjectType      = "object"
 	BuiltinsTypeType        = "type"
-	BuiltinsFileType        = "file"
-	BuiltinsModuleType      = "module"
+
+	BuiltinsFunctionType = "function"
+	BuiltinsObjectType   = "object"
+	BuiltinsFileType     = "file"
+	BuiltinsModuleType   = "module"
 )
 
 // pylearn/internal/builtins/builtins_string.go
@@ -337,8 +338,4 @@ const (
 	BuiltinsFrozensetFuncName  = "frozenset"
 	BuiltinsByteArrayFuncName  = "bytearray"
 	BuiltinsMemoryViewFuncName = "memoryview"
-	// BuiltinsTupleFuncName      = "tuple"
-	// BuiltinsSetFuncName        = "set"
-	// BuiltinsBytesFuncName      = "bytes"
-	// BuiltinsComplexFuncName    = "complex"
 )

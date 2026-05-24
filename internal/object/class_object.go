@@ -17,9 +17,9 @@ const (
 // --- Super Object for super() calls ---
 
 type Super struct {
-	SelfInstance Object  // The 'self' instance super() was called with (e.g., an *Instance)
-	StartClass   *Class  // The class *after* which to start searching in the MRO
-	TargetType   *Class  // The class within which super() was called (MRO_Class)
+	SelfInstance Object // The 'self' instance super() was called with (e.g., an *Instance)
+	StartClass   *Class // The class *after* which to start searching in the MRO
+	TargetType   *Class // The class within which super() was called (MRO_Class)
 }
 
 func (s *Super) Type() ObjectType { return SUPER_OBJ }
@@ -129,10 +129,10 @@ var _ AttributeGetter = (*Super)(nil)
 
 type Class struct {
 	Name           string
-	Superclasses   []*Class             // Direct base classes (multiple inheritance support)
-	MRO            []*Class             // Method Resolution Order (linearized)
+	Superclasses   []*Class // Direct base classes (multiple inheritance support)
+	MRO            []*Class // Method Resolution Order (linearized)
 	Methods        map[string]Object
-	ClassVariables *Environment         // Class variables defined in *this* class
+	ClassVariables *Environment // Class variables defined in *this* class
 }
 
 func (c *Class) Type() ObjectType { return CLASS_OBJ }

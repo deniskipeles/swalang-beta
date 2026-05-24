@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	BYTEARRAY_OBJ ObjectType = "BYTEARRAY"
+	BYTEARRAY_OBJ ObjectType = constants.OBJECT_BYTEARRAY_TYPE
 )
 
 // --- Bytes (Immutable) ---
@@ -187,7 +187,6 @@ var _ Object = (*Bytes)(nil)
 var _ Hashable = (*Bytes)(nil)
 var _ ItemGetter = (*Bytes)(nil)
 var _ AttributeGetter = (*Bytes)(nil)
-
 
 // --- ByteArray (Mutable) ---
 

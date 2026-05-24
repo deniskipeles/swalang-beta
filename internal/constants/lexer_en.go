@@ -2,13 +2,13 @@
 
 package constants
 
-// pylearn/internal/lexer/token.go
+// internal/lexer/token.go
 const (
 	LexerTokenFmtString   = "Token{Type: %s, Literal: %s, Line: %d, Column: %d}"
 	LexerTokenQuoteFormat = "%q"
 )
 
-// pylearn/internal/lexer/lexer.go
+// internal/lexer/lexer.go
 const (
 	LexerIndentationTabError          = "indentation tab error"
 	LexerUnterminatedMultilineComment = "Unterminated multiline comment"
@@ -17,7 +17,7 @@ const (
 	LexerIllegalCharacter             = "illegal character" // Generic message for unrecognized char
 )
 
-// pylearn/internal/lexer/token.go
+// internal/lexer/token.go
 const (
 	LexerKeywordDef      = "def"
 	LexerKeywordTrue     = "True"

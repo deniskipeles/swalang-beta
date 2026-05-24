@@ -1,13 +1,14 @@
 //go:build sw
+
 package constants
 
 // ============================================================================
 // Sys Module Constants (from stdlib/pysys)
 // ============================================================================
-// These constants define the metadata, lookup keys, and error messages for the 
-// built-in 'sys' module. 
-// Translation Note: Do not translate module names or environment keys (like "sys", 
-// "argv", "platform"), as they are hardcoded into the import/runtime engine. 
+// These constants define the metadata, lookup keys, and error messages for the
+// built-in 'sys' module.
+// Translation Note: Do not translate module names or environment keys (like "sys",
+// "argv", "platform"), as they are hardcoded into the import/runtime engine.
 // When translating errors, ensure that format verbs (e.g., %d, %s) are kept as-is.
 const (
 	SYS_MODULE_NAME          = "sys"
@@ -45,44 +46,44 @@ const (
 // ============================================================================
 // Importlib Module Constants (from stdlib/pyimportlib)
 // ============================================================================
-// Supports the dynamic import mechanism (pylearn_importlib) for loading modules.
-// Translation Note: Do not alter names or paths like "pylearn_importlib", as the 
+// Supports the dynamic import mechanism (swalang_importlib) for loading modules.
+// Translation Note: Do not alter names or paths like "swalang_importlib", as the
 // virtual machine's loader is tightly coupled to these exact strings.
 const (
-	IMPORTLIB_LOAD_MODULE_BUILTIN_NAME   = "pylearn_importlib.load_module_from_path"
-	IMPORTLIB_LOAD_MODULE_NOT_INIT_ERROR = "pylearn_importlib.load_module_from_path not properly initialized by the interpreter"
+	IMPORTLIB_LOAD_MODULE_BUILTIN_NAME   = "swalang_importlib.load_module_from_path"
+	IMPORTLIB_LOAD_MODULE_NOT_INIT_ERROR = "swalang_importlib.load_module_from_path not properly initialized by the interpreter"
 	IMPORTLIB_LOAD_MODULE_METHOD_NAME    = "load_module_from_path"
-	IMPORTLIB_MODULE_NAME                = "pylearn_importlib"
+	IMPORTLIB_MODULE_NAME                = "swalang_importlib"
 )
 
 // ============================================================================
 // FFI3 Platform Resolution Constants (from stdlib/ffi3/platform_*)
 // ============================================================================
 // Directory paths, environment variable names, and resolution details for FFI operations.
-// Translation Note: Path strings, env keys, and the ELF header validation substring 
+// Translation Note: Path strings, env keys, and the ELF header validation substring
 // are internal system contracts and must remain untranslated.
 const (
-	FFI_GO_MOD_FILE                        = "go.mod"
-	FFI_BIN_DIR                            = "bin"
-	FFI_LIB_DIR                            = "lib"
-	FFI_LIB_PREFIX                         = "lib"
-	FFI_UNIX_LIB_PATH                      = "/lib"
-	FFI_UNIX_USR_LIB_PATH                  = "/usr/lib"
-	FFI_UNIX_USR_LOCAL_LIB_PATH            = "/usr/local/lib"
-	FFI_UNIX_LIB_X86_PATH                  = "/lib/x86_64-linux-gnu"
-	FFI_UNIX_USR_LIB_X86_PATH              = "/usr/lib/x86_64-linux-gnu"
-	FFI_ELF_HEADER_ERROR_SUBSTR            = "invalid ELF header"
-	FFI_LOAD_ELF_ERR_FORMAT                = "could not load library '%s': %v (ELF error: %v)"
-	FFI_LOAD_LIB_ERR_FORMAT                = "could not load library '%s': %v \n(Original path error: %v)"
-	FFI_WINDOWS_GET_LAST_ERR_PROC          = "GetLastError"
-	FFI_WINDOWS_GET_LAST_ERR_ARG_ERROR     = "get_last_error() takes no arguments"
-	FFI_WINDOWS_GET_LAST_ERR_METHOD        = "get_last_error"
-	FFI_WINDOWS_GET_LAST_ERR_BUILTIN       = "_ffi.get_last_error"
-	FFI_WINDOWS_WINDIR_ENV                 = "WINDIR"
-	FFI_WINDOWS_SYSTEM32_DIR               = "System32"
-	FFI_WINDOWS_SYSWOW64_DIR               = "SysWOW64"
-	FFI_LAYOUT_MALLOC_FAILED               = "malloc failed for type_info array"
-	FFI_LAYOUT_CALCULATION_FAILED          = "calculate_struct_layout failed, likely out of memory"
+	FFI_GO_MOD_FILE                    = "go.mod"
+	FFI_BIN_DIR                        = "bin"
+	FFI_LIB_DIR                        = "lib"
+	FFI_LIB_PREFIX                     = "lib"
+	FFI_UNIX_LIB_PATH                  = "/lib"
+	FFI_UNIX_USR_LIB_PATH              = "/usr/lib"
+	FFI_UNIX_USR_LOCAL_LIB_PATH        = "/usr/local/lib"
+	FFI_UNIX_LIB_X86_PATH              = "/lib/x86_64-linux-gnu"
+	FFI_UNIX_USR_LIB_X86_PATH          = "/usr/lib/x86_64-linux-gnu"
+	FFI_ELF_HEADER_ERROR_SUBSTR        = "invalid ELF header"
+	FFI_LOAD_ELF_ERR_FORMAT            = "could not load library '%s': %v (ELF error: %v)"
+	FFI_LOAD_LIB_ERR_FORMAT            = "could not load library '%s': %v \n(Original path error: %v)"
+	FFI_WINDOWS_GET_LAST_ERR_PROC      = "GetLastError"
+	FFI_WINDOWS_GET_LAST_ERR_ARG_ERROR = "get_last_error() takes no arguments"
+	FFI_WINDOWS_GET_LAST_ERR_METHOD    = "get_last_error"
+	FFI_WINDOWS_GET_LAST_ERR_BUILTIN   = "_ffi.get_last_error"
+	FFI_WINDOWS_WINDIR_ENV             = "WINDIR"
+	FFI_WINDOWS_SYSTEM32_DIR           = "System32"
+	FFI_WINDOWS_SYSWOW64_DIR           = "SysWOW64"
+	FFI_LAYOUT_MALLOC_FAILED           = "malloc failed for type_info array"
+	FFI_LAYOUT_CALCULATION_FAILED      = "calculate_struct_layout failed, likely out of memory"
 )
 
 // ============================================================================
@@ -91,10 +92,10 @@ const (
 // These constants define the core vocabulary of the FFI native module, mapping Go
 // primitives to their C equivalents, defining inspection formats, and presenting errors.
 // Translation Note:
-// 1. "Type Names" and "Environment Keys" are internal identifiers — do not translate them.
-// 2. "Inspection Formats" represent internal debug visualizers; change with caution.
-// 3. "Errors & Messages" are user-visible during runtime failures and can be translated,
-//    always preserving formattable variables like %s, %d, %v, or %T.
+//  1. "Type Names" and "Environment Keys" are internal identifiers — do not translate them.
+//  2. "Inspection Formats" represent internal debug visualizers; change with caution.
+//  3. "Errors & Messages" are user-visible during runtime failures and can be translated,
+//     always preserving formattable variables like %s, %d, %v, or %T.
 const (
 	// --- Type Names ---
 	FFI_PRIMITIVE_TYPE_NAME    = "FFI_PRIMITIVE_TYPE"
@@ -226,23 +227,23 @@ const (
 	FFI_UNSUPPORTED_PRIMITIVE_MARSHAL   = "unsupported primitive type for marshalling: %s"
 	FFI_UNSUPPORTED_PRIMITIVE_UNMARSHAL = "unsupported primitive type for unmarshalling: %s"
 	FFI_POINTER_INSTANTIATION_ERR       = "Pointer type can only be instantiated with 0 or None"
-	
+
 	// --- Array/Pointer Errors ---
 	FFI_ARRAY_LEN_MISMATCH       = "list length %d does not match array size %d"
 	FFI_MALLOC_FIXED_ARRAY_ERR   = "failed to malloc for fixed array"
 	FFI_MARSHAL_ARRAY_ELEM_ERR   = "failed to marshal array element: %v"
-	FFI_CONVERT_ARRAY_ERR        = "cannot convert Pylearn type %s to C array[%d]"
-	FFI_CONVERT_BYTES_PTR_ERR    = "cannot automatically convert Pylearn bytes to pointer of type %s"
+	FFI_CONVERT_ARRAY_ERR        = "cannot convert Swalang type %s to C array[%d]"
+	FFI_CONVERT_BYTES_PTR_ERR    = "cannot automatically convert Swalang bytes to pointer of type %s"
 	FFI_MALLOC_WCHAR_STR_ERR     = "failed to malloc for wchar_t string"
 	FFI_WCHAR_TOC_NOT_IMPL       = "wchar_t* ToC not fully implemented for size %d"
-	FFI_CONVERT_PTR_ERR          = "cannot convert Pylearn type %s to C pointer"
+	FFI_CONVERT_PTR_ERR          = "cannot convert Swalang type %s to C pointer"
 	FFI_NULL_PTR_ARRAY_READ_ERR  = "cannot read from NULL pointer for array"
 	FFI_UNMARSHAL_ARRAY_ELEM_ERR = "failed to unmarshal array element [%d]: %v"
 	FFI_WCHAR_FROMC_NOT_IMPL     = "wchar_t* FromC not fully implemented for size %d"
 	FFI_UNSUPPORTED_WCHAR_SIZE   = "Unsupported wchar_t size: %d"
 	FFI_WCHAR_INT_CONV_ERR       = "unsupported wchar_t size for integer conversion: %d"
 	FFI_WCHAR_STR_CONV_ERR       = "unsupported wchar_t size for string conversion: %d"
-	FFI_CONVERT_WCHAR_ERR        = "cannot convert Pylearn type %s to C wchar_t"
+	FFI_CONVERT_WCHAR_ERR        = "cannot convert Swalang type %s to C wchar_t"
 	FFI_WCHAR_READ_ERR           = "unsupported wchar_t size for reading: %d"
 
 	// --- C-Resource / Struct / Union Errors ---
@@ -251,14 +252,14 @@ const (
 	FFI_MALLOC_STRUCT_ELEMS_ERR    = "FFI: failed to malloc for struct elements"
 	FFI_MALLOC_FFI_TYPE_STRUCT_ERR = "FFI: failed to malloc for ffi_type struct"
 	FFI_STRUCT_LAYOUT_WARN         = "FFI Warning: could not pre-calculate layout for struct %s\n"
-	FFI_CONVERT_STRUCT_ERR         = "cannot convert Pylearn type %s to C struct %s"
+	FFI_CONVERT_STRUCT_ERR         = "cannot convert Swalang type %s to C struct %s"
 	FFI_MARSHAL_STRUCT_FIELD_ERR   = "failed to marshal struct field '%s': %v"
 	FFI_UNMARSHAL_STRUCT_FIELD_ERR = "failed to unmarshal struct field '%s': %v"
 	FFI_UNION_UNINIT_ERR           = "CUnionType used without being properly initialized via create_union_type"
 	FFI_MALLOC_UNION_ELEMS_ERR     = "FFI: failed to malloc for union elements"
 	FFI_MALLOC_FFI_TYPE_UNION_ERR  = "FFI: failed to malloc for ffi_type union"
 	FFI_UNION_LAYOUT_WARN          = "FFI Warning: could not pre-calculate layout for union %s\n"
-	FFI_CONVERT_UNION_ERR          = "cannot convert Pylearn type %s to C union %s; expected Dict"
+	FFI_CONVERT_UNION_ERR          = "cannot convert Swalang type %s to C union %s; expected Dict"
 	FFI_UNION_TOC_DICT_ERR         = "union ToC expects a Dict with exactly one key-value pair to specify the active member"
 	FFI_UNION_KEY_TYPE_ERR         = "union key must be a string representing a member name"
 	FFI_UNION_MEMBER_NOT_FOUND_ERR = "union '%s' has no member named '%s'"

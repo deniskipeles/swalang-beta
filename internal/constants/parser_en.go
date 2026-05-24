@@ -1,4 +1,5 @@
 //go:build en
+
 package constants
 
 const (
@@ -17,7 +18,7 @@ const (
 	ParserExpectedIdentToImport                = "identifier to import"
 	ParserExpectedClosingParenImportList       = "closing ')' for import list"
 	ParserExpectedCommaOrCloseParenImport      = "expected ',' or ')' after import item, got %s'" //"',' or ')' after identifier in list, got %s"
-	ParserExpectedClassnameClass               = "line %d:%d: expected class name (identifier) after 'class'" 
+	ParserExpectedClassnameClass               = "line %d:%d: expected class name (identifier) after 'class'"
 	ParserExpectedCloseParenSuperclassList     = "line %d:%d: expected ')' after superclass list, got %s"
 	ParserExpectedIndentedBlockOrPassClass     = "line %d:%d: expected an indented block or 'pass' for class body after ':'"
 	ParserExpectedIdentifierAfterDot           = "line %d:%d: expected identifier after '.'"
@@ -95,7 +96,6 @@ const (
 	MappingKeyword  = "mapping"
 )
 
-
 const (
 	// New constants for bytes literal parsing
 	ParserBytesASCIIOnlyError          = "invalid bytes literal: bytes can only contain ASCII literal characters"
@@ -106,21 +106,20 @@ const (
 	ParserMissingBPrefixError          = "invalid bytes literal format: missing 'b' prefix in %q"
 )
 
-
 // Parser error messages for imports
 const (
-	ParserExpectedDotInModulePath        = "expected '.' in module path, got %s"
-	ParserExpectedIdentAfterDot          = "expected identifier after '.', got %s"
-	ParserExpectedIdentInImportList      = "expected identifier in import list, got %s"
-	ParserInvalidDeletionTargetAtLine_DIGITFORMAT      = "invalid deletion target at line %d"
-	ParserIdentifierAfterGlobal      = "identifier after 'global'"
-	ParserIdentifierAfterCommaInGlobalStatement      = "identifier after comma in 'global' statement"
-	ParserExpectedConditionAfterAssert      = "expected condition after 'assert'"
-	ParserExpectedMessageExpressionAfterCommaInAssertStatement     = "expected message expression after comma in 'assert' statement"
-	ParserModuleNameAfterImport     = "module name after 'import'"
-	ParserAliasIdentifierAfter_AS      = "alias identifier after 'as'"
-	ParserFormatString      = "format_str"
-	ParserSyntaxErrorOperatorCannotBeUsedWithMultipleTargets      = "SyntaxError: '%s' operator cannot be used with multiple targets"
+	ParserExpectedDotInModulePath                              = "expected '.' in module path, got %s"
+	ParserExpectedIdentAfterDot                                = "expected identifier after '.', got %s"
+	ParserExpectedIdentInImportList                            = "expected identifier in import list, got %s"
+	ParserInvalidDeletionTargetAtLine_DIGITFORMAT              = "invalid deletion target at line %d"
+	ParserIdentifierAfterGlobal                                = "identifier after 'global'"
+	ParserIdentifierAfterCommaInGlobalStatement                = "identifier after comma in 'global' statement"
+	ParserExpectedConditionAfterAssert                         = "expected condition after 'assert'"
+	ParserExpectedMessageExpressionAfterCommaInAssertStatement = "expected message expression after comma in 'assert' statement"
+	ParserModuleNameAfterImport                                = "module name after 'import'"
+	ParserAliasIdentifierAfter_AS                              = "alias identifier after 'as'"
+	ParserFormatString                                         = "format_str"
+	ParserSyntaxErrorOperatorCannotBeUsedWithMultipleTargets   = "SyntaxError: '%s' operator cannot be used with multiple targets"
 )
 
 // Lambda Parser (from parser/lambda_parser.go)

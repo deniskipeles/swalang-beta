@@ -1,4 +1,3 @@
-// pylearn/internal/object/list_object.go
 package object
 
 import (
@@ -23,6 +22,7 @@ func (l *List) Inspect() string {
 	out.WriteString(constants.LIST_INSPECT_CLOSE_BRACKET)
 	return out.String()
 }
+
 // List Item Access (Get)
 func (l *List) GetObjectItem(key Object) Object {
 	idxObj, ok := key.(*Integer)
@@ -43,6 +43,7 @@ func (l *List) GetObjectItem(key Object) Object {
 	}
 	return elem
 }
+
 // List Item Access (Set)
 func (l *List) SetObjectItem(key Object, value Object) Object {
 	idxObj, ok := key.(*Integer)
@@ -107,6 +108,7 @@ func (l *List) GetObjectAttribute(ctx ExecutionContext, name string) (Object, bo
 	}
 	return nil, false
 }
+
 var _ AttributeGetter = (*List)(nil) // Ensure List implements AttributeGetter
 
 // pyListAppendFn implements list.append(item)
@@ -192,9 +194,9 @@ func pyListInsertFn(ctx ExecutionContext, args ...Object) Object {
 		selfList.Elements = append(selfList.Elements, itemToInsert)
 	} else { // Insert in the middle or at the beginning
 		// Make space for the new element
-		selfList.Elements = append(selfList.Elements, nil) // Grow slice by one (value doesn't matter)
+		selfList.Elements = append(selfList.Elements, nil)       // Grow slice by one (value doesn't matter)
 		copy(selfList.Elements[idx+1:], selfList.Elements[idx:]) // Shift elements to the right
-		selfList.Elements[idx] = itemToInsert                   // Insert the new element
+		selfList.Elements[idx] = itemToInsert                    // Insert the new element
 	}
 	return NULL
 }

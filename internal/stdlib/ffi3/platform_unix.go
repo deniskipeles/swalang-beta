@@ -81,9 +81,9 @@ func findLibrary(name string) string {
 
 	// 1. Production Layout: Resolve relative to the Swalang executable
 	if exePath, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exePath)       // e.g., root-folder/bin
-		rootDir := filepath.Dir(exeDir)       // e.g., root-folder
-		
+		exeDir := filepath.Dir(exePath) // e.g., root-folder/bin
+		rootDir := filepath.Dir(exeDir) // e.g., root-folder
+
 		allSearchPaths = append(allSearchPaths, exeDir)
 		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, constants.FFI_LIB_DIR))...)
 		allSearchPaths = append(allSearchPaths, discoverDynamicPaths(filepath.Join(rootDir, constants.FFI_BIN_DIR))...)
@@ -140,7 +140,7 @@ func LoadLibrary(name string) (*Library, error) {
 
 	libPath := findLibrary(name)
 	handle, err := libManager.LoadLibrary(libPath)
-	
+
 	if err != nil {
 		originalErr := err
 		if strings.Contains(err.Error(), constants.FFI_ELF_HEADER_ERROR_SUBSTR) {

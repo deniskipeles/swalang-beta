@@ -1,4 +1,5 @@
 //go:build linux || darwin || windows
+
 package platform
 
 // LibraryHandle is an opaque handle to a loaded shared library.
