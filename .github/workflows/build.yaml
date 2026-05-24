@@ -70,6 +70,12 @@ jobs:
         # Copy VSCode Extension into the release artifacts
         cp vscode-ext/*.vsix release_artifacts/
 
+        # Generate SHA256 Checksums
+        cd release_artifacts
+        sha256sum * > checksums.txt
+        cat checksums.txt
+        cd ..
+
     - name: Upload Artifacts to GitHub Actions
       uses: actions/upload-artifact@v4
       with:
