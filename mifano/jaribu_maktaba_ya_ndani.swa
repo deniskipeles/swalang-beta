@@ -1,0 +1,25 @@
+# pylearn/examples/test_stdlib.py
+# kutoka concurrent leta futures
+leta http kama http_module
+leta  http.pata
+
+leta concurrent.futures
+kutoka concurrent.futures leta ThreadPoolExecutor, TestThreadPoolExecutor
+leta string_utils # Should be found katika the new `lib` directory
+kutoka regex leta testRE
+
+testRE()
+
+s1 = "level"
+s2 = "pylearnLKJHGFDSA"
+
+test = TestThreadPoolExecutor()
+andika(test.getName())
+
+
+andika(umbiza_maneno("Reversing '{s2}': {string_utils.reverse(s2)}"))
+andika(umbiza_maneno("Is '{s2}' a palindrome? {string_utils.is_palindrome(s2)}"))
+andika(umbiza_maneno("Is '{s1}' a palindrome? {string_utils.is_palindrome(s1)}"))
+
+res = http_module.pata("https://jsonplaceholder.typicode.com/todos/1")
+andika(res.json())

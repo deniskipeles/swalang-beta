@@ -1,0 +1,44 @@
+# examples/test_ffi.py
+
+# This script demonstrates how to use the FFI module to call C functions.
+
+leta ffi
+
+# On Linux/macOS, libc can often be loaded by its jina.
+# On some systems, you may need the full njia like '/lib/x86_64-linux-gnu/libc.so.6'
+jaribu:
+    libc = ffi.CDLL("/lib/x86_64-linux-gnu/libc.so.6")
+isipokuwa Isipokuwa:
+    jaribu:
+        libc = ffi.CDLL("libc.dylib")
+    isipokuwa Isipokuwa:
+        # Fallback kwa systems where just 'c' works, au other names.
+        libc = ffi.CDLL("c")
+
+andika("--- Jaribio FFI pamoja libc ---")
+
+# --- 1. Define na call 'printf' ---
+# Configure the 'printf' function.
+# Signature: nambakamili printf(char* umbiza, ...)
+# We will call it pamoja one string na one nambakamili argument.
+printf = libc.printf([ffi.c_char_p, ffi.c_int32], ffi.c_int32)
+
+# Call the function
+ujumbe = "Hujambo kutoka C! The magic number ni %d\n"
+number = 42
+bytes_written = printf(ujumbe, number)
+
+andika(umbiza_maneno("(Pylearn: printf returned that it wrote {bytes_written} baiti)"))
+andika("")
+
+
+# --- 2. Define na call 'thamani_kamili' ---
+# Signature: nambakamili thamani_kamili(nambakamili n)
+c_abs = libc.thamani_kamili([ffi.c_int32], ffi.c_int32)
+
+neg_val = -123
+abs_val = c_abs(neg_val)
+
+andika(umbiza_maneno("The absolute value of {neg_val} ni {abs_val}."))
+hakikisha abs_val == 123
+andika("Assertion successful!")

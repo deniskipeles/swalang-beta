@@ -1,0 +1,3 @@
+pamoja fungua("./output.txt", "r") kama fl:
+    andika(fl.soma())
+    fl.funga()

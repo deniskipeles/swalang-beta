@@ -1,0 +1,61 @@
+# pylearn/examples/test_zlib.py
+
+leta zlib
+
+fafanua run_compression_test():
+    andika("--- Inaendesha zlib Compression/Decompression Test ---")
+
+    # Test pamoja string data
+    original_str = "hujambo, ulimwengu! this ni a test of the zlib wrapper katika pylearn. " * 5
+    andika(umbiza_maneno("Original String (length {urefu(original_str)}): '{original_str[:50]}...'"))
+
+    compressed_str = zlib.compress(original_str)
+    andika(umbiza_maneno("Compressed String (length {urefu(compressed_str)}): {compressed_str}"))
+
+    decompressed_str = zlib.decompress(compressed_str).decode('utf-8')
+    andika(umbiza_maneno("Decompressed String (length {urefu(decompressed_str)}): '{decompressed_str[:50]}...'"))
+
+    hakikisha original_str == decompressed_str, "String data did sio match after decompression!"
+    andika("String test PASSED.\n")
+
+    # Test pamoja baiti data
+    original_bytes = b"some binary data\x00\x01\x02\x03" * 10
+    andika(umbiza_maneno("Original Bytes (length {urefu(original_bytes)}): {original_bytes[:50]}..."))
+
+    compressed_bytes = zlib.compress(original_bytes, level=9) # Test pamoja kiwango_juu compression
+    andika(umbiza_maneno("Compressed Bytes (length {urefu(compressed_bytes)}): {compressed_bytes}"))
+
+    decompressed_bytes = zlib.decompress(compressed_bytes)
+    andika(umbiza_maneno("Decompressed Bytes (length {urefu(decompressed_bytes)}): {decompressed_bytes[:50]}..."))
+
+    hakikisha original_bytes == decompressed_bytes, "Bytes data did sio match after decompression!"
+    andika("Bytes test PASSED.\n")
+
+
+fafanua run_crc32_test():
+    andika("--- Inaendesha zlib CRC32 Test ---")
+
+    data = b"hujambo ulimwengu"
+
+    # Piga_hesabu checksum
+    checksum = zlib.crc32(data)
+    andika(umbiza_maneno("CRC32 of '{data}' ni: {checksum}"))
+
+    # Python's zlib.crc32(b"hujambo ulimwengu") ni 222957957
+    hakikisha checksum == 222957957, "CRC32 checksum did sio match expected value!"
+
+    # Test pamoja initial value
+    crc_part1 = zlib.crc32(b"hujambo", 0)
+    crc_part2 = zlib.crc32(b" ulimwengu", crc_part1)
+
+    andika(umbiza_maneno("Incremental CRC32 ni: {crc_part2}"))
+    hakikisha crc_part2 == checksum, "Incremental CRC32 did sio match!"
+    andika("CRC32 test PASSED.\n")
+
+# --- Kuu script ---
+ikiwa sio zlib.ZLIB_AVAILABLE:
+    andika("zlib ni sio available, cannot endesha tests.")
+ingine:
+    run_compression_test()
+    run_crc32_test()
+    andika("All zlib tests completed successfully!")

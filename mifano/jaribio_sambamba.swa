@@ -1,0 +1,77 @@
+# examples/async_test.py
+leta http
+leta aio  # Import the new module
+leta time # Pylearn's standard (blocking) time
+
+tasks = [i kwa i katika pengo(3)]
+andika(tasks)
+
+
+urls = [
+    "https://jsonplaceholder.typicode.com/todos/5",
+    "https://jsonplaceholder.typicode.com/todos/6",
+    "https://jsonplaceholder.typicode.com/todos/7"
+]
+# andika(urls.unganisha(", "))
+# Basic usage
+kwa  char katika enumerate("abc"):
+    andika( char)  # 0 a, 1 b, 2 c
+
+# With anza parameter
+kwa i, kitu katika enumerate(["x", "y", "z"], anza=1):
+    andika(i, kitu)  # 1 x, 2 y, 3 z
+
+sambamba fafanua simple_task(id, delay):
+    andika(f("Task {id} starting, will sleep kwa {delay}s"))
+    subiri aio.sleep(delay) # Use the cooperative sleep
+    tokeo = f("Task {id} finished after {delay}s at {time.time()}")
+    andika(tokeo)
+    rudisha tokeo
+
+sambamba fafanua fetch_url_task(url):
+    andika(f("Fetching {url}..."))
+    jibu =  http.pata(url) # Assuming http.pata ni sambamba
+    ikiwa jibu na jibu.status_code == 200:
+        # andika(f("Successfully fetched {url}, content length: {urefu(jibu.content)}"))
+        rudisha {"url": url, "title": jibu.json().pata("title", "N/A")}
+    ingine:
+        hali = "N/A"
+        ikiwa jibu:
+            hali = jibu.status_code
+        andika(f("Failed to leta {url}, hali: {hali}"))
+        rudisha {"url": url, "kosa": f("Failed pamoja hali {hali}")}
+
+sambamba fafanua programu_kuu():
+    andika(f("Kuu program started at {time.time()}"))
+
+    # Test aio.sleep
+    subiri aio.sleep(0.5)
+    andika(f("Resumed after 0.5s sleep at {time.time()}"))
+
+    # Test aio.gather pamoja simple tasks
+    andika("\nGathering simple sleep tasks...")
+    task1_promise = simple_task("A", 1.0)
+    task2_promise = simple_task("B", 0.5)
+
+    results = subiri aio.gather(task1_promise, task2_promise)
+    andika("Simple tasks gathered. Results:")
+    kwa res katika results:
+        andika(f("- {res}"))
+
+    # Test aio.gather pamoja HTTP leta tasks
+    andika("\nGathering HTTP leta tasks...")
+    fetch_promise1 = fetch_url_task("https://jsonplaceholder.typicode.com/todos/1")
+    fetch_promise2 = fetch_url_task("https://jsonplaceholder.typicode.com/todos/2")
+    # Example of a URL that might be slow au fail, to test kosa handling within gather
+    # fetch_promise_bad = fetch_url_task("https://nonexistent-domain-pylearn.com/api")
+    fetch_promise3 = fetch_url_task("https://jsonplaceholder.typicode.com/todos/3")
+
+
+    http_results = subiri aio.gather(fetch_promise1, fetch_promise2, fetch_promise3)
+    andika("HTTP tasks gathered. Results:")
+    kwa res katika http_results:
+        andika(f("- {res}")) # These will be Pylearn Dicts
+
+    rudisha "Kuu program completed."
+
+# Ensure your cmd/interpreter/kuu.go ni seti up to endesha 'programu_kuu' ikiwa it's sambamba.

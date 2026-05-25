@@ -1,0 +1,26 @@
+leta sqlite
+
+# Unganisha to a database (creates ikiwa sio ipo)
+conn = sqlite.unganisha("./examples/users.db")
+
+# Create a kashifa kitu
+cur = conn.kashifa()
+
+# Tekeleza SQL
+cur.tekeleza("CREATE TABLE IF NOT IPO users (jina MAANDISHI, score INTEGER)")
+# cur.tekeleza("INSERT INTO users VALUES (?, ?)", ("Alice", 100))
+# cur.tekeleza("INSERT INTO users VALUES (?, ?)", ("Bob", 95))
+# conn.idhinisha()
+
+# Leta results
+cur.tekeleza("SELECT * FROM users WHERE score > ?", (90,))
+# user = cur.pata_moja() # Fetches ('Alice', 100)
+# andika(f("User: {user[0]}, Score: {user[1]}"))
+users = cur.pata_zote() # Fetches ('Alice', 100)
+andika(users)
+kwa user katika users:
+    andika(umbiza_maneno("User: {user[0]}, Score: {user[1]}"))
+
+
+# Funga the unganisho
+conn.funga()

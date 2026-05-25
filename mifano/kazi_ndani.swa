@@ -1,0 +1,101 @@
+# function call itself
+fafanua factorial(n):
+    # Base case (simama condition)
+    ikiwa n == 0:
+        rudisha 1
+    # Recursive step (function calls itself)
+    ingine:
+        rudisha n * factorial(n - 1)
+
+
+andika(factorial(30))  # Output: 265252859812191058636308480000000
+
+# ainisha ParentA:
+#     fafanua __anza__(nafsi, a, **kwargs):
+#         bora().__anza__(**kwargs)  # Call next katika MRO first
+#         nafsi.a = a
+#         andika("ParentA initialized pamoja a =", a)
+
+# ainisha ParentB:
+#     fafanua __anza__(nafsi, b, **kwargs):
+#         bora().__anza__(**kwargs)  # Call next katika MRO first
+#         nafsi.b = b
+#         andika("ParentB initialized pamoja b =", b)
+
+# ainisha Child(ParentA, ParentB):
+#     fafanua __anza__(nafsi, a, b):
+#         bora().__anza__(a=a, b=b)  # Pass all parameters
+#         andika("Child initialized")
+
+# c = Child(a=10, b="hujambo")
+
+
+
+
+# examples/inheritance_test.py
+andika("--- Jaribio Single Inheritance ---")
+
+ainisha Animal:
+    class_var_animal = "I am an animal"
+
+    fafanua __anza__(nafsi, jina):
+        andika("Animal __anza__ called kwa", jina)
+        nafsi.jina = jina
+
+    fafanua speak(nafsi):
+        rudisha "Generic animal sound"
+
+    fafanua get_name(nafsi):
+        rudisha nafsi.jina
+
+ainisha YoungOne:
+    fafanua __anza__(nafsi,young_one):
+        andika("YoungOne __anza__ called")
+        nafsi.young_one = young_one
+
+
+
+ainisha Dog(Animal):
+    class_var_dog = "I am a dog"
+
+    fafanua __anza__(nafsi, jina, breed):
+        # Manual parent __anza__ call (NO bora() YET)
+        Animal.__anza__(nafsi, jina) # Pass 'nafsi' explicitly
+        andika("Dog __anza__ called kwa", jina, "of breed", breed)
+        nafsi.breed = breed
+
+    fafanua speak(nafsi): # Override
+        rudisha "Woof!"
+
+    fafanua get_breed(nafsi):
+        rudisha nafsi.breed
+
+# Test Parent Class
+generic_animal = Animal("Creature")
+andika("generic_animal.jina:", generic_animal.get_name())
+andika("generic_animal.speak():", generic_animal.speak())
+andika("generic_animal class_var:", generic_animal.class_var_animal)
+
+
+# Test Child Class
+my_dog = Dog("Buddy", "Golden Retriever")
+andika("my_dog.jina (kutoka Animal):", my_dog.get_name())      # Inherited mbinu
+andika("my_dog.breed (kutoka Dog):", my_dog.get_breed())      # Own mbinu
+andika("my_dog.speak() (overridden):", my_dog.speak())      # Overridden mbinu
+andika("my_dog class_var_animal (kutoka Animal):", my_dog.class_var_animal) # Inherited ainisha var
+andika("my_dog class_var_dog (kutoka Dog):", my_dog.class_var_dog)       # Own ainisha var
+
+# Test attribute setting on instance doesn't affect parent ainisha var
+my_dog.class_var_animal = "Instance specific animal var"
+andika("my_dog.class_var_animal (instance):", my_dog.class_var_animal)
+another_animal = Animal("Else")
+andika("another_animal.class_var_animal (parent):", another_animal.class_var_animal)
+
+
+# Test accessing attribute sio onyesha anywhere
+jaribu:
+    andika(my_dog.non_existent_attr)
+isipokuwa: # Generic isipokuwa kwa now
+    andika("Caught kosa trying to access my_dog.non_existent_attr (expected)")
+
+andika("--- Imeisha Jaribio Single Inheritance ---")

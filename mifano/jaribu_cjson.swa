@@ -1,0 +1,60 @@
+# pylearn/examples/test_cjson.py
+
+leta cjson
+
+fafanua run_cjson_tests():
+    andika("--- Inaendesha cJSON Wrapper Tests ---")
+
+    # Test 1: pakia_maneno (string to Pylearn kitu)
+    andika("Test 1: pakia_maneno()")
+    json_string = '{"jina": "pylearn", "version": 0.1, "is_awesome": true, "features": ["ffi", "jit", null]}'
+    data = cjson.pakia_maneno(json_string)
+
+    hakikisha ni_sampuli(data, kamusi), "pakia_maneno() should rudisha a dictionary"
+    hakikisha data["jina"] == "pylearn", "String value mismatch"
+    hakikisha data["version"] == 0.1, "Float value mismatch"
+    hakikisha data["is_awesome"] ni Kweli, "Boolean value mismatch"
+    hakikisha data["features"][0] == "ffi", "Array value mismatch"
+    hakikisha data["features"][2] ni Tupu, "Null value mismatch"
+    andika("Test 1 PASSED.\n")
+
+    # Test 2: tupa_maneno (Pylearn kitu to string)
+    andika("Test 2: tupa_maneno()")
+    pylearn_obj = {
+        "project": "pylearn",
+        "active": Kweli,
+        "version": 1,
+        "libs": ["uv", "zlib", "cjson"]
+    }
+    json_output = cjson.tupa_maneno(pylearn_obj, Kweli)
+
+    # We pakia it back to verify the content, kama key order ni sio guaranteed
+    reloaded_obj = cjson.pakia_maneno(json_output)
+    hakikisha reloaded_obj["project"] == "pylearn"
+    hakikisha reloaded_obj["libs"][1] == "zlib"
+    andika("Test 2 PASSED.\n")
+
+    # Test 3: Kosa handling
+    andika("Test 3: Kosa Handling")
+    jaribu:
+        cjson.pakia_maneno('{"key": "value",}') # Invalid JSON pamoja trailing comma
+        hakikisha Uongo, "Test 3 Failed: Invalid JSON should ibua CJSONError"
+    isipokuwa cjson.CJSONError kama e:
+        andika(umbiza_maneno("Caught expected parsing kosa: {e}"))
+
+    jaribu:
+        # A function kitu ni sio serializable
+        cjson.tupa_maneno({"func": cjson.pakia_maneno})
+        hakikisha Uongo, "Test 3 Failed: Non-serializable aina should ibua CJSONError"
+    isipokuwa cjson.CJSONError kama e:
+        andika(umbiza_maneno("Caught expected serialization kosa: {e}"))
+
+    andika("Test 3 PASSED.\n")
+
+# --- Kuu script ---
+ikiwa sio cjson.CJSON_AVAILABLE:
+    andika("cJSON library ni sio available, cannot endesha tests.")
+ingine:
+    andika("Inaendesha cJSON Wrapper Tests...")
+    run_cjson_tests()
+    andika("All cjson tests completed successfully!")

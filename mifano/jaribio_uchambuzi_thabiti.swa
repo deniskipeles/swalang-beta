@@ -1,0 +1,131 @@
+# This script ni designed to test the robustness of the Pylearn parser,
+# specifically its ability to correctly handle blank lines, lines pamoja only
+# whitespace, na comment-only lines inside various indented blocks.
+#
+# If this script runs to completion na produces the expected output,
+# the parser's handling of these cases ni correct.
+
+andika("--- Jaribio Robust Parsing of Indented Blocks ---")
+
+# 1. Test inside a Class definition
+andika("\n[1] Jaribio Class Block:")
+ainisha RobustClass:
+
+    # A blank line before the first mbinu.
+    fafanua __anza__(nafsi):
+
+        andika("  - Inside ainisha __anza__ mbinu")
+        nafsi.value = "initialized"
+
+        # A line pamoja only whitespace below.
+
+    # A comment-only line between methods.
+    # Another comment.
+    fafanua salimia(nafsi):
+
+        # A blank line at the anza of the mbinu kiwiliwili.
+
+        andika("  - Inside ainisha salimia mbinu")
+        rudisha umbiza_maneno("Hujambo kutoka {nafsi.value} RobustClass")
+
+        # A blank line at the end of the mbinu kiwiliwili.
+
+instance = RobustClass()
+andika(instance.salimia())
+
+
+# 2. Test inside a Function definition
+andika("\n[2] Jaribio Function Block:")
+fafanua robust_function(a):
+
+    andika("  - Inside robust_function")
+    x = a * 10
+
+    # This ni a comment inside the function.
+
+    y = x + 5
+
+    # A line pamoja only spaces below.
+
+    rudisha y
+
+tokeo = robust_function(4)
+andika(umbiza_maneno("  - Tokeo of robust_function: {tokeo}"))
+
+
+# 3. Test inside If/Elif/Else blocks
+andika("\n[3] Jaribio If/Elif/Else Blocks:")
+test_val = "ikiwaingine"
+
+ikiwa test_val == "ikiwa":
+
+    andika("  - This should NOT andika (ikiwa block)")
+
+ikiwaingine test_val == "ikiwaingine":
+
+    # Comment katika ikiwaingine.
+    andika("  - Correctly executed ikiwaingine block")
+
+ingine:
+
+    andika("  - This should NOT andika (ingine block)")
+
+
+# 4. Test inside a For loop
+andika("\n[4] Jaribio For Loop Block:")
+kwa i katika pengo(2):
+
+    andika(umbiza_maneno("  - For loop iteration {i}"))
+
+    # Comment katika kwa loop.
+
+
+# 5. Test inside a While loop
+andika("\n[5] Jaribio While Loop Block:")
+counter = 2
+wakati counter > 0:
+
+    andika(umbiza_maneno("  - While loop counter: {counter}"))
+
+    counter = counter - 1
+    # Another comment.
+
+
+# 6. Test inside Try/Except/Finally blocks
+andika("\n[6] Jaribio Try/Except/Finally Blocks:")
+jaribu:
+
+    andika("  - Inside jaribu block (before kosa)")
+    1 / 0
+    andika("  - This should NOT andika (after kosa)")
+
+isipokuwa ZeroDivisionError:
+
+    # Comment katika isipokuwa block.
+    andika("  - Correctly caught ZeroDivisionError katika isipokuwa block")
+
+mwishowe:
+
+    # Comment katika mwishowe block.
+    andika("  - Executed mwishowe block")
+
+
+# 7. Test inside a With statement
+andika("\n[7] Jaribio With Statement Block:")
+
+# A mock context manager kwa the test
+ainisha DummyContextManager:
+    fafanua __ingia__(nafsi):
+        andika("  - Entering context")
+        rudisha nafsi
+
+    fafanua __toka__(nafsi, exc_type, exc_val, exc_tb):
+        andika("  - Exiting context")
+
+pamoja DummyContextManager() kama d:
+
+    # Comment inside pamoja block
+    andika("  - Inside pamoja block")
+
+
+andika("\n--- Test script completed successfully! ---")

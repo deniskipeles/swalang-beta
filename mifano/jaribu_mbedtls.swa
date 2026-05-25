@@ -1,0 +1,442 @@
+leta mbedtls
+
+# ==============================================================================
+#  Known-good test vectors (computed offline / cross-checked against OpenSSL)
+# ==============================================================================
+
+SHA256_HELLO_WORLD  = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+SHA256_EMPTY        = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+SHA512_HELLO_WORLD  = "309ecc489c12d6eb4cc40f50c902f2b4d0ed77ee511a7c7a9bcd3ca86d4cd86f" + "989dd35bc5ff499670da34255b45b0cfd830e81f605dcf7dc5542e93ae9cd76f"
+HMAC256_SECRET_MSG  = "8b5f48702995c1598c573db1e21866a9b825d4a794d169d7060a03605796360b"
+
+# ==============================================================================
+#  Helpers
+# ==============================================================================
+
+fafanua _assert_eq(got, expected, lebo):
+    ikiwa got != expected:
+        andika(umbiza_maneno("   FAIL  {lebo}"))
+        andika(umbiza_maneno("   got      : {got}"))
+        andika(umbiza_maneno("   expected : {expected}"))
+        hakikisha Uongo, umbiza_maneno("{lebo} mismatch")
+    andika(umbiza_maneno("   OK    {lebo}"))
+
+fafanua _hex(raw_bytes):
+    """Pure-Pylearn baiti → heksadesimali string (no stdlib needed)."""
+    chars = "0123456789abcdef"
+    tokeo = ""
+    kwa b katika raw_bytes:
+        tokeo = tokeo + chars[b // 16] + chars[b % 16]
+    rudisha tokeo
+
+# ==============================================================================
+#  Test suite
+# ==============================================================================
+
+fafanua test_hash_oneshot():
+    andika("Test 1: sha256() one-shot kitu...")
+    h = mbedtls.sha256(b"hujambo ulimwengu")
+    _assert_eq(h.hexdigest(), SHA256_HELLO_WORLD, "sha256('hujambo ulimwengu')")
+
+    # Reuse: sasisha appends to a fresh context after digest() restarts it
+    h.sasisha(b"hujambo ulimwengu")
+    _assert_eq(h.hexdigest(), SHA256_HELLO_WORLD, "sha256 reuse after digest()")
+    h.free()
+    andika("Test 1 PASSED.\n")
+
+
+fafanua test_hash_empty():
+    andika("Test 2: sha256('') empty ingiza...")
+    h = mbedtls.sha256(b"")
+    _assert_eq(h.hexdigest(), SHA256_EMPTY, "sha256('')")
+    h.free()
+    andika("Test 2 PASSED.\n")
+
+
+fafanua test_hash_incremental():
+    andika("Test 3: Incremental sasisha() — 'hujambo' + ' ' + 'ulimwengu'...")
+    h = mbedtls.Hash("sha256")
+    h.sasisha(b"hujambo")
+    h.sasisha(b" ")
+    h.sasisha(b"ulimwengu")
+    _assert_eq(h.hexdigest(), SHA256_HELLO_WORLD, "incremental sha256")
+    h.free()
+    andika("Test 3 PASSED.\n")
+
+
+fafanua test_hash_lowercase_algo():
+    andika("Test 4: Algorithm jina ni case-insensitive ('sha256' vs 'SHA256')...")
+    h = mbedtls.Hash("sha256", b"hujambo ulimwengu")
+    _assert_eq(h.hexdigest(), SHA256_HELLO_WORLD, "lowercase algo jina")
+    h.free()
+    andika("Test 4 PASSED.\n")
+
+
+fafanua test_hash_sha512():
+    andika("Test 5: sha512() one-shot...")
+    h = mbedtls.sha512(b"hujambo ulimwengu")
+    tokeo = h.hexdigest()
+    h.free()
+    # SHA-512 produces 128 heksadesimali chars
+    _assert_eq(urefu(tokeo), 128, "sha512 digest length")
+    _assert_eq(tokeo, SHA512_HELLO_WORLD, "sha512('hujambo ulimwengu')")
+    andika("Test 5 PASSED.\n")
+
+
+fafanua test_hash_md5():
+    andika("Test 6: md5() — length check only (no hardcoded vector to avoid controversy)...")
+    h = mbedtls.md5(b"hujambo ulimwengu")
+    tokeo = h.hexdigest()
+    h.free()
+    _assert_eq(urefu(tokeo), 32, "md5 digest length == 32 heksadesimali chars")
+    andika("Test 6 PASSED.\n")
+
+
+fafanua test_digest_bytes():
+    andika("Test 7: digest() returns raw baiti of correct length...")
+    h = mbedtls.sha256(b"hujambo ulimwengu")
+    raw = h.digest()
+    h.free()
+    _assert_eq(urefu(raw), 32, "sha256 raw digest length == 32 baiti")
+    _assert_eq(_hex(raw), SHA256_HELLO_WORLD, "sha256 raw baiti via _hex()")
+    andika("Test 7 PASSED.\n")
+
+
+fafanua test_hmac_sha256():
+    andika("Test 8: HMAC-SHA256('secret', 'ujumbe')...")
+    h = mbedtls.HMAC("SHA256", b"secret", b"ujumbe")
+    _assert_eq(h.hexdigest(), HMAC256_SECRET_MSG, "HMAC-SHA256")
+    h.free()
+    andika("Test 8 PASSED.\n")
+
+
+fafanua test_hmac_convenience():
+    andika("Test 9: hmac_sha256() convenience wrapper...")
+    h = mbedtls.hmac_sha256(b"secret", b"ujumbe")
+    _assert_eq(h.hexdigest(), HMAC256_SECRET_MSG, "hmac_sha256 convenience")
+    h.free()
+    andika("Test 9 PASSED.\n")
+
+
+fafanua test_hmac_incremental():
+    andika("Test 10: HMAC incremental sasisha()...")
+    h = mbedtls.HMAC("SHA256", b"secret")
+    h.sasisha(b"mes")
+    h.sasisha(b"sage")
+    _assert_eq(h.hexdigest(), HMAC256_SECRET_MSG, "HMAC incremental")
+    h.free()
+    andika("Test 10 PASSED.\n")
+
+
+fafanua test_hmac_digest_bytes():
+    andika("Test 11: HMAC digest() returns 32 raw baiti...")
+    h = mbedtls.HMAC("SHA256", b"key", b"data")
+    raw = h.digest()
+    h.free()
+    _assert_eq(urefu(raw), 32, "HMAC-SHA256 raw length == 32")
+    andika("Test 11 PASSED.\n")
+
+
+fafanua test_aes_cbc_roundtrip():
+    andika("Test 12: AES-CBC encrypt → decrypt roundtrip (128-bit key)...")
+    key       = b"0123456789abcdef"              # 16 baiti = AES-128
+    iv        = b"abcdef0123456789"              # 16 baiti
+    plaintext = b"Hujambo, AES-CBC!!"              # exactly 16 baiti
+
+    cipher = mbedtls.AES_CBC(key)
+    ct = cipher.encrypt(iv, plaintext)
+    pt = cipher.decrypt(iv, ct)
+    cipher.free()
+
+    _assert_eq(urefu(ct), 16, "AES-CBC ciphertext length")
+    _assert_eq(pt, plaintext, "AES-CBC decrypt == original plaintext")
+    andika("Test 12 PASSED.\n")
+
+
+fafanua test_aes_cbc_256():
+    andika("Test 13: AES-CBC roundtrip (256-bit key, 48-byte payload)...")
+    key       = b"01234567890123456789012345678901"   # 32 baiti = AES-256
+    iv        = b"abcdef0123456789"
+    plaintext = b"A" * 48                            # 3 AES blocks
+
+    cipher = mbedtls.AES_CBC(key)
+    ct = cipher.encrypt(iv, plaintext)
+    pt = cipher.decrypt(iv, ct)
+    cipher.free()
+
+    _assert_eq(urefu(ct), 48, "AES-256-CBC ciphertext length")
+    _assert_eq(pt, plaintext, "AES-256-CBC decrypt == original")
+    andika("Test 13 PASSED.\n")
+
+
+fafanua test_aes_cbc_different_iv():
+    andika("Test 14: Different IVs produce different ciphertexts...")
+    key = b"0123456789abcdef"
+    iv1 = b"AAAAAAAAAAAAAAAA"
+    iv2 = b"BBBBBBBBBBBBBBBB"
+    pt  = b"same plaintext!!"
+
+    cipher = mbedtls.AES_CBC(key)
+    ct1 = cipher.encrypt(iv1, pt)
+    ct2 = cipher.encrypt(iv2, pt)
+    cipher.free()
+
+    ikiwa ct1 == ct2:
+        hakikisha Uongo, "Different IVs must produce different ciphertexts"
+    andika("   OK    different IVs → different ciphertexts")
+    andika("Test 14 PASSED.\n")
+
+
+fafanua test_aes_gcm_roundtrip():
+    andika("Test 15: AES-GCM encrypt → decrypt roundtrip...")
+    key       = b"0123456789abcdef"       # 16 baiti
+    iv        = b"unique-iv-12"           # 12 baiti (recommended kwa GCM)
+    plaintext = b"Secret GCM ujumbe"
+    aad       = b"authenticated data"
+
+    g = mbedtls.AES_GCM(key)
+    ct, tag = g.encrypt(iv, plaintext, aad=aad)
+    pt      = g.decrypt(iv, ct, tag, aad=aad)
+    g.free()
+
+    _assert_eq(urefu(tag), 16, "GCM tag length == 16")
+    _assert_eq(pt, plaintext, "AES-GCM decrypt == original plaintext")
+    andika("Test 15 PASSED.\n")
+
+
+fafanua test_aes_gcm_tag_tamper():
+    andika("Test 16: AES-GCM rejects tampered tag...")
+    key = b"0123456789abcdef"
+    iv  = b"unique-iv-12"
+    pt  = b"tamper test data"
+
+    g = mbedtls.AES_GCM(key)
+    ct, tag = g.encrypt(iv, pt)
+
+    # Flip the first byte of the tag
+    tag_list = []
+    kwa b katika tag:
+        tag_list = tag_list + [b]
+    tag_list[0] = (tag_list[0] + 1) % 256
+    bad_tag = baiti(tag_list)
+
+    caught = Uongo
+    jaribu:
+        g.decrypt(iv, ct, bad_tag)
+    isipokuwa mbedtls.MbedError:
+        caught = Kweli
+    g.free()
+
+    ikiwa sio caught:
+        hakikisha Uongo, "GCM must ibua MbedError on tampered tag"
+    andika("   OK    tampered tag correctly rejected")
+    andika("Test 16 PASSED.\n")
+
+
+fafanua test_base64_roundtrip():
+    andika("Test 17: Base64 encode → decode roundtrip...")
+    original = b"Hujambo, Base64 ulimwengu!"
+    encoded  = mbedtls.b64encode(original)
+    decoded  = mbedtls.b64decode(encoded)
+    _assert_eq(decoded, original, "base64 roundtrip")
+    andika("Test 17 PASSED.\n")
+
+
+fafanua test_base64_str():
+    andika("Test 18: b64encode_str / b64decode_str string helpers...")
+    original = b"Pylearn FFI rocks"
+    s = mbedtls.b64encode_str(original)
+    _assert_eq(ni_sampuli(s, maneno), Kweli, "b64encode_str returns maneno")
+    back = mbedtls.b64decode_str(s)
+    _assert_eq(back, original, "b64decode_str roundtrip")
+    andika("Test 18 PASSED.\n")
+
+
+fafanua test_base64_known_vector():
+    andika("Test 19: Base64 known vector — 'Man' → 'TWFu'...")
+    enc = mbedtls.b64encode_str(b"Man")
+    _assert_eq(enc, "TWFu", "base64('Man') == 'TWFu'")
+    dec = mbedtls.b64decode_str("TWFu")
+    _assert_eq(dec, b"Man", "base64_decode('TWFu') == 'Man'")
+    andika("Test 19 PASSED.\n")
+
+
+fafanua test_random_length():
+    andika("Test 20: Random.soma() returns correct byte hesabu...")
+    rng = mbedtls.Random()
+    kwa n katika [1, 16, 32, 64, 256]:
+        raw = rng.soma(n)
+        _assert_eq(urefu(raw), n, umbiza_maneno("random.soma({n}) length"))
+    rng.free()
+    andika("Test 20 PASSED.\n")
+
+
+fafanua test_random_entropy():
+    andika("Test 21: Two random.soma(32) calls produce different baiti...")
+    rng = mbedtls.Random()
+    a = rng.soma(32)
+    b = rng.soma(32)
+    rng.free()
+    ikiwa a == b:
+        hakikisha Uongo, "Two sequential random reads must differ"
+    andika("   OK    sequential reads differ")
+    andika("Test 21 PASSED.\n")
+
+
+fafanua test_random_randint():
+    andika("Test 22: Random.randint() stays within [lo, hi]...")
+    rng = mbedtls.Random()
+    lo  = 1
+    hi  = 100
+    all_in_range = Kweli
+    kwa _ katika pengo(50):
+        v = rng.randint(lo, hi)
+        ikiwa v < lo au v > hi:
+            all_in_range = Uongo
+            vunja
+    rng.free()
+    _assert_eq(all_in_range, Kweli, "randint always katika [1, 100]")
+    andika("Test 22 PASSED.\n")
+
+
+fafanua test_random_personalization():
+    andika("Test 23: Random pamoja personalization string seeds successfully...")
+    rng = mbedtls.Random(personalization=b"my-programu-v1.0")
+    raw = rng.soma(32)
+    rng.free()
+    _assert_eq(urefu(raw), 32, "personalized RNG produces 32 baiti")
+    andika("Test 23 PASSED.\n")
+
+
+fafanua test_oneshot_helpers():
+    andika("Test 24: One-shot digest helpers (sha256_digest, sha256_hex)...")
+    raw = mbedtls.sha256_digest(b"hujambo ulimwengu")
+    _assert_eq(urefu(raw), 32, "sha256_digest length")
+    _assert_eq(_hex(raw), SHA256_HELLO_WORLD, "sha256_digest value")
+
+    s = mbedtls.sha256_hex(b"hujambo ulimwengu")
+    _assert_eq(s, SHA256_HELLO_WORLD, "sha256_hex value")
+    andika("Test 24 PASSED.\n")
+
+
+fafanua test_hmac_oneshot_helpers():
+    andika("Test 25: One-shot HMAC helpers (hmac_sha256_digest, hmac_sha256_hex)...")
+    raw = mbedtls.hmac_sha256_digest(b"secret", b"ujumbe")
+    _assert_eq(urefu(raw), 32, "hmac_sha256_digest length")
+
+    s = mbedtls.hmac_sha256_hex(b"secret", b"ujumbe")
+    _assert_eq(s, HMAC256_SECRET_MSG, "hmac_sha256_hex value")
+    andika("Test 25 PASSED.\n")
+
+
+fafanua test_error_on_bad_algorithm():
+    andika("Test 26: Hash raises MbedError kwa unknown algorithm...")
+    caught = Uongo
+    jaribu:
+        mbedtls.Hash("NOTAREALGORITHM")
+    isipokuwa mbedtls.MbedError:
+        caught = Kweli
+    _assert_eq(caught, Kweli, "MbedError raised kwa bad algorithm")
+    andika("Test 26 PASSED.\n")
+
+
+fafanua test_error_on_freed_ctx():
+    andika("Test 27: sasisha() raises after free()...")
+    h = mbedtls.sha256(b"test")
+    h.free()
+    caught = Uongo
+    jaribu:
+        h.sasisha(b"more")
+    isipokuwa mbedtls.MbedError:
+        caught = Kweli
+    _assert_eq(caught, Kweli, "MbedError raised on freed context")
+    andika("Test 27 PASSED.\n")
+
+
+fafanua test_aes_bad_key_size():
+    andika("Test 28: AES_CBC rejects invalid key size...")
+    caught = Uongo
+    jaribu:
+        mbedtls.AES_CBC(b"shortkey")   # 8 baiti — invalid
+    isipokuwa mbedtls.MbedError:
+        caught = Kweli
+    _assert_eq(caught, Kweli, "MbedError raised kwa 8-byte AES key")
+    andika("Test 28 PASSED.\n")
+
+
+fafanua test_aes_bad_iv_length():
+    andika("Test 29: AES_CBC rejects IV != 16 baiti...")
+    cipher = mbedtls.AES_CBC(b"0123456789abcdef")
+    caught = Uongo
+    jaribu:
+        cipher.encrypt(b"short_iv", b"A" * 16)
+    isipokuwa mbedtls.MbedError:
+        caught = Kweli
+    cipher.free()
+    _assert_eq(caught, Kweli, "MbedError raised kwa bad IV length")
+    andika("Test 29 PASSED.\n")
+
+
+fafanua test_aes_bad_plaintext_length():
+    andika("Test 30: AES_CBC rejects plaintext sio multiple of 16...")
+    cipher = mbedtls.AES_CBC(b"0123456789abcdef")
+    caught = Uongo
+    jaribu:
+        cipher.encrypt(b"BBBBBBBBBBBBBBBB", b"sio a multiple")
+    isipokuwa mbedtls.MbedError:
+        caught = Kweli
+    cipher.free()
+    _assert_eq(caught, Kweli, "MbedError raised kwa non-block plaintext")
+    andika("Test 30 PASSED.\n")
+
+
+# ==============================================================================
+#  Entry point
+# ==============================================================================
+
+fafanua run_all():
+    andika("=" * 60)
+    andika("   mbedtls Wrapper — Full Test Suite")
+    andika("=" * 60)
+    andika()
+
+    ikiwa sio mbedtls.CRYPTO_AVAILABLE:
+        andika("⚠️  mbedtls crypto library sio available — skipping all tests.")
+        rudisha Tupu
+
+    test_hash_oneshot()
+    test_hash_empty()
+    test_hash_incremental()
+    test_hash_lowercase_algo()
+    test_hash_sha512()
+    test_hash_md5()
+    test_digest_bytes()
+    test_hmac_sha256()
+    test_hmac_convenience()
+    test_hmac_incremental()
+    test_hmac_digest_bytes()
+    test_aes_cbc_roundtrip()
+    test_aes_cbc_256()
+    test_aes_cbc_different_iv()
+    test_aes_gcm_roundtrip()
+    test_aes_gcm_tag_tamper()
+    test_base64_roundtrip()
+    test_base64_str()
+    test_base64_known_vector()
+    test_random_length()
+    test_random_entropy()
+    test_random_randint()
+    test_random_personalization()
+    test_oneshot_helpers()
+    test_hmac_oneshot_helpers()
+    test_error_on_bad_algorithm()
+    test_error_on_freed_ctx()
+    test_aes_bad_key_size()
+    test_aes_bad_iv_length()
+    test_aes_bad_plaintext_length()
+
+    andika("=" * 60)
+    andika("🎉  All 30 tests passed!")
+    andika("=" * 60)
+
+run_all()

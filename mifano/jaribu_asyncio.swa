@@ -1,0 +1,24 @@
+leta asyncio
+leta time
+
+sambamba fafanua leta_data(id, delay):
+    andika(umbiza_maneno("Task {id}: Starting leta..."))
+    subiri asyncio.sleep(delay)
+    andika(umbiza_maneno("Task {id}: Imeisha!"))
+    rudisha umbiza_maneno("Data kutoka {id}")
+
+sambamba fafanua programu_kuu():
+    andika("🚀 Starting Asyncio Test!")
+    anza = time.time()
+
+    # Endesha tasks concurrently!
+    # Even though task 1 takes 2 seconds, the whole script finishes katika 2 seconds, sio 3!
+    results = subiri asyncio.gather(
+        leta_data(1, 2.0),
+        leta_data(2, 1.0)
+    )
+
+    end = time.time()
+
+    andika(umbiza_maneno("\n✅ All tasks finished katika {end - anza} seconds!"))
+    andika(umbiza_maneno("Results: {results}"))

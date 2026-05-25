@@ -1,0 +1,159 @@
+# examples/json_test.py
+# Test script kwa the built-katika 'json' module katika PyLearn
+
+andika("--- PyLearn JSON Module Test ---")
+
+leta json
+leta sys # For checking errors ikiwa needed
+
+# Helper to andika results neatly
+fafanua kagua_tokeo(description, actual, expected_type_str, test_equality=Tupu, expected_val=Tupu):
+    andika("\nTesting:", description)
+    andika("  Actual Value:", actual)
+    andika("  Actual Type :", aina(actual))
+    andika("  ExpectedType:", expected_type_str)
+    ikiwa aina(actual) != expected_type_str: # Compare string representation of aina
+        andika("  TYPE MISMATCH!")
+        rudisha Uongo # Early exit on aina mismatch kwa some tests
+
+    ikiwa test_equality != Tupu:
+        are_equal = actual == test_equality
+        andika("  Value Equals Expected:", are_equal)
+        ikiwa sio are_equal:
+            andika("  VALUE MISMATCH! Expected:", test_equality)
+            rudisha Uongo
+    ikiwaingine expected_val != Tupu: # For cases where direct == might be tricky (like changamano dicts)
+        andika("  ExpectedVal :", expected_val)
+        # This ni more of a visual check unless we implement deep compare katika pylearn
+    rudisha Kweli
+
+# --- Test json.tupa_maneno ---
+andika("\n=== Jaribio json.tupa_maneno ===")
+
+# 1. Basic Types
+kagua_tokeo("tupa_maneno Tupu", json.tupa_maneno(Tupu), "<ainisha 'maneno'>", "null")
+kagua_tokeo("tupa_maneno Kweli", json.tupa_maneno(Kweli), "<ainisha 'maneno'>", "true")
+kagua_tokeo("tupa_maneno Uongo", json.tupa_maneno(Uongo), "<ainisha 'maneno'>", "false")
+kagua_tokeo("tupa_maneno Integer", json.tupa_maneno(12345), "<ainisha 'maneno'>", "12345")
+kagua_tokeo("tupa_maneno Negative Integer", json.tupa_maneno(-678), "<ainisha 'maneno'>", "-678")
+kagua_tokeo("tupa_maneno Float", json.tupa_maneno(98.76), "<ainisha 'maneno'>", "98.76") # Go might umbiza nambadesimali differently
+kagua_tokeo("tupa_maneno String", json.tupa_maneno("hujambo pylearn!"), "<ainisha 'maneno'>", "\"hujambo pylearn!\"")
+kagua_tokeo("tupa_maneno String pamoja quotes", json.tupa_maneno("it's \"quoted\""), "<ainisha 'maneno'>", "\"it's \\\"quoted\\\"\"")
+
+# 2. Collections
+my_list = [1, "a", Kweli, Tupu, 3.14]
+# Note: Python's json.tupa_maneno output kwa orodha pamoja nambadesimali might be 3.140000 au similar.
+# Go's default nambadesimali formatting kwa json.Marshal ni usually precise.
+# We'll compare visually first.
+kagua_tokeo("tupa_maneno List", json.tupa_maneno(my_list), "<ainisha 'maneno'>", test_equality="[1,\"a\",true,null,3.14]")
+
+my_dict = {"key1": "value1", "num": 100, "active": Uongo, "inner_list": [8,9]}
+# IMPORTANT: JSON kitu key order != guaranteed. Direct string comparison can fail.
+# The test katika Go should unmarshal na compare maps kwa robustness.
+# For this Pylearn script, we'll andika na visually inspect au check kwa substrings.
+dumped_dict_str = json.tupa_maneno(my_dict)
+andika("\nTesting: tupa_maneno Dictionary")
+andika("  Actual Value:", dumped_dict_str)
+andika("  Actual Type :", aina(dumped_dict_str))
+andika("  Expected Contains: \"key1\":\"value1\" na \"num\":100")
+ikiwa "\"key1\":\"value1\"" katika dumped_dict_str na "\"num\":100" katika dumped_dict_str:
+    andika("  Substring checks PASSED.")
+ingine:
+    andika("  Substring checks FAILED.")
+
+
+# 3. Indentation
+indented_str = json.tupa_maneno({"jina": "PyLearn", "version": 0.1}, indent=2)
+expected_indent_structure = """{
+  "jina": "PyLearn",
+  "version": 0.1
+}""" # Key order might differ kutoka Go's output
+andika("\nTesting: tupa_maneno pamoja indent=2")
+andika("  Actual Value:\n", indented_str)
+andika("  Expected Structure (order may vary):\n", expected_indent_structure)
+ikiwa "\"jina\": \"PyLearn\"" katika indented_str na "\"version\": 0.1" katika indented_str na "\n  " katika indented_str :
+    andika("  Indent structure checks PASSED.")
+ingine:
+    andika("  Indent structure checks FAILED.")
+
+
+
+# 4. Errors pamoja tupa_maneno (unserializable types)
+andika("\nTesting: tupa_maneno unserializable aina (function)")
+jaribu:
+    fafanua my_func():
+        pita
+    json.tupa_maneno(my_func)
+    andika("  KOSA: json.tupa_maneno(function) did sio ibua kosa!")
+isipokuwa Isipokuwa kama e: # Generic isipokuwa
+    # In Python this ni TypeError. Your Pylearn might have a generic runtime kosa au specific JSON kosa.
+    # Example: Check the kosa ujumbe ikiwa possible (requires 'kama e' na kosa kitu introspection)
+    andika("  Successfully caught kosa kwa json.tupa_maneno(function) (expected).")
+
+
+andika("\n\n=== Jaribio json.pakia_maneno ===")
+
+# 1. Basic Types
+kagua_tokeo("pakia_maneno null", json.pakia_maneno("null"), "<ainisha 'NoneType'>", Tupu)
+kagua_tokeo("pakia_maneno true", json.pakia_maneno("true"), "<ainisha 'ukweli'>", Kweli)
+kagua_tokeo("pakia_maneno false", json.pakia_maneno("false"), "<ainisha 'ukweli'>", Uongo)
+kagua_tokeo("pakia_maneno integer", json.pakia_maneno("789"), "<ainisha 'nambakamili'>", 789)
+kagua_tokeo("pakia_maneno negative integer", json.pakia_maneno("-101"), "<ainisha 'nambakamili'>", -101)
+kagua_tokeo("pakia_maneno nambadesimali", json.pakia_maneno("123.456"), "<ainisha 'nambadesimali'>", 123.456)
+kagua_tokeo("pakia_maneno string", json.pakia_maneno("\"hujambo kutoka JSON\""), "<ainisha 'maneno'>", "hujambo kutoka JSON")
+
+# 2. Collections
+loaded_list = json.pakia_maneno("[false, null, \"kitu\", 55]")
+andika("\nTesting: pakia_maneno orodha")
+andika("  Actual Value:", loaded_list)
+andika("  Actual Type :", aina(loaded_list))
+ikiwa aina(loaded_list) == "<ainisha 'orodha'>" na urefu(loaded_list) == 4: # Assuming orodha aina na urefu
+    andika("  List length check PASSED.")
+    # Check elements (requires orodha indexing na aina checks)
+    andika("  Kitu 0:", loaded_list[0], aina(loaded_list[0])) # Uongo
+    andika("  Kitu 1:", loaded_list[1], aina(loaded_list[1])) # Tupu
+    andika("  Kitu 2:", loaded_list[2], aina(loaded_list[2])) # "kitu"
+    andika("  Kitu 3:", loaded_list[3], aina(loaded_list[3])) # 55
+ingine:
+    andika("  List structure check FAILED.")
+
+
+loaded_dict = json.pakia_maneno('{"jina": "PyLearn", "score": 99.9, "tags": ["dev", "fun"], "valid": true}')
+andika("\nTesting: pakia_maneno dictionary")
+andika("  Actual Value:", loaded_dict)
+andika("  Actual Type :", aina(loaded_dict))
+ikiwa aina(loaded_dict) == "<ainisha 'kamusi'>": # Assuming kamusi aina
+    andika("  Dict aina check PASSED.")
+    # Check elements (requires kamusi indexing na aina checks)
+    andika("  loaded_dict['jina']:", loaded_dict["jina"], aina(loaded_dict["jina"]))
+    andika("  loaded_dict['score']:", loaded_dict["score"], aina(loaded_dict["score"]))
+    andika("  loaded_dict['tags']:", loaded_dict["tags"], aina(loaded_dict["tags"])) # This will be a orodha
+    ikiwa aina(loaded_dict["tags"]) == "<ainisha 'orodha'>" na urefu(loaded_dict["tags"]) == 2:
+        andika("    loaded_dict['tags'][0]:", loaded_dict["tags"][0])
+ingine:
+    andika("  Dict structure check FAILED.")
+
+# 3. Errors pamoja pakia_maneno (invalid JSON)
+andika("\nTesting: pakia_maneno invalid JSON")
+jaribu:
+    json.pakia_maneno("this != valid json {")
+    andika("  KOSA: json.pakia_maneno(invalid_json) did sio ibua kosa!")
+isipokuwa Isipokuwa kama e: # Generic isipokuwa
+    # In Python this ni JSONDecodeError.
+    andika("  Successfully caught kosa kwa json.pakia_maneno(invalid_json) (expected).")
+
+andika("\nTesting: pakia_maneno pamoja wrong ingiza aina")
+jaribu:
+    json.pakia_maneno(12345) # Should be a string
+    andika("  KOSA: json.pakia_maneno(integer) did sio ibua kosa!")
+isipokuwa Isipokuwa kama e: # Generic isipokuwa
+    # In Python this ni TypeError:
+    andika("  Successfully caught kosa kwa json.pakia_maneno(integer) (expected).")
+
+
+andika("\n--- PyLearn JSON Module Test Imeisha ---")
+
+kwa x katika [1,2,3]:
+    andika(x)
+
+andika('1' katika ['12345'])

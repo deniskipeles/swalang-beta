@@ -1,0 +1,67 @@
+leta os
+
+andika("===========================================")
+andika("📂 Jaribio Pure-Swalang 'os' Module")
+andika("===========================================")
+
+# 1. Environment Variables
+path_env = os.getenv("NJIA")
+andika(umbiza_maneno("👉 getenv('NJIA'): {path_env[:50]}..."))
+
+# 2. Pata Current Working Directory
+cwd = os.getcwd()
+andika(umbiza_maneno("👉 getcwd(): {cwd}"))
+
+# 3. Njia Manipulation
+test_path = os.njia.unganisha(cwd, "test_dir", "faili.txt")
+andika(umbiza_maneno("👉 os.njia.unganisha: {test_path}"))
+andika(umbiza_maneno("👉 os.njia.jina_la_folda: {os.njia.jina_la_folda(test_path)}"))
+andika(umbiza_maneno("👉 os.njia.jina_la_faili: {os.njia.jina_la_faili(test_path)}"))
+andika(umbiza_maneno("👉 os.njia.splitext: {os.njia.splitext(test_path)}"))
+
+# 4. Faili System Operations
+dir_name = "test_ffi_dir"
+# FIX: Use the actual faili jina kwa the system call!
+file_name = os.njia.unganisha(dir_name, "hujambo.txt")
+
+andika(umbiza_maneno("\n🔨 Creating test directory '{dir_name}'..."))
+ikiwa sio os.njia.ipo(dir_name):
+    os.tengeneza_folda(dir_name)
+
+andika(umbiza_maneno("🔨 Executing shell command to create '{file_name}'..."))
+ikiwa os.njia.sep == '\\':
+    os.system(umbiza_maneno("mwangwi Hujambo Ulimwengu > {file_name}"))
+ingine:
+    os.system(umbiza_maneno("mwangwi 'Hujambo Ulimwengu' > {file_name}"))
+
+# 5. Jaribio `orodhesha_folda` na `stat` logic
+andika("\n🔍 Checking Faili System:")
+andika(umbiza_maneno("  - {dir_name} ipo: {os.njia.ipo(dir_name)}"))
+andika(umbiza_maneno("  - {dir_name} ni folda: {os.njia.ni_folda(dir_name)}"))
+andika(umbiza_maneno("  - {file_name} ni faili: {os.njia.ni_faili(file_name)}"))
+andika(umbiza_maneno("  - {file_name} size: {os.njia.pata_ukubwa(file_name)} baiti"))
+
+andika(umbiza_maneno("\n📁 os.orodhesha_folda('{dir_name}'):"))
+andika(umbiza_maneno("   {os.orodhesha_folda(dir_name)}"))
+
+# 6. Jaribio `os.walk` (Generator)
+andika("\n🚶 os.walk('.'): (First 2 iterations)")
+iterations = 0
+kwa root, dirs, mafaili katika os.walk("."):
+    andika(umbiza_maneno("   Directory: {root}"))
+    ikiwa "test_ffi_dir" katika root:
+        andika(umbiza_maneno("     Mafaili: {mafaili}"))
+    iterations = iterations + 1
+    ikiwa iterations >= 2:
+        vunja
+
+# 7. Cleanup
+andika("\n🧹 Cleaning up...")
+os.remove(file_name)
+ikiwa os.njia.sep == '\\':
+    os.system(umbiza_maneno("rmdir {dir_name}"))
+ingine:
+    os.system(umbiza_maneno("rm -r {dir_name}"))
+
+andika("✅ Cleanup kamili.")
+andika("\n🎉 Pure Swalang 'os' tests passed successfully!")

@@ -1,0 +1,46 @@
+leta yyjson
+
+andika("===========================================")
+andika("🚀 Jaribio yyjson Fast FFI Wrapper")
+andika("===========================================")
+
+# FIX: Changed `Kweli` to `true` na `Tupu` to `null` to make it valid JSON!
+json_string = """
+{
+    "project": "Swalang",
+    "version": 1.0,
+    "is_awesome": true,
+    "features":["FFI", "JSON", "Async"],
+    "stats": {
+        "speed": 99.9,
+        "bugs": null
+    }
+}
+"""
+
+andika("1. Jaribio pakia_maneno()...")
+data = yyjson.pakia_maneno(json_string)
+
+andika(umbiza_maneno("👉 Parsed Data: {data}"))
+hakikisha data["project"] == "Swalang"
+hakikisha data["version"] == 1.0
+hakikisha data["is_awesome"] ni Kweli
+hakikisha data["features"][1] == "JSON"
+hakikisha data["stats"]["bugs"] ni Tupu
+andika("✅ pakia_maneno() passed!")
+
+andika("\n2. Jaribio tupa_maneno()...")
+# Modify the data na reserialize it
+data["new_feature"] = "Embedded C Structs"
+data["features"].append("Magic")
+
+output = yyjson.tupa_maneno(data, indent=Kweli)
+andika(umbiza_maneno("👉 Serialized Output:\n{output}"))
+
+# Verify it survived the roundtrip
+verify = yyjson.pakia_maneno(output)
+hakikisha verify["new_feature"] == "Embedded C Structs"
+hakikisha verify["features"][-1] == "Magic"
+andika("✅ tupa_maneno() passed!")
+
+andika("\n🎉 All yyjson tests passed successfully!")

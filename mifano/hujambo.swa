@@ -1,0 +1,92 @@
+# Simple PyLearn example
+
+andika("Hujambo kutoka PyLearn!")
+andika('power',2**4)
+x = 10
+y = 20.5
+tokeo = x + y * 2
+andika("Tokeo:", tokeo)
+
+ni_kubwa = tokeo > 50
+andika("Is tokeo > 50?", ni_kubwa)
+
+ikiwa ni_kubwa:
+    andika("It's greater!")
+ingine:
+    andika("It's sio greater.")
+
+# Function definition na call
+fafanua salimia(jina):
+    msg = "Hujambo, " + jina + "!"
+    rudisha msg
+
+ujumbe = salimia("Ulimwengu")
+andika(ujumbe)
+
+# List na loop
+vitu = [1, "two", 3.0, Kweli]
+andika("List vitu:",urefu(vitu))
+kwa kitu katika vitu:
+    andika("-", kitu)
+
+# Dictionary
+my_dict = {"a": 1, "b": "foo"}
+andika("Dictionary:", my_dict.pata("a"), my_dict.pata("b"), my_dict.pata("c", "default_value"))
+# andika("Dict value kwa 'a':", my_dict["a"]) # Uncomment when kamusi indexing ni fully tested
+
+# Simple wakati loop
+hesabu = 0
+wakati hesabu < 3:
+    andika("Hesabu:", hesabu)
+    hesabu = hesabu + 1
+
+kwa x katika pengo(5):
+    andika(x)
+
+andika("\nTesting pengo pamoja endelea:")
+kwa y katika pengo(50,100,10):
+    andika("y1 =", y)
+    ikiwa y == 80:
+        vunja
+    andika("y =", y)
+andika("After endelea loop")
+
+andika("Imeisha.")
+
+ainisha Msalimiia:
+  fafanua __anza__(nafsi, jina):
+    nafsi.jina = jina
+
+  fafanua salimia(nafsi): # Mbinu taking only nafsi
+    rudisha "Hujambo, " + nafsi.jina + "!"
+
+g = Msalimiia("PyLearn")
+g.salimia() # Call the mbinu
+
+ainisha Binadamu:
+  fafanua __anza__(nafsi, jina, umri):
+    nafsi.jina = jina
+    nafsi.umri = umri
+  fafanua jitambulishe(nafsi):
+    rudisha "My jina ni " + nafsi.jina + " na I am " + maneno(nafsi.umri) + " years old."
+
+h = Binadamu("Alice", 30)
+andika(h.jitambulishe())
+andika(urefu(h.jina,""))
+andika("Imeisha pamoja classes.")
+
+# TODO: to be implemented to achieve the go native iteration speed/looping
+# kwa.native() x katika pengo(500000000).native():
+#     tokeo = x * x + x / (x+1)
+#     ikiwa x % 10000000 == 0:
+#         andika("tokeo=", tokeo)
+
+kwa x katika pengo(500000000):
+    tokeo = x * x + x / (x+1)
+    ikiwa x % 10000000 == 0:
+        andika("tokeo=",tokeo)
+
+
+andika("\nTesting pengo pamoja endelea:")
+kwa y katika pengo(50,100,10):
+    andika("y =", y)

@@ -1,0 +1,18 @@
+# mifano/hisabati_yangu.swa
+pai = 3.14159
+PAI = 3.14159
+
+fafanua mraba(x):
+    rudisha x * x
+
+fafanua jumlisha(a, b):
+    rudisha a + b
+
+fafanua toa(a, b):
+    rudisha a - b
+
+ainisha Msaidizi:
+    fafanua __anza__(nafsi, thamani):
+        nafsi.thamani = thamani
+    fafanua zidisha(nafsi, x):
+        rudisha nafsi.thamani * x

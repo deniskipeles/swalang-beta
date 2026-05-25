@@ -1,0 +1,24 @@
+# examples/test_yield.py
+# 1) A generator that yields numbers na can receive feedback
+fafanua countdown(anza):
+    andika("Generator started")
+    current = anza
+    wakati current > 0:
+        imepokelewa = zalisha current          # <-- zalisha pauses here
+        ikiwa imepokelewa:
+            andika(umbiza_maneno("Imepokelewa {imepokelewa} kutoka caller"))
+            current = imepokelewa            # caller can change the next value
+        current = current - 1
+    andika("Generator exhausted")
+
+# 2) Demonstration -------------------------------------------------------
+gen = countdown(5)
+
+# First next() primes the generator up to the first zalisha
+andika("First next():", next(gen))          # -> 5
+
+# Now we can tuma values back katika
+andika("tuma(10) :", gen.tuma(10))          # -> 10
+andika("tuma(2)  :", gen.tuma(2))           # -> 2
+andika("next()   :", next(gen))             # -> 1
+andika("next()   :", next(gen))             # raises StopIteration

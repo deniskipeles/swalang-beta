@@ -1,0 +1,25 @@
+leta mongoose
+
+fafanua handle_request(conn, ombi):
+    andika(umbiza_maneno("\n📥 Imepokelewa {ombi.mbinu} ombi to {ombi.uri}"))
+
+    ikiwa ombi.mbinu == "TUMA":
+        andika(umbiza_maneno("📦 Kiwiliwili Data: {ombi.kiwiliwili}"))
+        response_body = umbiza_maneno("Mafanikio! You posted: {ombi.kiwiliwili}")
+    ingine:
+        response_body = umbiza_maneno("<h1>Hujambo!</h1><p>You visited: {ombi.uri}</p>")
+
+    mongoose.http_reply(conn, 200, "Content-Type: maandishi/html\r\n", response_body)
+
+mgr = mongoose.Manager()
+
+jaribu:
+    mgr.http_listen("http://0.0.0.0:5000", handle_request)
+    andika("Press Ctrl+C to simama.")
+
+    wakati Kweli:
+        mgr.uliza(1000)
+isipokuwa Isipokuwa kama e:
+    andika(e)
+mwishowe:
+    mgr.free()

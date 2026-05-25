@@ -1,0 +1,49 @@
+leta pcre2
+
+andika("===========================================")
+andika("🧩 Jaribio PCRE2 Regex Wrapper")
+andika("===========================================")
+
+maandishi = "The quick brown fox jumps over 123 lazy dogs at 4:56 PM."
+
+# 1. Search (find anywhere)
+match = pcre2.search("brown (\\w+)", maandishi)
+andika(umbiza_maneno("👉 search('brown (\\w+)'): {match}"))
+hakikisha match.group(0) == "brown fox"
+hakikisha match.group(1) == "fox"
+hakikisha match.span() == (10, 19)
+
+# 2. Match (must match at anza)
+m1 = pcre2.match("The quick", maandishi)
+andika(umbiza_maneno("👉 match('The quick'): {m1}"))
+hakikisha m1 ni sio Tupu
+
+m2 = pcre2.match("brown", maandishi)
+andika(umbiza_maneno("👉 match('brown'): {m2}"))
+hakikisha m2 ni Tupu
+
+# 3. Findall
+numbers = pcre2.findall("(\\d+)", maandishi)
+andika(umbiza_maneno("👉 findall('\\d+'): {numbers}"))
+hakikisha numbers == ["123", "4", "56"]
+
+# 4. Substitution (sub)
+redacted = pcre2.sub("\\d+", "[REDACTED]", maandishi)
+andika(umbiza_maneno("👉 sub('\\d+', '[REDACTED]'):\n   {redacted}"))
+hakikisha "123" sio katika redacted
+hakikisha "[REDACTED]" katika redacted
+
+# 5. Gawa
+sentence = "apple,  banana; cherry | dates"
+fruits = pcre2.gawa("[,;|]\\s*", sentence)
+andika(umbiza_maneno("👉 gawa('[,;|]\\s*'): {fruits}"))
+hakikisha urefu(fruits) == 4
+hakikisha fruits[1] == "banana"
+
+# 6. Ignore Case Flag
+text_lower = "hujambo ULIMWENGU"
+match_ignore = pcre2.search("ulimwengu", text_lower, pcre2.I)
+andika(umbiza_maneno("👉 search('ulimwengu', flags=I): {match_ignore}"))
+hakikisha match_ignore ni sio Tupu
+
+andika("\n🎉 PCRE2 Regex Wrapper tests passed successfully!")

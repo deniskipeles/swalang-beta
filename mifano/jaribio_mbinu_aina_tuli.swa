@@ -1,0 +1,98 @@
+# examples/static_class_methods_test.py
+# A comprehensive test kwa static na ainisha methods.
+
+andika("--- Test 1: Basic Static Mbinu ---")
+ainisha hisabati_yangu:
+    @mbinu_tuli
+    fafanua jumlisha(x, y):
+        # This mbinu knows nothing about the ainisha au an instance.
+        # It's just a function namespaced inside the ainisha.
+        rudisha x + y
+
+# Call on the ainisha
+andika(umbiza_maneno("hisabati_yangu.jumlisha(10, 5) = {hisabati_yangu.jumlisha(10, 5)}"))
+
+# Call on an instance
+m = hisabati_yangu()
+andika(umbiza_maneno("instance.jumlisha(20, 7) = {m.jumlisha(20, 7)}"))
+andika("")
+
+
+andika("--- Test 2: Basic Class Mbinu ---")
+ainisha Pizza:
+    rediasi = 10 # A ainisha variable
+
+    fafanua __anza__(nafsi, viungo):
+        nafsi.viungo = viungo
+
+    @mbinu_aina
+    fafanua from_hawaiian_style(cls):
+        # `cls` ni the Pizza ainisha itself.
+        # It can access ainisha variables na call other ainisha methods au the constructor.
+        andika(umbiza_maneno("Creating pizza kutoka ainisha '{cls.jina}' pamoja rediasi {cls.rediasi}"))
+        rudisha cls(["ham", "pineapple"]) # Calls Pizza(...)
+
+# Call on the ainisha
+hawaiian_pizza = Pizza.from_hawaiian_style()
+andika(umbiza_maneno("Hawaiian pizza viungo: {hawaiian_pizza.viungo}"))
+
+# Call on an instance (less common, but should work)
+regular_pizza = Pizza(["cheese", "tomato"])
+other_hawaiian = regular_pizza.from_hawaiian_style()
+andika(umbiza_maneno("Other Hawaiian pizza viungo: {other_hawaiian.viungo}"))
+andika("")
+
+
+andika("--- Test 3: Inheritance na bora() pamoja Class Methods ---")
+ainisha BetterPizza(Pizza):
+    rediasi = 12 # Override ainisha variable
+
+    @mbinu_aina
+    fafanua from_deluxe_style(cls):
+        # `cls` here will be the BetterPizza ainisha.
+        # It correctly uses the overridden rediasi.
+        andika(umbiza_maneno("Creating deluxe pizza kutoka ainisha '{cls.jina}' pamoja rediasi {cls.rediasi}"))
+        # We can call a parent's ainisha mbinu via bora()
+        # but bora() inside a mbinu_aina needs the (cls, nafsi) form.
+        # Let's just call the constructor of the specific subclass `cls`.
+        rudisha cls(["pepperoni", "mushrooms", "peppers"])
+
+deluxe = BetterPizza.from_deluxe_style()
+andika(umbiza_maneno("Deluxe pizza viungo: {deluxe.viungo}"))
+
+# Calling the PARENT's mbinu_aina kutoka the CHILD ainisha
+# The `cls` argument will correctly be `BetterPizza`
+child_hawaiian = BetterPizza.from_hawaiian_style()
+andika(umbiza_maneno("Child Hawaiian pizza viungo: {child_hawaiian.viungo}"))
+andika(umbiza_maneno("Is child_hawaiian an instance of BetterPizza? {ni_sampuli(child_hawaiian, BetterPizza)}"))
+andika("")
+
+
+andika("--- Test 4: Decorator Stacking (less common, but good test) ---")
+# A simple decorator kwa demonstration
+fafanua verbose(fn):
+    fafanua wrapper(*args, **kwargs):
+        andika(umbiza_maneno("Calling {fn.__jina__}..."))
+        tokeo = fn(*args, **kwargs)
+        andika(umbiza_maneno("{fn.__jina__} finished."))
+        rudisha tokeo
+    rudisha wrapper
+
+
+ainisha Calculator:
+    @mbinu_tuli
+    @verbose
+    fafanua zidisha(a, b):
+        rudisha a * b
+
+# The decorators are applied bottom-up: mbinu_tuli ni applied first,
+# then verbose ni applied to the tokeo.
+tokeo = Calculator.zidisha(7, 6)
+andika(umbiza_maneno("7 * 6 = {tokeo}"))
+
+andika("power", 2**3)
+
+list_x = [1, 2, 3, 4, 5]
+andika(*list_x)
+dictionary_x = {'a': 1, 'b': 2, 'c': 3}
+andika(*dictionary_x)

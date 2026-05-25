@@ -1,0 +1,171 @@
+
+# examples/all_exceptions.py
+tasks = {i kwa i katika pengo(10)}
+array = [
+    'hujambo',
+    'ulimwengu',
+    1
+]
+andika(*tasks)
+andika(*array)
+# A simple custom ainisha to demonstrate AttributeError
+ainisha MyObject:
+    fafanua __anza__(nafsi):
+        nafsi.attribute = "I exist"
+
+# ----------------------------------------------------------------------
+# 1. TypeError: Operation on an inappropriate aina.
+# ----------------------------------------------------------------------
+fafanua test_type_error():
+    andika("--- 1. Jaribio TypeError ---")
+    jaribu:
+        tokeo = "hujambo" + 5
+        andika(umbiza_maneno("FAILURE: This line should sio be reached. Tokeo: {tokeo}"))
+    isipokuwa TypeError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught TypeError: {e}"))
+    andika("")
+
+# ----------------------------------------------------------------------
+# 2. ValueError: Correct aina, but inappropriate value.
+# We will manually ibua it to show it can be caught.
+# ----------------------------------------------------------------------
+fafanua test_value_error():
+    andika("--- 2. Jaribio ValueError ---")
+    jaribu:
+        # In a more kamili `nambakamili()` implementation, `nambakamili("abc")` would ibua this.
+        # For now, we ibua it manually to test the `isipokuwa` clause.
+        ibua ValueError("a custom value kosa ujumbe")
+    isipokuwa ValueError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught ValueError: {e}"))
+    andika("")
+
+# ----------------------------------------------------------------------
+# 3. NameError: Using a variable that has sio been defined.
+# ----------------------------------------------------------------------
+fafanua test_name_error():
+    andika("--- 3. Jaribio NameError ---")
+    jaribu:
+        andika(an_undefined_variable)
+        andika("FAILURE: This line should sio be reached.")
+    isipokuwa NameError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught NameError: {e}"))
+    andika("")
+
+# ----------------------------------------------------------------------
+# 4. IndexError: Sequence index ni out of pengo.
+# ----------------------------------------------------------------------
+fafanua test_index_error():
+    andika("--- 4. Jaribio IndexError ---")
+    my_list = [10, 20, 30]
+    jaribu:
+        kitu = my_list[100]
+        andika(umbiza_maneno("FAILURE: This line should sio be reached. Kitu: {kitu}"))
+    isipokuwa IndexError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught IndexError: {e}"))
+    andika("")
+
+# ----------------------------------------------------------------------
+# 5. KeyError: Dictionary key sio found.
+# ----------------------------------------------------------------------
+fafanua test_key_error():
+    andika("--- 5. Jaribio KeyError ---")
+    my_dict = {"a": 1}
+    jaribu:
+        value = my_dict["b"]
+        andika(umbiza_maneno("FAILURE: This line should sio be reached. Value: {value}"))
+    isipokuwa KeyError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught KeyError: {e}"))
+    andika("")
+
+
+# ----------------------------------------------------------------------
+# 6. AttributeError: Attribute reference au assignment fails.
+# ----------------------------------------------------------------------
+fafanua test_attribute_error():
+    andika("--- 6. Jaribio AttributeError ---")
+    obj = MyObject()
+    jaribu:
+        thamani = obj.non_existent_attribute
+        andika(umbiza_maneno("FAILURE: This line should sio be reached. Value: {thamani}"))
+    isipokuwa AttributeError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught AttributeError: {e}"))
+    andika("")
+
+# ----------------------------------------------------------------------
+# 7. ImportError: The `leta` statement fails to find the module.
+# ----------------------------------------------------------------------
+fafanua test_import_error():
+    andika("--- 7. Jaribio ImportError ---")
+    jaribu:
+        leta a_module_that_really_does_not_exist
+        andika("FAILURE: This line should sio be reached.")
+    isipokuwa ImportError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught ImportError: {e}"))
+    andika("")
+
+# ----------------------------------------------------------------------
+# 8. Multiple 'isipokuwa' Clauses & Specificity
+# ----------------------------------------------------------------------
+fafanua test_multiple_excepts(case):
+    andika(umbiza_maneno("--- 8. Jaribio Multiple Excepts (case: {case}) ---"))
+    jaribu:
+        ikiwa case == "key":
+            d = {}
+            andika(d["nokey"])
+        ikiwaingine case == "index":
+            l = []
+            andika(l[0])
+        ingine:
+            andika("No kosa raised katika this case.")
+
+    isipokuwa KeyError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught KeyError kama expected: {e}"))
+    isipokuwa IndexError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught IndexError kama expected: {e}"))
+    isipokuwa Isipokuwa kama e:
+        andika(umbiza_maneno("FAILURE: Caught generic Isipokuwa, but a specific one should have matched: {e}"))
+    andika("")
+
+# ----------------------------------------------------------------------
+# 9. Catching a Tuple of Exceptions
+# ----------------------------------------------------------------------
+fafanua test_tuple_except():
+    andika("--- 9. Jaribio Tuple of Exceptions ---")
+    jaribu:
+        tokeo = 1 / "string"
+    isipokuwa (ValueError, TypeError) kama e:
+        andika(umbiza_maneno("MAFANIKIO: Caught kosa katika safu (ValueError, TypeError): {e}"))
+    andika("")
+
+# ----------------------------------------------------------------------
+# 10. Nested Try...Except (Uncaught inner isipokuwa)
+# ----------------------------------------------------------------------
+fafanua test_nested_except():
+    andika("--- 10. Jaribio Nested Try...Except ---")
+    jaribu:
+        andika("Outer jaribu block starts.")
+        jaribu:
+            andika("Inner jaribu block starts.")
+            ibua ValueError("An kosa kutoka the inner jaribu.")
+        isipokuwa TypeError kama e:
+            andika("Inner isipokuwa (TypeError) - should sio be hit.")
+        andika("This line katika outer jaribu should sio be printed.")
+    isipokuwa ValueError kama e:
+        andika(umbiza_maneno("MAFANIKIO: Outer isipokuwa caught the kosa kutoka the inner jaribu: {e}"))
+    andika("")
+
+
+# --- Kuu Execution ---
+test_type_error()
+test_value_error()
+test_name_error()
+test_index_error()
+test_key_error()
+test_attribute_error()
+test_import_error()
+test_multiple_excepts("key")
+test_multiple_excepts("index")
+test_tuple_except()
+test_nested_except()
+
+andika("--- All isipokuwa tests completed ---")

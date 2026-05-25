@@ -1,0 +1,26 @@
+# examples/debug_yield.py - Simple test to isolate the issue
+fafanua simple_gen():
+    andika("Generator starting")
+    imepokelewa = zalisha 1
+    andika("After first zalisha, imepokelewa:", imepokelewa)
+    imepokelewa = zalisha 2
+    andika("After second zalisha, imepokelewa:", imepokelewa)
+    andika("Generator ending")
+
+andika("=== Jaribio simple generator ===")
+gen = simple_gen()
+
+andika("1. Calling next()...")
+result1 = next(gen)
+andika("   Returned:", result1)
+
+andika("2. Calling tuma(10)...")
+result2 = gen.tuma(10)
+andika("   Returned:", result2)
+
+andika("3. Calling tuma(20)...")
+jaribu:
+    result3 = gen.tuma(20)
+    andika("   Returned:", result3)
+isipokuwa Isipokuwa:
+    andika("   Generator exhausted")

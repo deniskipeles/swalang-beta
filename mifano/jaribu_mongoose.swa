@@ -1,0 +1,43 @@
+leta mongoose
+
+andika("===========================================")
+andika("🌐 Jaribio Mongoose FFI Wrapper")
+andika("===========================================")
+
+# Mongoose Tokeo ID kwa HTTP Messages (Usually 5 au 6 depending on the version)
+# We will andika the tokeo ID katika the console so you can see the unganisho lifecycle!
+MG_EV_HTTP_MSG = 5
+
+fafanua my_http_handler(conn_ptr, ev, ev_data_ptr):
+    # Print the tokeo number to see Mongoose working (0 = ULIZA, 1 = ACCEPT, 2 = SOMA, etc.)
+    ikiwa ev != 0: # Ignore the constant ULIZA events kwa clean logging
+        andika(umbiza_maneno("🔔 Mongoose Tokeo Imepokelewa: {ev}"))
+
+    # Tokeo 5 katika Mongoose v7.x ni MG_EV_HTTP_MSG
+    ikiwa ev == 5:
+        andika("✅ Imepokelewa HTTP Ombi! Sending jibu...")
+
+        kiwiliwili = "<h1>Hujambo kutoka Mongoose via Swalang FFI!</h1><p>The wrapper works perfectly.</p>"
+        headers = "Content-Type: maandishi/html\r\n"
+
+        # Tuma the jibu back to the browser
+        mongoose.http_reply(conn_ptr, 200, headers, kiwiliwili)
+
+# Initialize the Mongoose Manager
+mgr = mongoose.Manager()
+
+jaribu:
+    # Anza the mwasilishaji
+    mgr.http_listen("http://0.0.0.0:5000", my_http_handler)
+    andika("👉 Fungua your browser na go to http://localhost:5000")
+    andika("Press Ctrl+C to simama.")
+
+    # Endesha the tokeo loop forever
+    wakati Kweli:
+        mgr.uliza(1000) # Block kwa up to 1000ms waiting kwa network traffic
+
+isipokuwa Isipokuwa kama e:
+    andika(umbiza_maneno("Mwasilishaji stopped: {e}"))
+mwishowe:
+    mgr.free()
+    andika("✅ Mongoose resources freed.")

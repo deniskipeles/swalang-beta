@@ -1,0 +1,26 @@
+# examples/diamond_class_test.py
+
+ainisha A:
+    fafanua __anza__(nafsi,var):
+        andika("Call kutoka>>>",var)
+    fafanua who(nafsi):
+        andika("I am an A")
+
+ainisha B(A):
+    fafanua who(nafsi):
+        andika("I am a B")
+        bora().__anza__("Call From>>>B")
+        bora().who()
+
+ainisha C(A):
+    fafanua who(nafsi):
+        andika("I am a C")
+        bora().who()
+
+ainisha D(B, C):
+    fafanua who(nafsi):
+        andika("I am a D")
+        bora().who()
+
+d_instance = D("D")
+d_instance.who()

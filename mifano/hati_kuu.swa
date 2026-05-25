@@ -1,0 +1,21 @@
+# examples/main_script.py
+
+andika("--- Inside main_script.py ---")
+andika(f("The value of __jina__ ni: {__jina__}"))
+
+# Import the other module
+leta imported_module
+
+andika("\n--- Back katika main_script.py after leta ---")
+
+fafanua run_main_logic():
+    andika("Now inaendesha the kuu logic of the script...")
+    imported_module.module_function()
+    andika("Kuu logic finished.")
+
+# This ni the classic Python idiom kwa a runnable script
+ikiwa __jina__ == "__kuu__":
+    andika("\nExecuting namba inside the `ikiwa __jina__ == '__kuu__'` block...")
+    run_main_logic()
+
+andika("\n--- End of main_script.py ---")
