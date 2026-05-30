@@ -210,12 +210,12 @@ else:
 # pi = 3.14159
 # def square(x): return x * x
 
-if True: # Use try only if you want the script to continue past import error
-    import mymath
-    print("mymath.pi:", mymath.pi)
-    print("mymath.square(9):", mymath.square(9))
-else:
-    print("Failed to import 'mymath'. Make sure examples/mymath.py exists.")
+# if True: # Use try only if you want the script to continue past import error
+#     import mymath
+#     print("mymath.pi:", mymath.pi)
+#     print("mymath.square(9):", mymath.square(9))
+# else:
+#     print("Failed to import 'mymath'. Make sure examples/mymath.py exists.")
 
 
 # 14. Runtime Errors (Uncomment to test reporting)

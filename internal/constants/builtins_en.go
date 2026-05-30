@@ -2,7 +2,7 @@
 
 package constants
 
-// pylearn/internal/builtins/builtins_collections.go
+// internal/builtins/builtins_collections.go
 const (
 	BuiltinsCollectionsLenArgCountError           = "len() takes exactly one argument (%d given)"
 	BuiltinsCollectionsLenAttrNotCallable         = "__len__ attribute of type %s is not callable"
@@ -17,7 +17,7 @@ const (
 	BuiltinsLenFuncName                           = "len"
 )
 
-// pylearn/internal/builtins/builtins_debug.go
+// internal/builtins/builtins_debug.go
 const (
 	BuiltinsDebugHelpArgCountError      = "Expected 0 or 1 arguments for help()"
 	BuiltinsDebugHelpWelcomeMessage     = "Welcome to Pylearn help utility!"
@@ -30,7 +30,7 @@ const (
 	BuiltinsHelpFuncName                = "help"
 )
 
-// pylearn/internal/builtins/builtins_fstring.go
+// internal/builtins/builtins_fstring.go
 const (
 	BuiltinsFstringFormatStringFnArgCountError    = "f() takes exactly 1 argument (the f-string literal), got %d"
 	BuiltinsFstringFormatStringFnArgTypeError     = "f() argument must be a string, not %s"
@@ -49,7 +49,7 @@ const (
 	BuiltinFormatSpecifier_F_RequiresFloatOrIntegerNot_STRINGFORMATER = "format specifier 'f' requires a float or integer, not %s"
 )
 
-// pylearn/internal/builtins/builtins_io.go
+// internal/builtins/builtins_io.go
 const (
 	BuiltinsIOStrBuiltinNotFound         = "'str' built-in not found"
 	BuiltinsIOErrorDuringStr             = "<Error during str(): %s -> %s>"
@@ -88,7 +88,7 @@ const (
 	BuiltinsOpenFuncName                 = "open"
 )
 
-// pylearn/internal/builtins/builtins_iter.go
+// internal/builtins/builtins_iter.go
 const (
 	BuiltinsIterTokenLiteral            = "<iter>"
 	BuiltinsIterArgCountError           = "iter() takes 1 or 2 arguments (%d given)"
@@ -119,9 +119,23 @@ const (
 	BuiltinsReversedFuncName            = "reversed"
 	BuiltinsAllFuncName                 = "all"
 	BuiltinsAnyFuncName                 = "any"
+	
+	BuiltinsStartParam                   = "start"
+	BuiltinsEnumerateMultipleValuesError = "enumerate() got multiple values for argument 'start'"
+	BuiltinsZipSourceName                = "zip"
+	BuiltinsMapSourceName                = "map"
+	BuiltinsMapAtLeastTwoArgsError       = "map() must have at least two arguments."
+	BuiltinsFilterSourceName             = "filter"
+	BuiltinsFilterArgCountError          = "filter expected 2 arguments, got %d"
+	BuiltinsReversedSourceName           = "reversed"
+	BuiltinsReversedArgCountError        = "reversed expected 1 argument, got %d"
+	BuiltinsSortedFuncName               = "sorted"
+	BuiltinsSortedArgCountError          = "sorted expected 1 argument, got %d"
+	BuiltinsReverseParam                 = "reverse"
+	BuiltinsKeyParam                     = "key"
 )
 
-// pylearn/internal/builtins/builtins_math.go
+// internal/builtins/builtins_math.go
 const (
 	BuiltinsMathAbsArgCountError                 = "abs() takes exactly one argument (%d given)"
 	BuiltinsMathBadOperandTypeAbs                = "bad operand type for abs(): %s"
@@ -168,7 +182,7 @@ const (
 	BuiltinsHashFuncName   = "hash"
 )
 
-// pylearn/internal/builtins/builtins_object.go
+// internal/builtins/builtins_object.go
 const (
 	BuiltinsObjectIsInstanceArgCountError       = "isinstance() takes exactly 2 arguments (%d given)"
 	BuiltinsObjectInstanceNilClassError         = "object.Instance has nil Class"
@@ -240,7 +254,7 @@ const (
 	BuiltinsModuleType   = "module"
 )
 
-// pylearn/internal/builtins/builtins_string.go
+// internal/builtins/builtins_string.go
 const (
 	BuiltinsStringChrArgCountError          = "chr() takes exactly one argument (%d given)"
 	BuiltinsStringChrIntInterpretationError = "'int' object cannot be interpreted as an integer for chr()"
@@ -264,7 +278,7 @@ const (
 	BuiltinsFormatFuncName = "format"
 )
 
-// pylearn/internal/builtins/builtins_types.go
+// internal/builtins/builtins_types.go
 const (
 	BuiltinsTypesTypeArgCountError                              = "type() takes exactly one argument (%d given)"
 	BuiltinsTypesTypeNotImplementedError                        = "type() for classes not fully implemented"
@@ -303,6 +317,8 @@ const (
 	BuiltinsFloatTakesAtMost1Argument_DIGITFORMATER_Given       = "float() takes at most 1 argument (%d given)"
 	BuiltinsCouldNotConvertStringToFloat_STRINGFORMATER         = "could not convert string to float: %s"
 	BuiltinsFloatArgumentMustBeStringOrNumberNot_STRINGFORMATER = "float() argument must be a string or a number, not '%s'"
+	BuiltinsTypesDictConvertElementError = "cannot convert dictionary update sequence element to a sequence"
+	BuiltinsTypesDictElementLengthError  = "dictionary update sequence element has incorrect length"
 	// "inf", "+inf", "infinity", "+infinity"
 	BuiltinsInf            = "inf"
 	Builtins_PLUS_Inf      = "+inf"

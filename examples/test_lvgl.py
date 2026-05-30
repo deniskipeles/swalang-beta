@@ -2,73 +2,58 @@ import sdl2
 import lvgl
 import ffi
 
-# -------------------------------------------------------------------------
-# Step 1: Initialize SDL2 & LVGL
-# -------------------------------------------------------------------------
-print("🧪 Initializing SDL2 & LVGL...")
-# Initialize ONLY video and events to prevent audio crashes
+mouse  = {"x": 0, "y": 0, "pressed": False}
+clicks = 0
+
+print("Initializing SDL2 & LVGL...")
 sdl2.init(sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
 lvgl.init()
 
 W, H = 800, 600
-win = sdl2.Window("LVGL UI via Swalang", W, H)
-ren = sdl2.Renderer(win)
-
-# Change SDL_PIXELFORMAT_ARGB8888 to SDL_PIXELFORMAT_RGB565
+win     = sdl2.Window("LVGL UI via Swalang", W, H)
+ren     = sdl2.Renderer(win)
 texture = sdl2.Texture(ren, sdl2.SDL_PIXELFORMAT_RGB565, sdl2.SDL_TEXTUREACCESS_STREAMING, W, H)
 
-# -------------------------------------------------------------------------
-# Step 2: Setup LVGL Display & Flush Callback
-# -------------------------------------------------------------------------
-disp = lvgl.Display(W, H)
-
-# Allocate a draw buffer for LVGL. (W * H * 2 bytes per pixel for 16-bit color)
+disp     = lvgl.Display(W, H)
 buf_size = W * H * 2
 draw_buf = ffi.malloc(buf_size)
-
-# Tell LVGL to use this buffer
 disp.set_buffers(draw_buf, None, buf_size, lvgl.LV_DISPLAY_RENDER_MODE_PARTIAL)
 
-def flush_callback(disp_ptr, area_ptr, px_map_ptr):
-    """Called by LVGL when it wants to push rendered pixels to the screen."""
-    # Read the updated area from the C struct
-    x1 = ffi.read_memory_with_offset(area_ptr, 0, ffi.c_int32)
-    y1 = ffi.read_memory_with_offset(area_ptr, 4, ffi.c_int32)
-    x2 = ffi.read_memory_with_offset(area_ptr, 8, ffi.c_int32)
-    y2 = ffi.read_memory_with_offset(area_ptr, 12, ffi.c_int32)
-    
-    w = (x2 - x1) + 1
-    h = (y2 - y1) + 1
+# ── Flush: copy pixels into our own buffer, THEN call flush_ready ─────────────
+pixel_buf     = ffi.malloc(buf_size)
+pending_flush = {"active": False, "x1": 0, "y1": 0, "w": 0, "h": 0}
 
-    # Change w * 4 to w * 2
-    texture.update((x1, y1, w, h), px_map_ptr, w * 2)
+def _flush_fn(disp_ptr, area_ptr, px_map_ptr):
+    x1 = ffi.read_memory_with_offset(area_ptr,  0, ffi.c_int32)
+    y1 = ffi.read_memory_with_offset(area_ptr,  4, ffi.c_int32)
+    x2 = ffi.read_memory_with_offset(area_ptr,  8, ffi.c_int32)
+    y2 = ffi.read_memory_with_offset(area_ptr, 12, ffi.c_int32)
+    w  = (x2 - x1) + 1
+    h  = (y2 - y1) + 1
     
-    # Tell LVGL we are done flushing
+    ffi.memcpy(pixel_buf, px_map_ptr, w * h * 2)
+    pending_flush["active"] = True
+    pending_flush["x1"]     = x1
+    pending_flush["y1"]     = y1
+    pending_flush["w"]      = w
+    pending_flush["h"]      = h
     disp.flush_ready()
 
-disp.set_flush_cb(flush_callback)
+disp.set_flush_cb(_flush_fn)
 
-# -------------------------------------------------------------------------
-# Step 3: Setup LVGL Input Device (Mouse)
-# -------------------------------------------------------------------------
-mouse_x = 0
-mouse_y = 0
-mouse_pressed = False
-
-indev = lvgl.InputDevice()
+# ── Input device ──────────────────────────────────────────────────────────────
+indev = lvgl.InputDevice(lvgl.LV_INDEV_TYPE_POINTER)
 indev.set_display(disp)
 
-def read_callback(indev_ptr, data_ptr):
-    """Called by LVGL to get the current mouse state."""
-    state = lvgl.LV_INDEV_STATE_PRESSED if mouse_pressed else lvgl.LV_INDEV_STATE_RELEASED
-    lvgl.InputDevice.write_pointer(data_ptr, mouse_x, mouse_y, state)
+def _read_fn(indev_ptr_arg, data_ptr):
+    state = lvgl.LV_INDEV_STATE_PRESSED if mouse["pressed"] else lvgl.LV_INDEV_STATE_RELEASED
+    lvgl.InputDevice.write_pointer(data_ptr, mouse["x"], mouse["y"], state)
 
-indev.set_read_cb(read_callback)
+indev.set_read_cb(_read_fn)
 
-# -------------------------------------------------------------------------
-# Step 4: Build the LVGL UI
-# -------------------------------------------------------------------------
+# ── UI ────────────────────────────────────────────────────────────────────────
 scr = lvgl.screen_active()
+scr.set_size(W, H)
 
 btn = lvgl.Button(scr.ptr)
 btn.set_size(200, 60)
@@ -78,58 +63,97 @@ lbl = lvgl.Label(btn.ptr)
 lbl.set_text("Click Me! (Swalang)")
 lbl.align(lvgl.LV_ALIGN_CENTER, 0, 0)
 
-clicks = 0
+# Force initial layout calculations
+lvgl.tick_inc(100)
+lvgl.timer_handler()
+
+print(f("btn hit area: x={btn.get_x()} to {btn.get_x()+btn.get_width()}  y={btn.get_y()} to {btn.get_y()+btn.get_height()}"))
+
+# ── Event callbacks ───────────────────────────────────────────────────────────
 def btn_clicked(event_ptr):
     global clicks
     clicks = clicks + 1
-    print(format_str("👉 Button clicked! Total: {clicks}"))
-    lbl.set_text(format_str("Clicked {clicks} times"))
+    print(f("*** BUTTON CLICKED! Total: {clicks} ***"))
+    lbl.set_text(f("Clicked {clicks} times"))
+
+def btn_pressed(event_ptr):
+    print("  [evt] PRESSED")
+
+def btn_released(event_ptr):
+    print("  [evt] RELEASED")
 
 btn.on(lvgl.LV_EVENT_CLICKED, btn_clicked)
+btn.on(lvgl.LV_EVENT_PRESSED, btn_pressed)
+btn.on(lvgl.LV_EVENT_RELEASED, btn_released)
 
-# -------------------------------------------------------------------------
-# Step 5: Main Loop
-# -------------------------------------------------------------------------
-print("🚀 UI Loop started. Close the window to exit.")
+# ── Main loop ─────────────────────────────────────────────────────────────────
+print("UI Loop started. Close the window to exit.")
 
-ev = sdl2.Event()
+ev      = sdl2.Event()
 running = True
+last_tick = sdl2.get_ticks()
 
 while running:
-    # 1. Gather SDL Events
     while ev.poll():
-        if ev.type == sdl2.SDL_QUIT:
+        t = ev.type
+
+        if t == sdl2.SDL_QUIT:
             running = False
-        elif ev.type == sdl2.SDL_MOUSEMOTION:
-            mouse_x = ev.x
-            mouse_y = ev.y
-        elif ev.type == sdl2.SDL_MOUSEBUTTONDOWN:
-            mouse_x = ev.x
-            mouse_y = ev.y
-            mouse_pressed = True
-        elif ev.type == sdl2.SDL_MOUSEBUTTONUP:
-            mouse_x = ev.x
-            mouse_y = ev.y
-            mouse_pressed = False
 
-    # 2. Tell LVGL time has passed (e.g., 10ms)
-    lvgl.tick_inc(10)
+        elif t == sdl2.SDL_MOUSEMOTION:
+            mouse["x"] = ev.x
+            mouse["y"] = ev.y
 
-    # 3. Run LVGL tasks (this triggers flush_cb if drawing is needed)
+        elif t == sdl2.SDL_MOUSEBUTTONDOWN:
+            mouse["x"]       = ev.x
+            mouse["y"]       = ev.y
+            mouse["pressed"] = True
+            print(f("  [SDL] DOWN x={ev.x} y={ev.y}"))
+            
+            # FIX: Force LVGL to poll the input immediately by jumping 33ms into the future!
+            lvgl.tick_inc(33)
+            lvgl.timer_handler()
+
+        elif t == sdl2.SDL_MOUSEBUTTONUP:
+            mouse["x"]       = ev.x
+            mouse["y"]       = ev.y
+            mouse["pressed"] = False
+            print(f("  [SDL] UP   x={ev.x} y={ev.y}"))
+            
+            # FIX: Force LVGL to poll the input immediately by jumping 33ms into the future!
+            lvgl.tick_inc(33)
+            lvgl.timer_handler()
+
+    now       = sdl2.get_ticks()
+    elapsed   = now - last_tick
+    last_tick = now
+    
+    if elapsed > 0:
+        lvgl.tick_inc(elapsed)
     lvgl.timer_handler()
 
-    # 4. Render the updated Texture to the screen
-    ren.clear()
-    ren.copy(texture)
-    ren.present()
+    # Upload any pending flush to SDL texture
+    if pending_flush["active"]:
+        texture.update(
+            (pending_flush["x1"], pending_flush["y1"], pending_flush["w"], pending_flush["h"]),
+            pixel_buf,
+            pending_flush["w"] * 2
+        )
+        pending_flush["active"] = False
+        
+        ren.clear()
+        ren.copy(texture)
+        ren.present()
 
-    sdl2.delay(10)
+    sdl2.delay(5)
 
-print("🧹 Cleaning up...")
+# ── Cleanup ───────────────────────────────────────────────────────────────────
+print("Cleaning up...")
 ev.free()
 ffi.free(draw_buf)
+ffi.free(pixel_buf)
 texture.destroy()
 ren.destroy()
 win.destroy()
 sdl2.quit()
-print("✅ LVGL exited gracefully.")
+print("Done.")

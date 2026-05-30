@@ -436,6 +436,7 @@ class ClientResponse:
         self.status_code = status_code
         self.headers = headers
         self.body = body
+        self.text = body if isinstance(body, str) else body.decode('utf-8', errors='replace')
         self.content = body.encode('utf-8') if isinstance(body, str) else body
 
     def json(self):
@@ -527,17 +528,89 @@ def request(method, url, headers=None, data=None, json=None, timeout=10.0):
 def get(url, headers=None, timeout=10.0):
     return request("GET", url, headers=headers, timeout=timeout)
 
-def post(url, headers=None, data=None, json=None, timeout=10.0):
+def post(url, data=None, json=None, headers=None, timeout=10.0):
     return request("POST", url, headers=headers, data=data, json=json, timeout=timeout)
 
-def put(url, headers=None, data=None, json=None, timeout=10.0):
+def put(url, data=None, json=None, headers=None, timeout=10.0):
     return request("PUT", url, headers=headers, data=data, json=json, timeout=timeout)
 
-def patch(url, headers=None, data=None, json=None, timeout=10.0):
+def patch(url, data=None, json=None, headers=None, timeout=10.0):
     return request("PATCH", url, headers=headers, data=data, json=json, timeout=timeout)
 
 def delete(url, headers=None, timeout=10.0):
     return request("DELETE", url, headers=headers, timeout=timeout)
+
+async def async_get(url, headers=None, timeout=10.0):
+    mgr = mongoose.Manager()
+    resp_data = {"status": 0, "headers": {}, "body": "", "done": False, "error": None}
+
+    host = ""
+    path = "/"
+    if "://" in url:
+        parts = url.split("://")
+        rest = parts[1]
+        if "/" in rest:
+            slash_idx = rest.find("/")
+            host = rest[:slash_idx]
+            path = rest[slash_idx:]
+        else:
+            host = rest
+    else:
+        host = url
+
+    def handler(conn, ev, ev_data):
+        if ev == "CONNECT":
+            req_lines = [
+                format_str("GET {path} HTTP/1.0"),
+                format_str("Host: {host}"),
+                "Accept: */*",
+            ]
+            if headers:
+                for k in headers:
+                    req_lines.append(format_str("{k}: {headers[k]}"))
+            req_lines.append("")
+            req_lines.append("")
+            mongoose.send(conn, "\r\n".join(req_lines))
+            
+        elif ev == "RESPONSE":
+            resp_data["status"] = 200
+            if ev_data.uri:
+                try:
+                    resp_data["status"] = int(ev_data.uri)
+                except Exception:
+                    pass
+            resp_data["headers"] = ev_data.get_headers()
+            resp_data["body"] = ev_data.body
+            resp_data["done"] = True
+            
+        elif ev == "CLOSE":
+            resp_data["done"] = True
+            
+        elif ev == "ERROR":
+            resp_data["error"] = "Connection Failed (DNS or Network)"
+            resp_data["done"] = True
+
+    try:
+        conn = mgr.http_connect(url, handler)
+        
+        import asyncio
+        import time
+        start_time = time.time()
+        while not resp_data["done"]:
+            mgr.poll(0)
+            await asyncio.sleep(0.01)
+            if time.time() - start_time > timeout:
+                resp_data["error"] = "Timeout"
+                break
+    except Exception:
+        pass
+    finally:
+        mgr.free()
+
+    if resp_data["error"]:
+        raise HttpError(500, format_str("Request failed: {resp_data['error']}"))
+
+    return ClientResponse(resp_data["status"], resp_data["headers"], resp_data["body"])
 
 # ==============================================================================
 #  WebSocket Connection Registry

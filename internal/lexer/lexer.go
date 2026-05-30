@@ -1,4 +1,3 @@
-// pylearn/internal/lexer/lexer.go
 package lexer
 
 import (
@@ -25,7 +24,7 @@ type Lexer struct {
 	pendingTokens []Token // Queue for pending DEDENT/INDENT tokens
 }
 
-// New ... - No changes needed here
+// New creates a new Lexer.
 func New(input string) *Lexer {
 	l := Lexer{
 		input:       input,
@@ -38,7 +37,6 @@ func New(input string) *Lexer {
 	return &l
 }
 
-// readChar ... - No changes needed here
 func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {
 		l.ch = 0 // EOF
@@ -46,31 +44,14 @@ func (l *Lexer) readChar() {
 		return
 	}
 
-	// Store position before reading the rune to know where it starts
-	// (Though we don't strictly need prevPos for the simple column increment)
-	// prevPos := l.position
-
 	r, size := utf8.DecodeRuneInString(l.input[l.readPosition:])
 	l.position = l.readPosition // position is the start of the current rune
 	l.ch = r
 	l.readPosition += size // readPosition is the start of the *next* rune
 
-	// Simple column increment. Resetting happens when '\n' is consumed.
 	l.column += 1
-
-	// Note: The more complex calculateColumn method discussed in comments
-	// was deemed unnecessary for this implementation. The simple increment
-	// combined with resetting column to 0 on newline consumption is used.
 }
 
-// calculateColumn: Helper to determine the column based on the last newline
-// This isn't strictly necessary if we reset column=0 on newline consumption,
-// but can be useful for more complex scenarios or debugging.
-// For this implementation, simply incrementing in readChar and resetting on \n
-// in the main loop is sufficient. Let's stick to the simpler approach for now.
-// We'll keep the column increment in readChar and reset in NextToken/readString.
-
-// peekChar ... - No changes needed here
 func (l *Lexer) peekChar() rune {
 	if l.readPosition >= len(l.input) {
 		return 0 // EOF
@@ -79,7 +60,7 @@ func (l *Lexer) peekChar() rune {
 	return r
 }
 
-func (l *Lexer) PeekChar() rune { // Renamed to PeekChar
+func (l *Lexer) PeekChar() rune {
 	if l.readPosition >= len(l.input) {
 		return 0 // EOF
 	}
@@ -87,8 +68,6 @@ func (l *Lexer) PeekChar() rune { // Renamed to PeekChar
 	return r
 }
 
-// peekCharN checks N characters ahead. Returns 0 if EOF is reached before N chars.
-// Used for checking triple quotes and multiline comment starters.
 func (l *Lexer) peekCharN(n int) rune {
 	if n <= 0 {
 		return l.ch // Peeking 0 chars is the current char
@@ -111,28 +90,16 @@ func (l *Lexer) peekCharN(n int) rune {
 
 // readSingleLineComment reads until newline or EOF
 func (l *Lexer) readSingleLineComment() {
-	// startCol := l.column // Column where '#' started
-	// startLine := l.line
-	//##fmt.Printf("DEBUG LEXER: Reading single-line comment starting at L%d C%d\n", startLine, startCol)
 	for l.ch != constants.NewlineRune && l.ch != 0 {
 		l.readChar()
 	}
-	// Do not consume the newline/EOF, let the main loop handle it.
-	//##fmt.Printf("DEBUG LEXER: Finished single-line comment ending at L%d C%d (next char %q)\n", l.line, l.column, l.ch)
 }
-// // readSingleLineComment reads until a newline character (\n or \r) or EOF.
-// func (l *Lexer) readSingleLineComment() {
-// 	for l.ch != '\n' && l.ch != '\r' && l.ch != 0 {
-// 		l.readChar()
-// 	}
-// }
 
 // readMultilineComment reads /* ... */ style comments
 func (l *Lexer) readMultilineComment() Token {
 	startLine := l.line
 	startCol := l.column - 1 // The '/' was already read and column incremented
 
-	// Consume the '*'
 	l.readChar() // l.ch is now the character after '/*'
 
 	for {
@@ -142,11 +109,9 @@ func (l *Lexer) readMultilineComment() Token {
 		if l.ch == constants.AsteriskRune && l.peekChar() == constants.SlashRune {
 			l.readChar() // Consume '*'
 			l.readChar() // Consume '/'
-			//##fmt.Printf("DEBUG LEXER: Finished multiline comment ending at L%d C%d (next char %q)\n", l.line, l.column, l.ch)
-			return Token{Type: COMMENT, Literal: constants.SlashAsteriskComment, Line: startLine, Column: startCol} // Or just return nil/skip indicator
+			return Token{Type: COMMENT, Literal: constants.SlashAsteriskComment, Line: startLine, Column: startCol}
 		}
 		if l.ch == constants.NewlineRune {
-			// Consume newline, update line/col count
 			l.readChar()
 			l.line++
 			l.column = 0 // Reset column after newline
@@ -166,256 +131,213 @@ func (l *Lexer) measureIndent() int {
 			indent++
 			l.readChar()
 		} else if l.ch == '\r' {
-			// It's a carriage return. Skip it, but do not count it
-			// as indentation. The subsequent '\n' will be handled by
-			// the main NextToken loop.
 			l.readChar()
 		} else {
-			// Not a space or carriage return, stop measuring.
 			break
 		}
 	}
 
 	if l.ch == '\t' {
-		// Return error, use the column where the tab was found
 		return -1 * (startColForError + indent + 1) // Negative indicates error, value is column
 	}
 	return indent
 }
 
-// Add this new helper function to the file.
 func isHexDigit(ch rune) bool {
 	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
 }
 
-// Add this new function to read the full hex number.
-func (l *Lexer) readHexNumber() string {
+func isOctalDigit(ch rune) bool {
+	return ch >= '0' && ch <= '7'
+}
+
+func isBinaryDigit(ch rune) bool {
+	return ch == '0' || ch == '1'
+}
+
+// readPrefixedNumber reads hexadecimal (0x), octal (0o), and binary (0b) numbers.
+func (l *Lexer) readPrefixedNumber() string {
 	startPosition := l.position
-	// Consume the '0' and the 'x'/'X'
+	
+	// Consume '0'
 	l.readChar()
+	prefix := l.ch
+	
+	// Consume 'x', 'o', or 'b'
 	l.readChar()
-	for isHexDigit(l.ch) {
-		l.readChar()
+	
+	if prefix == 'x' || prefix == 'X' {
+		for isHexDigit(l.ch) {
+			l.readChar()
+		}
+	} else if prefix == 'o' || prefix == 'O' {
+		for isOctalDigit(l.ch) {
+			l.readChar()
+		}
+	} else if prefix == 'b' || prefix == 'B' {
+		for isBinaryDigit(l.ch) {
+			l.readChar()
+		}
 	}
 	return l.input[startPosition:l.position]
 }
 
-// --- *** REVISED NextToken *** ---
 func (l *Lexer) NextToken() Token {
 	// 1. Process pending DEDENT tokens
 	if len(l.pendingTokens) > 0 {
 		tok := l.pendingTokens[0]
 		l.pendingTokens = l.pendingTokens[1:]
-		//##fmt.Printf("DEBUG LEXER: Returning pending token: %s\n", tok.String())
 		return tok
 	}
 
 	// 2. Loop to skip whitespace, comments, handle newlines, and process indentation
 	for {
-		// Add a universal rule to always skip carriage returns. This makes the lexer
-		// agnostic to line endings (LF vs CRLF).
 		if l.ch == '\r' {
 			l.readChar()
-			continue // Restart the loop with the next character
+			continue
 		}
-		// Handle indentation logic ONLY if we are at the logical start of a line
 		if l.atLineStart {
-			//##fmt.Printf("DEBUG LEXER: At line start (line %d, col %d, char %q)\n", l.line, l.column, l.ch)
+			indentStartColumn := l.column      
+			currentIndent := l.measureIndent() 
 
-			// A. Measure leading whitespace
-			indentStartColumn := l.column      // Column where indent measurement begins
-			currentIndent := l.measureIndent() // Consumes spaces, l.ch is now first non-space/non-tab
-
-			if currentIndent < 0 { // Tab error, value is -column
+			if currentIndent < 0 { 
 				return Token{Type: ILLEGAL, Literal: constants.LexerIndentationTabError, Line: l.line, Column: -currentIndent}
 			}
 
-			// B. Check if line is blank, comment-only, or EOF after spaces
 			isSignificantLine := true
 			isCommentLine := false
-			if l.ch == constants.HashRune { // Single-line comment
+			if l.ch == constants.HashRune {
 				isSignificantLine = false
 				isCommentLine = true
-				//##fmt.Printf("DEBUG LEXER: Comment-only line detected after indent %d.\n", currentIndent)
-			} else if l.ch == constants.SlashRune && l.peekChar() == constants.AsteriskRune { // Multiline comment start
+			} else if l.ch == constants.SlashRune && l.peekChar() == constants.AsteriskRune { 
 				isSignificantLine = false
 				isCommentLine = true
-				//##fmt.Printf("DEBUG LEXER: Multiline comment detected at line start after indent %d.\n", currentIndent)
-			} else if l.ch == constants.NewlineRune { // Blank line
+			} else if l.ch == constants.NewlineRune { 
 				isSignificantLine = false
-				//##fmt.Printf("DEBUG LEXER: Blank line detected after indent %d.\n", currentIndent)
-			} else if l.ch == 0 { // EOF after spaces
+			} else if l.ch == 0 { 
 				isSignificantLine = false
-				//##fmt.Printf("DEBUG LEXER: EOF found at line start processing (after indent %d)\n", currentIndent)
-				return l.handleEOFIndentation() // Generate necessary DEDENTs before EOF
+				return l.handleEOFIndentation() 
 			}
 
-			// C. Process Indentation ONLY for significant lines
 			if isSignificantLine {
-				l.atLineStart = false // Processing actual code now, clear the flag
-				//##fmt.Printf("DEBUG LEXER: Significant line. Measured indent: %d (char is now %q)\n", currentIndent, l.ch)
+				l.atLineStart = false 
 
 				lastIndent := l.indentStack[len(l.indentStack)-1]
 
 				if currentIndent > lastIndent {
-					//##fmt.Printf("DEBUG LEXER: Indent detected (%d > %d)\n", currentIndent, lastIndent)
 					l.indentStack = append(l.indentStack, currentIndent)
-					// Column for INDENT is typically 1, representing the line change
 					indentToken := Token{Type: INDENT, Literal: constants.IndentLiteral, Line: l.line, Column: 1}
-					//##fmt.Printf("DEBUG LEXER: Returning token: %s\n", indentToken.String())
-					return indentToken // Return INDENT immediately
-
-				} else if currentIndent < lastIndent { // DEDENT case
-					//##fmt.Printf("DEBUG LEXER: Dedent needed (%d < %d) Stack before pop: %v\n", currentIndent, lastIndent, l.indentStack)
+					return indentToken 
+				} else if currentIndent < lastIndent {
 					for len(l.indentStack) > 1 && currentIndent < l.indentStack[len(l.indentStack)-1] {
 						l.indentStack = l.indentStack[:len(l.indentStack)-1]
-						// Column for DEDENT is typically 1
 						dedentToken := Token{Type: DEDENT, Literal: constants.DedentLiteral, Line: l.line, Column: 1}
 						l.pendingTokens = append(l.pendingTokens, dedentToken)
 					}
-					//##fmt.Printf("DEBUG LEXER: Stack after pop: %v\n", l.indentStack)
 
-					// Check for mismatch AFTER popping
 					if len(l.indentStack) == 0 || currentIndent != l.indentStack[len(l.indentStack)-1] {
-						//##fmt.Printf("DEBUG LEXER: Indentation dedent error (%d != stack top %d)\n", currentIndent, l.indentStack[len(l.indentStack)-1])
-						// Report error at the column where the indentation started
 						return Token{Type: ILLEGAL, Literal: constants.LexerIndentationDedentError, Line: l.line, Column: indentStartColumn + 1}
 					}
 
-					// Return first pending DEDENT now
 					if len(l.pendingTokens) > 0 {
 						tok := l.pendingTokens[0]
 						l.pendingTokens = l.pendingTokens[1:]
-						//##fmt.Printf("DEBUG LEXER: Returning first pending DEDENT token: %s\n", tok.String())
-						return tok // Return immediately
+						return tok
 					}
-				} else { // currentIndent == lastIndent
-					//##fmt.Printf("DEBUG LEXER: Indent matches stack top (%d == %d). Processing char %q\n", currentIndent, lastIndent, l.ch)
-					// Indentation matches, proceed to lex l.ch
-				}
-				// If we reached here, break the skipping loop below to process l.ch.
-
-			} else { // Blank or comment line - SKIP INDENTATION LOGIC
-				//##fmt.Printf("DEBUG LEXER: Skipping indent logic for blank/comment line (char %q)\n", l.ch)
+				} 
+			} else { 
 				if isCommentLine {
 					if l.ch == constants.HashRune {
-						l.readSingleLineComment() // Consumes comment until \n or EOF
+						l.readSingleLineComment()
 					} else if l.ch == constants.SlashRune && l.peekChar() == constants.AsteriskRune {
-						l.readChar()                             // Consume the '/' before calling
-						commentToken := l.readMultilineComment() // Consumes /* ... */
+						l.readChar()                             
+						commentToken := l.readMultilineComment() 
 						if commentToken.Type == ILLEGAL {
-							return commentToken // Return unterminated comment error
+							return commentToken 
 						}
-						// Successfully consumed multiline comment.
-						// We need to continue the *outer loop* because the character
-						// after the comment might be significant (e.g., EOF, newline, or even code
-						// if the comment didn't end with a newline).
-						// Crucially, we are STILL considered at the start of a logical line
-						// if the comment ended exactly at a newline boundary or EOF.
-						// If the comment ended mid-line, atLineStart should become false.
-
-						// Let's simplify: after consuming a comment at the start of the line,
-						// we just continue the loop. If the next char is \n, it's handled.
-						// If it's EOF, it's handled. If it's code, the `atLineStart` logic
-						// runs again on the next iteration. This seems safest.
-						continue // Restart the outer loop
+						continue 
 					}
-					// readSingleLineComment leaves l.ch as \n or 0.
 				}
-				// For blank lines, l.ch is '\n'.
-				// For comment lines ending in \n, l.ch is \n.
-				// Keep l.atLineStart = true, the newline logic below will handle it.
-				// Fall through to newline handling or EOF handling.
 			}
-		} // end if l.atLineStart
+		} 
 
-		// 3. Skip non-leading horizontal whitespace (only runs if not atLineStart)
+		// 3. Skip non-leading horizontal whitespace
 		for !l.atLineStart && (l.ch == constants.SpaceRune || l.ch == constants.TabRune || l.ch == constants.CarriageReturnRune) {
-			//##fmt.Printf("DEBUG LEXER: Skipping non-leading whitespace char %q\n", l.ch)
 			l.readChar()
 		}
 
-		// 4. Handle Newlines (This runs after atLineStart logic)
+		// 4. Handle Newlines
 		if l.ch == constants.NewlineRune {
-			//##fmt.Printf("DEBUG LEXER: Handling newline (line %d -> %d)\n", l.line, l.line+1)
-			l.readChar() // Consume the newline
+			l.readChar() 
 			l.line++
-			l.column = 0         // Reset column
-			l.atLineStart = true // Mark start of next logical line
-			continue             // Restart the loop to handle potential indentation on the new line
+			l.column = 0         
+			l.atLineStart = true 
+			continue             
 		}
 
-		// 5. Skip comments (if not at the start of a line)
+		// 5. Skip comments
 		if l.ch == constants.HashRune {
-			//##fmt.Printf("DEBUG LEXER: Handling non-leading single-line comment\n")
-			l.readSingleLineComment() // Reads until newline or EOF
-			continue                  // Loop will continue, hitting newline or EOF next
+			l.readSingleLineComment() 
+			continue                  
 		}
 		if l.ch == constants.SlashRune && l.peekChar() == constants.AsteriskRune {
-			//##fmt.Printf("DEBUG LEXER: Handling non-leading multiline comment\n")
-			startColComment := l.column // Column of the '/'
-			l.readChar()                // Consume '/' before calling
+			startColComment := l.column 
+			l.readChar()                
 			commentToken := l.readMultilineComment()
 			if commentToken.Type == ILLEGAL {
-				// Ensure the column reported is where the /* started
 				commentToken.Column = startColComment
 				return commentToken
 			}
-			// Consumed the comment, continue skipping
 			continue
 		}
 
-		// 6. Handle EOF (if encountered after skipping other things)
+		// 6. Handle EOF
 		if l.ch == 0 {
-			//##fmt.Printf("DEBUG LEXER: EOF encountered after skipping loop\n")
 			return l.handleEOFIndentation()
 		}
 
-		// 7. If we reach here, l.ch is the first significant character of a token. Break the loop.
-		//##fmt.Printf("DEBUG LEXER: Breaking skip loop, ready to lex char %q at L%d C%d\n", l.ch, l.line, l.column)
-		break // Exit the skipping loop
-	} // End of the skipping loop
+		// 7. Found significant token character
+		break 
+	} 
 
-	// --- Regular Token Lexing (after skipping loop) ---
+	// --- Regular Token Lexing ---
 	startLine := l.line
-	// Use the column where the significant character was first encountered
 	startColumn := l.column
-
-	//##fmt.Printf("DEBUG LEXER: Lexing regular token starting L%d, C%d (char %q)\n", startLine, startColumn, l.ch)
 
 	var tok Token
 	makeToken := func(typ TokenType, lit string) Token {
 		return Token{Type: typ, Literal: lit, Line: startLine, Column: startColumn}
 	}
 
-	// --- BYTE FIX HERE: Check for 'b' or 'f' prefix BEFORE checking for string quotes ---
 	isBytes := false
 	isFString := false
-	// Loop to handle multiple prefix characters like 'f', 'r', 'b', 'u'
-	// This correctly handles f"", fr"", b"", etc.
+	isRaw := false
+
+	// Check for string prefixes (f, b, r)
 	for {
 		switch l.ch {
 		case 'f', 'F':
-			// If we see a quote next, this prefix is confirmed. Consume it and continue.
 			if l.peekChar() == '\'' || l.peekChar() == '"' {
 				isFString = true
-				l.readChar() // Consume the 'f' or 'F'
+				l.readChar()
 				startColumn = l.column
-				// After consuming, break the loop to process the quote.
 				goto endPrefixLoop
 			}
 		case 'b', 'B':
 			if l.peekChar() == '\'' || l.peekChar() == '"' {
 				isBytes = true
-				l.readChar() // Consume the 'b' or 'B'
+				l.readChar()
 				startColumn = l.column
 				goto endPrefixLoop
 			}
-		// Add cases for 'r' (raw) or 'u' (unicode) prefixes here if you support them
-		// case 'r', 'R': ...
+		case 'r', 'R':
+			if l.peekChar() == '\'' || l.peekChar() == '"' {
+				isRaw = true
+				l.readChar()
+				startColumn = l.column
+				goto endPrefixLoop
+			}
 		}
-		// If the current character is not a valid prefix followed by a quote,
-		// break the loop and let it be handled as an identifier or something else.
 		break
 	}
 	endPrefixLoop:
@@ -431,7 +353,7 @@ func (l *Lexer) NextToken() Token {
 			tok = makeToken(ASSIGN, string(l.ch))
 		}
 	case constants.PlusOperatorRune:
-		if l.peekChar() == constants.AssignOperatorRune { // Check for +=
+		if l.peekChar() == constants.AssignOperatorRune { 
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
@@ -440,7 +362,7 @@ func (l *Lexer) NextToken() Token {
 			tok = makeToken(PLUS, string(l.ch))
 		}
 	case constants.MinusSignRune:
-		if l.peekChar() == constants.AssignOperatorRune { // Check for -=
+		if l.peekChar() == constants.AssignOperatorRune { 
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
@@ -448,23 +370,19 @@ func (l *Lexer) NextToken() Token {
 		} else {
 			tok = makeToken(MINUS, string(l.ch))
 		}
-	// 	tok = makeToken(ASTERISK, string(l.ch)) // Note: Multiline comment /* handled above
 	case constants.AsteriskRune:
 		if l.peekChar() == constants.AsteriskRune {
 			ch := l.ch
-			l.readChar() // Consume the first '*'
+			l.readChar() 
 			literal := string(ch) + string(l.ch)
 			tok = makeToken(POW, literal)
 		} else {
-			tok = makeToken(ASTERISK, string(l.ch)) // Note: Multiline comment /* handled above
+			tok = makeToken(ASTERISK, string(l.ch)) 
 		}
-	// case constants.SlashRune:
-	// 	tok = makeToken(SLASH, string(l.ch)) // Note: Multiline comment /* handled above
 	case constants.SlashRune:
-		// --- THIS IS THE FIX ---
 		if l.peekChar() == constants.SlashRune {
 			ch := l.ch
-			l.readChar() // Consume the first '/'
+			l.readChar()
 			literal := string(ch) + string(l.ch)
 			tok = makeToken(FLOOR_DIV, literal)
 		} else {
@@ -487,7 +405,7 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			literal := string(ch) + string(l.ch)
 			tok = makeToken(LT_EQ, literal)
-		} else if l.peekChar() == constants.LessThanOpRune { // <<< ADD THIS BLOCK
+		} else if l.peekChar() == constants.LessThanOpRune { 
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
@@ -495,21 +413,13 @@ func (l *Lexer) NextToken() Token {
 		} else {
 			tok = makeToken(LT, string(l.ch))
 		}
-		// if l.peekChar() == constants.AssignOperatorRune {
-		// 	ch := l.ch
-		// 	l.readChar()
-		// 	literal := string(ch) + string(l.ch)
-		// 	tok = makeToken(LT_EQ, literal)
-		// } else {
-		// 	tok = makeToken(LT, string(l.ch))
-		// }
 	case constants.GreaterThanOpRune:
 		if l.peekChar() == constants.AssignOperatorRune {
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
 			tok = makeToken(GT_EQ, literal)
-		} else if l.peekChar() == constants.GreaterThanOpRune { // <<< ADD THIS BLOCK
+		} else if l.peekChar() == constants.GreaterThanOpRune { 
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
@@ -517,14 +427,6 @@ func (l *Lexer) NextToken() Token {
 		} else {
 			tok = makeToken(GT, string(l.ch))
 		}
-		// if l.peekChar() == constants.AssignOperatorRune {
-		// 	ch := l.ch
-		// 	l.readChar()
-		// 	literal := string(ch) + string(l.ch)
-		// 	tok = makeToken(GT_EQ, literal)
-		// } else {
-		// 	tok = makeToken(GT, string(l.ch))
-		// }
 	case constants.CommaRune:
 		tok = makeToken(COMMA, string(l.ch))
 	case constants.SemicolonRune:
@@ -548,13 +450,13 @@ func (l *Lexer) NextToken() Token {
 	case constants.AtRune:
 		tok = makeToken(AT, string(l.ch))
 	case '&':
-        tok = makeToken(BITWISE_AND, string(l.ch))
+		tok = makeToken(BITWISE_AND, string(l.ch))
 	case '|':
-        tok = makeToken(BITWISE_OR, string(l.ch))
+		tok = makeToken(BITWISE_OR, string(l.ch))
 	case '^':
-        tok = makeToken(BITWISE_XOR, string(l.ch))
+		tok = makeToken(BITWISE_XOR, string(l.ch))
 	case '~':
-        tok = makeToken(BITWISE_NOT, string(l.ch))
+		tok = makeToken(BITWISE_NOT, string(l.ch))
 
 	// --- Updated String Handling ---
 	case constants.DoubleQuoteRune, constants.SingleQuoteRune:
@@ -564,74 +466,62 @@ func (l *Lexer) NextToken() Token {
 
 		originalLiteralStartPos := l.position
 
-		// Check for triple quotes
 		p1 := l.peekChar()
-		p2 := l.peekCharN(2) // Peek second char ahead
+		p2 := l.peekCharN(2)
 
 		if l.ch == p1 && l.ch == p2 {
 			isTriple = true
-			//##fmt.Printf("DEBUG LEXER: Detected triple quote %q starting L%d C%d\n", quoteChar, startLine, stringStartCol)
-			// Consume the three opening quotes
 			l.readChar()
 			l.readChar()
-			l.readChar() // l.ch is now the first char *inside* the string
+			l.readChar() 
 		} else {
-			//##fmt.Printf("DEBUG LEXER: Detected single quote %q starting L%d C%d\n", quoteChar, startLine, stringStartCol)
-			// Consume the single opening quote
-			l.readChar() // l.ch is now the first char *inside* the string
+			l.readChar() 
 		}
 
-		// Read the string/bytes content
-		// Pass quoteChar, isTriple AND isBytes flag
-		content, ok := l.readStringOrBytesContent(quoteChar, isTriple, isBytes) // Renamed helper
+		content, ok := l.readStringOrBytesContent(quoteChar, isTriple, isBytes, isRaw)
 
-		// Store the *original* literal including quotes and prefix
 		originalLiteralEndPos := l.position
 		originalLiteral := l.input[originalLiteralStartPos:originalLiteralEndPos]
 		if isBytes {
-			originalLiteral = constants.CharB + originalLiteral // Prepend 'b' back for the token literal
+			originalLiteral = constants.CharB + originalLiteral
 		}
 
-		if !ok { // Unterminated
+		if !ok { 
 			tok = Token{Type: ILLEGAL, Literal: constants.LexerUnterminatedStringOrBytes, Line: startLine, Column: stringStartCol}
 		} else {
 			tokenType := STRING
 			if isBytes {
 				tokenType = BYTES
-				// For BYTES token, Literal should store the source representation
-				// Content is used by the parser later
 				tok = Token{Type: tokenType, Literal: originalLiteral, Line: startLine, Column: stringStartCol}
-			}else if isFString { 
+			} else if isFString { 
 				tokenType = FSTRING
-				// For FSTRING, the literal is the raw content inside the quotes.
 				tok = Token{Type: tokenType, Literal: content, Line: startLine, Column: stringStartCol}
 			} else {
-				// For STRING token, Literal can store the unescaped content
 				tok = Token{Type: tokenType, Literal: content, Line: startLine, Column: stringStartCol}
 			}
 		}
-		return tok // Return early
-
-	// --- End Updated String Handling ---
+		return tok
 
 	default:
 		if isLetter(l.ch) {
 			identStartCol := startColumn
-			literal := l.readIdentifier() // Handles advancement
+			literal := l.readIdentifier() 
 			tokType := LookupIdent(literal)
 			tok = Token{Type: tokType, Literal: literal, Line: startLine, Column: identStartCol}
-			//##fmt.Printf("DEBUG LEXER: Returning token: %s\n", tok.String())
-			return tok // Return early as readIdentifier advanced
+			return tok 
 		} else if isDigit(l.ch) {
-			// Check for hexadecimal prefix '0x' or '0X'
-			if l.ch == '0' && (l.peekChar() == 'x' || l.peekChar() == 'X') {
-				numStartCol := startColumn
-				literal := l.readHexNumber() // Use the new helper
-				tok = Token{Type: INT, Literal: literal, Line: startLine, Column: numStartCol}
-				return tok // Return early
+			// Check for prefixed numbers (0x, 0X, 0o, 0O, 0b, 0B)
+			if l.ch == '0' {
+				p := l.peekChar()
+				if p == 'x' || p == 'X' || p == 'o' || p == 'O' || p == 'b' || p == 'B' {
+					numStartCol := startColumn
+					literal := l.readPrefixedNumber() 
+					tok = Token{Type: INT, Literal: literal, Line: startLine, Column: numStartCol}
+					return tok 
+				}
 			}
 			numStartCol := startColumn
-			literal := l.readNumber() // Handles advancement
+			literal := l.readNumber() 
 			tokType := INT
 			for _, r := range literal {
 				if r == constants.DotRune {
@@ -640,71 +530,42 @@ func (l *Lexer) NextToken() Token {
 				}
 			}
 			tok = Token{Type: tokType, Literal: literal, Line: startLine, Column: numStartCol}
-			//##fmt.Printf("DEBUG LEXER: Returning token: %s\n", tok.String())
-			return tok // Return early as readNumber advanced
+			return tok
 		} else {
-			// Genuine illegal character
-			//##fmt.Printf("DEBUG LEXER: Creating ILLEGAL token for char %q\n", l.ch)
 			tok = makeToken(ILLEGAL, string(l.ch))
-			// Let the code below advance past the illegal character
 		}
 	}
 
-	// Advance past the token character ONLY if we didn't return early
-	// (String, Identifier, Number cases return early)
 	l.readChar()
-
-	//##fmt.Printf("DEBUG LEXER: Returning token (default path): %s\n", tok.String())
 	return tok
 }
 
-// handleEOFIndentation ... - No changes needed here
 func (l *Lexer) handleEOFIndentation() Token {
-	//##fmt.Printf("DEBUG LEXER: handleEOFIndentation called (line %d, col %d, stack %v)\n", l.line, l.column, l.indentStack)
 	if len(l.pendingTokens) > 0 {
 		tok := l.pendingTokens[0]
 		l.pendingTokens = l.pendingTokens[1:]
-		//##fmt.Printf("DEBUG LEXER: Returning pending token from EOF handler: %s\n", tok.String())
 		return tok
 	}
 
 	eofLine := l.line
-	eofColumn := l.column // Use current column at EOF
+	eofColumn := l.column 
 
-	// Generate pending DEDENTs
 	for len(l.indentStack) > 1 {
-		//##fmt.Printf("DEBUG LEXER: EOF handler popping indent %d\n", l.indentStack[len(l.indentStack)-1])
 		l.indentStack = l.indentStack[:len(l.indentStack)-1]
-		// DEDENT column is typically 1, associated with the implicit line change/end
 		dedentToken := Token{Type: DEDENT, Literal: constants.DedentLiteral, Line: eofLine, Column: 1}
 		l.pendingTokens = append(l.pendingTokens, dedentToken)
 	}
 
-	// Return first pending DEDENT if any
 	if len(l.pendingTokens) > 0 {
 		tok := l.pendingTokens[0]
 		l.pendingTokens = l.pendingTokens[1:]
-		//##fmt.Printf("DEBUG LEXER: Returning generated DEDENT from EOF handler: %s\n", tok.String())
 		return tok
 	}
 
-	// Return the final EOF token
-	eofToken := Token{Type: EOF, Literal: constants.EmptyString, Line: eofLine, Column: eofColumn} // <--- MODIFIED LITERAL
-	//##fmt.Printf("DEBUG LEXER: Returning final EOF token: %s\n", eofToken.String())
+	eofToken := Token{Type: EOF, Literal: constants.EmptyString, Line: eofLine, Column: eofColumn} 
 	return eofToken
 }
 
-// // readIdentifier ... - No changes needed here
-//
-//	func (l *Lexer) readIdentifier() string {
-//		startPosition := l.position
-//		for isLetter(l.ch) || isDigit(l.ch) {
-//			l.readChar()
-//		}
-//		return l.input[startPosition:l.position]
-//	}
-//
-// --- *** REVISED readIdentifier *** ---
 func (l *Lexer) readIdentifier() string {
 	startPosition := l.position
 	for isLetter(l.ch) || isDigit(l.ch) {
@@ -712,13 +573,9 @@ func (l *Lexer) readIdentifier() string {
 	}
 	ident := l.input[startPosition:l.position]
 
-	// Check for multi-word operators starting with this identifier
 	if ident == constants.NotKeyword && l.ch == constants.SpaceRune && l.peekChar() == constants.CharIRune && l.peekCharN(2) == constants.CharNRune {
-		// Possible "not in". We must confirm the next word is "in" and not part of another identifier.
-		// A simple way is to peek ahead. A more robust way involves backtracking, but peeking is often sufficient.
-		// Let's create a temporary lexer to look ahead.
 		tempLexer := *l
-		tempLexer.readChar() // Consume the space
+		tempLexer.readChar()
 
 		nextIdentStart := tempLexer.position
 		for isLetter(tempLexer.ch) {
@@ -727,16 +584,14 @@ func (l *Lexer) readIdentifier() string {
 		nextIdent := tempLexer.input[nextIdentStart:tempLexer.position]
 
 		if nextIdent == constants.InKeyword {
-			// It's "not in". Consume the characters in the main lexer.
-			l.readChar() // consume space
-			l.readChar() // consume 'i'
-			l.readChar() // consume 'n'
+			l.readChar()
+			l.readChar()
+			l.readChar()
 			return constants.NotInKeyword
 		}
 	} else if ident == constants.IsKeyword && l.ch == constants.SpaceRune && l.peekChar() == constants.CharNRune && l.peekCharN(2) == constants.CharORune && l.peekCharN(3) == constants.CharTRune {
-		// Possible "is not". Similar lookahead logic.
 		tempLexer := *l
-		tempLexer.readChar() // Consume space
+		tempLexer.readChar()
 		nextIdentStart := tempLexer.position
 		for isLetter(tempLexer.ch) {
 			tempLexer.readChar()
@@ -744,11 +599,10 @@ func (l *Lexer) readIdentifier() string {
 		nextIdent := tempLexer.input[nextIdentStart:tempLexer.position]
 
 		if nextIdent == constants.NotKeyword {
-			// It's "is not". Consume.
-			l.readChar() // space
-			l.readChar() // n
-			l.readChar() // o
-			l.readChar() // t
+			l.readChar()
+			l.readChar()
+			l.readChar()
+			l.readChar()
 			return constants.IsNotKeyword
 		}
 	}
@@ -756,12 +610,10 @@ func (l *Lexer) readIdentifier() string {
 	return ident
 }
 
-// This function must now handle the multi-word literals
 func LookupIdent(ident string) TokenType {
 	if tokType, ok := keywords[ident]; ok {
 		return tokType
 	}
-	// Check for the multi-word tokens we synthesized in readIdentifier
 	if ident == constants.NotInKeyword {
 		return NOT_IN
 	}
@@ -771,10 +623,8 @@ func LookupIdent(ident string) TokenType {
 	return IDENT
 }
 
-// readNumber ... - No changes needed here
 func (l *Lexer) readNumber() string {
 	startPosition := l.position
-	//##fmt.Printf("DEBUG LEXER: readNumber starting at pos %d (char %q)\n", startPosition, l.ch)
 	hasDecimal := false
 	for isDigit(l.ch) || (l.ch == constants.DotRune && !hasDecimal && isDigit(l.peekChar())) {
 		if l.ch == constants.DotRune {
@@ -784,32 +634,39 @@ func (l *Lexer) readNumber() string {
 	}
 	endPosition := l.position
 	literal := l.input[startPosition:endPosition]
-	//##fmt.Printf("DEBUG LEXER: readNumber returning literal %q (ends at pos %d, char %q)\n", literal, endPosition, l.ch)
 	return literal
 }
 
-// --- RENAME and MODIFY readString -> readStringOrBytesContent ---
-// readStringOrBytesContent reads the content of a string or bytes literal.
-// Returns the UNESCAPED string content and success bool.
-// For bytes, validates escapes but returns string content (parser will convert).
-func (l *Lexer) readStringOrBytesContent(quote rune, isTriple bool, isBytes bool) (string, bool) {
+func (l *Lexer) readStringOrBytesContent(quote rune, isTriple bool, isBytes bool, isRaw bool) (string, bool) {
 	var out bytes.Buffer
 
 	for {
 		if l.ch == 0 {
 			return constants.EmptyString, false
-		} // Unterminated
+		}
 
-		if l.ch == constants.BackslashRune { // Handle escape sequences
+		if l.ch == constants.BackslashRune { 
+			if isRaw {
+				// Raw strings preserve the backslash
+				out.WriteRune(l.ch)
+				l.readChar()
+				if l.ch == 0 {
+					return constants.EmptyString, false
+				}
+				// Write the next character (it might be the quote, escaping it from terminating the string)
+				out.WriteRune(l.ch)
+				l.readChar()
+				continue
+			}
+
 			l.readChar()
 			escapeChar := l.ch
 			if escapeChar == 0 {
 				return constants.EmptyString, false
-			} // Unterminated after backslash
+			}
 
-			// Validate escapes for bytes literals
 			validByteEscape := true
-			var escapedRune rune = 0 // Default for non-rune escapes
+			var escapedRune rune = 0 
 			handled := true
 
 			switch escapeChar {
@@ -820,136 +677,107 @@ func (l *Lexer) readStringOrBytesContent(quote rune, isTriple bool, isBytes bool
 			case constants.CharRRune:
 				escapedRune = constants.CarriageReturnRune
 			case constants.CharBRune:
-				escapedRune = constants.BackspaceRune // Backspace (less common)
+				escapedRune = constants.BackspaceRune 
 			case constants.CharFRune:
-				escapedRune = constants.FormFeedRune // Form feed (less common)
+				escapedRune = constants.FormFeedRune 
 			case constants.BackslashRune:
 				escapedRune = constants.BackslashRune
 			case constants.SingleQuoteRune:
 				escapedRune = constants.SingleQuoteRune
 			case constants.DoubleQuoteRune:
 				escapedRune = constants.DoubleQuoteRune
-			case constants.CharZero, constants.CharOne, constants.CharTwo, constants.CharThree, constants.CharFour, constants.CharFive, constants.CharSix, constants.CharSeven: // Octal escapes (e.g., \0, \12, \377)
-				// Python allows \0 -> NUL, but other octal escapes aren't typical in modern code
-				// For simplicity, let's only handle \0 maybe? Or disallow?
-				// Let's treat as literal backslash + digit for now if isBytes is false
+			case constants.CharZero, constants.CharOne, constants.CharTwo, constants.CharThree, constants.CharFour, constants.CharFive, constants.CharSix, constants.CharSeven: 
 				if !isBytes {
 					validByteEscape = false
 					handled = false
 				} else {
-					// TODO: Implement octal escape parsing if needed
 					validByteEscape = false
-					handled = false // Disallow for now
+					handled = false
 				}
-
-			case constants.CharXRune: // Hex escapes \xHH
-				l.readChar() // Read first hex digit
+			case constants.CharXRune:
+				l.readChar() 
 				h1 := l.ch
-				l.readChar() // Read second hex digit
+				l.readChar() 
 				h2 := l.ch
 				hexStr := string([]rune{h1, h2})
 				byteVal, err := strconv.ParseUint(hexStr, 16, 8)
 				if err != nil {
-					// Invalid hex escape sequence
-					// Append backslash, x, and the two chars read
 					out.WriteRune(constants.BackslashRune)
 					out.WriteRune(constants.CharXRune)
 					out.WriteRune(h1)
 					out.WriteRune(h2)
 					validByteEscape = false
-					handled = false // Mark as unhandled for bytes check
+					handled = false 
 				} else {
-					// Write the actual byte value
 					out.WriteByte(byte(byteVal))
-					// No rune needed for byte escapes
 				}
-
-			case constants.NewlineRune: // Escaped newline (ignore backslash and newline)
+			case constants.NewlineRune: 
 				l.line++
 				l.column = 0
-				// Do not write anything to buffer
-
-			// Unicode escapes are ONLY valid for strings, not bytes
 			case constants.CharURune, constants.CharUUpperRune, constants.CharNUpperRune:
 				if isBytes {
 					validByteEscape = false
 				}
-				handled = false // Treat as literal backslash + char
-
-			default: // Unknown escape sequence
+				handled = false 
+			default: 
 				if isBytes {
 					validByteEscape = false
-				} // Invalid in bytes
-				handled = false // Treat as literal backslash + char
-			} // end switch escapeChar
+				} 
+				handled = false 
+			}
 
 			if isBytes && !validByteEscape {
-				// Return error or handle? Let's return error via ok=false maybe?
-				// For now, let lexer produce ILLEGAL token later by writing literal backslash+char
-				// (This requires parser to maybe re-validate bytes content)
 				handled = false
 			}
 
-			if handled && escapedRune != 0 { // If it was a standard char escape like \n, \t, \\
+			if handled && escapedRune != 0 { 
 				out.WriteRune(escapedRune)
-			} else if !handled { // If not handled above (unknown, unicode in bytes, octal)
+			} else if !handled { 
 				out.WriteRune(constants.BackslashRune)
 				out.WriteRune(escapeChar)
 			}
-			l.readChar() // Consume the char after escape sequence (or last hex digit)
+			l.readChar() 
 
-		} else if l.ch == quote { // Potential closing quote
+		} else if l.ch == quote { 
 			if isTriple {
 				if l.peekChar() == quote && l.peekCharN(2) == quote {
 					l.readChar()
 					l.readChar()
-					l.readChar()              // Consume closing quotes
-					return out.String(), true // Terminated
+					l.readChar()              
+					return out.String(), true 
 				} else {
 					out.WriteRune(l.ch)
-					l.readChar() // Just a regular quote
+					l.readChar() 
 				}
-			} else { // Single quoted
-				l.readChar()              // Consume closing quote
-				return out.String(), true // Terminated
+			} else { 
+				l.readChar()              
+				return out.String(), true 
 			}
-		} else if l.ch == constants.NewlineRune { // Newline within literal
-			if !isTriple && !isBytes { // Single-quoted strings cannot contain unescaped newlines
-				// This should ideally be caught earlier or return error
-				return constants.EmptyString, false // Treat as unterminated/error
+		} else if l.ch == constants.NewlineRune { 
+			if !isTriple && !isBytes { 
+				return constants.EmptyString, false 
 			}
 			out.WriteRune(l.ch)
 			l.readChar()
 			l.line++
 			l.column = 0
-		} else { // Regular character
-			// Check validity for bytes literals
-			if isBytes && l.ch >= utf8.RuneSelf {
-				// Non-ASCII character in bytes literal (error)
-				// How to signal error? Let parser handle? Or make lexer return ILLEGAL?
-				// Let's write the rune for now, parser can validate later.
-			}
+		} else { 
 			out.WriteRune(l.ch)
 			l.readChar()
 		}
 	}
 }
 
-// --- Updated readString ---
-// readString reads the content of a string literal (single or triple quoted).
-// It handles basic escape sequences and newlines within multiline strings.
-// It consumes the closing quote(s).
-// Returns the string content and a boolean indicating success (true) or unterminated (false).
 func (l *Lexer) readString(quote rune, isTriple bool) (string, bool) {
-	var out bytes.Buffer // Use bytes.Buffer for efficient string building
+	var out bytes.Buffer
 
 	for {
-		if l.ch == 0 { // EOF before closing quote
-			return constants.EmptyString, false // Unterminated
+		if l.ch == 0 { 
+			return constants.EmptyString, false 
 		}
 
-		if l.ch == constants.BackslashRune { // Handle escape sequences
-			l.readChar() // Consume '\'
+		if l.ch == constants.BackslashRune { 
+			l.readChar() 
 			switch l.ch {
 			case constants.CharNRune:
 				out.WriteRune(constants.NewlineRune)
@@ -961,50 +789,43 @@ func (l *Lexer) readString(quote rune, isTriple bool) (string, bool) {
 				out.WriteRune(constants.DoubleQuoteRune)
 			case constants.SingleQuoteRune:
 				out.WriteRune(constants.SingleQuoteRune)
-			// Add more escapes as needed (e.g., \r, \b, \f, \uXXXX, etc.)
-			case 0: // EOF after backslash
-				return constants.EmptyString, false // Unterminated
-			case constants.NewlineRune: // Escaped newline (ignore backslash and newline)
+			case 0: 
+				return constants.EmptyString, false 
+			case constants.NewlineRune: 
 				l.line++
 				l.column = 0
-				// Consume the newline character without adding anything to buffer
 			default:
-				// Unknown escape sequence, treat as literal backslash + char
 				out.WriteRune(constants.BackslashRune)
 				out.WriteRune(l.ch)
 			}
-			l.readChar() // Consume the character after '\' or the escaped char
-		} else if l.ch == quote { // Potential closing quote
+			l.readChar() 
+		} else if l.ch == quote { 
 			if isTriple {
-				// Need two more quotes
 				if l.peekChar() == quote && l.peekCharN(2) == quote {
-					l.readChar()              // Consume first closing quote
-					l.readChar()              // Consume second closing quote
-					l.readChar()              // Consume third closing quote
-					return out.String(), true // Properly terminated triple quote
+					l.readChar()              
+					l.readChar()              
+					l.readChar()              
+					return out.String(), true 
 				} else {
-					// Just a regular quote char inside the triple-quoted string
 					out.WriteRune(l.ch)
-					l.readChar() // Consume the quote
+					l.readChar() 
 				}
-			} else { // Single quoted string
-				l.readChar()              // Consume the closing quote
-				return out.String(), true // Properly terminated single quote
+			} else { 
+				l.readChar()              
+				return out.String(), true 
 			}
-		} else if l.ch == constants.NewlineRune { // Handle newline within the string
-			out.WriteRune(l.ch) // Keep the newline in the string literal
-			l.readChar()        // Consume newline
+		} else if l.ch == constants.NewlineRune { 
+			out.WriteRune(l.ch) 
+			l.readChar()        
 			l.line++
-			l.column = 0 // Reset column
-		} else { // Regular character
+			l.column = 0 
+		} else { 
 			out.WriteRune(l.ch)
-			l.readChar() // Consume the character
+			l.readChar() 
 		}
 	}
-	// Loop only exits via return statements (terminated or unterminated)
 }
 
-// isLetter, isDigit remain the same...
 func isLetter(ch rune) bool {
 	return unicode.IsLetter(ch) || ch == constants.UnderscoreRune
 }

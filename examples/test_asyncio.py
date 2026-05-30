@@ -23,3 +23,4 @@ async def main_program():
     print(format_str("\n✅ All tasks finished in {end - start} seconds!"))
     print(format_str("Results: {results}"))
 
+asyncio.run(main_program())

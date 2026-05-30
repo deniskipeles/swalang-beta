@@ -23,12 +23,24 @@ echo "================================================="
 echo "🛡️  Building Isolated MbedTLS FFI Dependency"
 echo "================================================="
 
-if [ ! -d "$MBEDTLS_DIR" ]; then
-    echo "📥 Cloning MbedTLS and submodules..."
-    git clone --depth 1 --recurse-submodules \
+if [ ! -d "$MBEDTLS_DIR" ] || [ ! -f "$MBEDTLS_DIR/CMakeLists.txt" ]; then
+    echo "📥 Cloning MbedTLS LTS (mbedtls-3.6.4)..."
+    rm -rf "$MBEDTLS_DIR"
+    git clone --depth 1 --branch mbedtls-3.6.4 \
         https://github.com/Mbed-TLS/mbedtls.git "$MBEDTLS_DIR"
+        
+    echo "🧹 Cleaning conflicting submodule directories..."
+    rm -rf "$MBEDTLS_DIR/framework"
+    
+    echo "📥 Initializing submodules..."
+    git -C "$MBEDTLS_DIR" submodule update --init --recursive
 else
-    echo "✔️  MbedTLS source already present."
+    echo "✔️  MbedTLS source already present. Ensuring version mbedtls-3.6.4..."
+    git -C "$MBEDTLS_DIR" fetch origin tag mbedtls-3.6.4 --no-tags 2>/dev/null || true
+    git -C "$MBEDTLS_DIR" checkout mbedtls-3.6.4 2>/dev/null || true
+    
+    [ ! -f "$MBEDTLS_DIR/framework/.git" ] && rm -rf "$MBEDTLS_DIR/framework"
+    
     git -C "$MBEDTLS_DIR" submodule update --init --recursive 2>/dev/null || true
     restore_tfpsa_cmake
 fi
@@ -57,8 +69,9 @@ for target in "${TARGETS[@]}"; do
     if $is_windows; then
         restore_tfpsa_cmake
 
-        echo "🩹 Patching tf-psa-crypto: SHARED → STATIC for $target..."
-        python3 - <<'PYEOF'
+        if [ -f "$TFPSA_CMAKE" ]; then
+            echo "🩹 Patching tf-psa-crypto: SHARED → STATIC for $target..."
+            python3 - <<'PYEOF'
 import sys, os, pathlib
 
 path = pathlib.Path(os.environ["TFPSA_CMAKE"])
@@ -75,8 +88,9 @@ path.write_text(original.replace(
 print("✅ Patch applied.")
 PYEOF
 
-        echo "🔍 Verifying patch..."
-        grep -n "add_library.*tfpsacrypto" "$TFPSA_CMAKE"
+            echo "🔍 Verifying patch..."
+            grep -n "add_library.*tfpsacrypto" "$TFPSA_CMAKE"
+        fi
     fi
 
     cmake_flags=(
@@ -87,6 +101,7 @@ PYEOF
         "-DENABLE_TESTING=OFF"
         "-DENABLE_PROGRAMS=OFF"
         "-DMBEDTLS_FATAL_WARNINGS=OFF"
+        "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-rpath,'\$ORIGIN'"
     )
 
     if $is_windows; then
@@ -114,7 +129,6 @@ PYEOF
         echo "🔄 Restoring tf-psa-crypto/core/CMakeLists.txt..."
         restore_tfpsa_cmake
 
-        # libtfpsacrypto.a excluded — symbols already baked into libmbedcrypto.a
         declare -A seen_libs
         static_libs=()
         while IFS= read -r lib; do
@@ -139,8 +153,6 @@ PYEOF
 
         echo "✅ libmbedtls.dll created."
     else
-        # Step 1: copy only real .so files (not symlinks) — includes libtfpsa*
-        # because libmbedcrypto.so.X.Y.Z is a symlink into it in this mbedtls version
         find "$build_dir" \( \
             -name "libmbed*.so*" -o \
             -name "libmbed*.dylib*" -o \
@@ -149,7 +161,7 @@ PYEOF
 
         pushd "$out_dir" > /dev/null
 
-        # Step 2: SONAME intermediate symlinks (e.g. libmbedtls.so.23 → libmbedtls.so.4.1.0)
+        # Step 2: SONAME intermediate symlinks
         for real in *.so.*.*; do
             [ -f "$real" ] || continue
             soname=$(readelf -d "$real" 2>/dev/null \
@@ -159,7 +171,7 @@ PYEOF
             fi
         done
 
-        # Step 3: bare .so symlinks (e.g. libmbedtls.so → libmbedtls.so.4.1.0)
+        # Step 3: bare .so symlinks
         for real in *.so.*.*; do
             [ -f "$real" ] || continue
             bare="${real%%.so*}.so"
@@ -168,10 +180,7 @@ PYEOF
 
         popd > /dev/null
 
-        # Step 4: recreate libmbedcrypto.so* aliases — in this mbedtls version
-        # libmbedcrypto IS libtfpsacrypto. The build dir has libmbedcrypto.so*
-        # as symlinks into libtfpsacrypto, skipped by -not -type l above.
-        # We recreate every libmbedcrypto.so* name pointing at the real tfpsa file.
+        # Step 4: recreate libmbedcrypto.so* aliases
         tfpsa_real=$(basename "$(ls "$out_dir"/libtfpsacrypto.so.*.* 2>/dev/null | head -1)")
         if [[ -n "$tfpsa_real" ]]; then
             pushd "$out_dir" > /dev/null

@@ -20,6 +20,9 @@ func evalExpressions(exps []ast.Expression, ctx *InterpreterContext) []object.Ob
 		if object.IsError(evaluated) {
 			return []object.Object{evaluated}
 		}
+		if _, isYield := evaluated.(*object.YieldValue); isYield {
+			return []object.Object{evaluated}
+		}
 		result[i] = evaluated
 	}
 	return result
@@ -35,6 +38,9 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 func evalPrefixExpression(node *ast.PrefixExpression, ctx *InterpreterContext) object.Object {
 	right := Eval(node.Right, ctx) // Pass ctx
 	if object.IsError(right) {
+		return right
+	}
+	if _, isYield := right.(*object.YieldValue); isYield {
 		return right
 	}
 	op, token := node.Operator, node.Token
@@ -115,11 +121,10 @@ func evalInfixExpression(node *ast.InfixExpression, ctx *InterpreterContext) obj
 	if object.IsError(left) {
 		return left
 	}
-	// <<< ADD THIS BLOCK >>>
 	if _, isYield := left.(*object.YieldValue); isYield {
 		return left
 	}
-	// <<< END OF FIX >>>
+
 	op, token := node.Operator, node.Token
 	if op == constants.AndKeyword {
 		truthy, err := object.IsTruthy(ctx, left)
@@ -132,7 +137,14 @@ func evalInfixExpression(node *ast.InfixExpression, ctx *InterpreterContext) obj
 		if !truthy {
 			return left
 		}
-		return Eval(node.Right, ctx)
+		right := Eval(node.Right, ctx)
+		if object.IsError(right) {
+			return right
+		}
+		if _, isYield := right.(*object.YieldValue); isYield {
+			return right
+		}
+		return right
 	}
 	if op == constants.OrKeyword {
 		truthy, err := object.IsTruthy(ctx, left)
@@ -145,12 +157,23 @@ func evalInfixExpression(node *ast.InfixExpression, ctx *InterpreterContext) obj
 		if truthy {
 			return left
 		}
-		return Eval(node.Right, ctx)
+		right := Eval(node.Right, ctx)
+		if object.IsError(right) {
+			return right
+		}
+		if _, isYield := right.(*object.YieldValue); isYield {
+			return right
+		}
+		return right
 	}
 	right := Eval(node.Right, ctx)
 	if object.IsError(right) {
 		return right
 	}
+	if _, isYield := right.(*object.YieldValue); isYield {
+		return right
+	}
+
 	// Step 1: Handle `is` and `is not` which don't use dunder methods and have the highest precedence.
 	switch op {
 	case constants.IsKeyword:
@@ -348,6 +371,9 @@ func evalCallExpression(node *ast.CallExpression, ctx *InterpreterContext) objec
 	if object.IsError(callable) {
 		return callable
 	}
+	if _, isYield := callable.(*object.YieldValue); isYield {
+		return callable
+	}
 	finalPositionalArgs := []object.Object{}
 	finalCallsiteKwargs := make(map[string]object.Object)
 	providedKeywordArgs := make(map[string]bool)
@@ -361,11 +387,17 @@ func evalCallExpression(node *ast.CallExpression, ctx *InterpreterContext) objec
 			if object.IsError(val) {
 				return val
 			}
+			if _, isYield := val.(*object.YieldValue); isYield {
+				return val
+			}
 			finalCallsiteKwargs[an.Name.Value] = val
 			providedKeywordArgs[an.Name.Value] = true
 		case *ast.StarredArgument:
 			val := Eval(an.Value, ctx)
 			if object.IsError(val) {
+				return val
+			}
+			if _, isYield := val.(*object.YieldValue); isYield {
 				return val
 			}
 			if an.IsKwUnpack {
@@ -403,6 +435,9 @@ func evalCallExpression(node *ast.CallExpression, ctx *InterpreterContext) objec
 		default:
 			evaluatedArg := Eval(an, ctx)
 			if object.IsError(evaluatedArg) {
+				return evaluatedArg
+			}
+			if _, isYield := evaluatedArg.(*object.YieldValue); isYield {
 				return evaluatedArg
 			}
 			if len(providedKeywordArgs) > 0 {
@@ -553,15 +588,25 @@ func evalStringInfixExpression(op string, left, right object.Object, token lexer
 }
 func evalListLiteral(node *ast.ListLiteral, ctx *InterpreterContext) object.Object {
 	elements := evalExpressions(node.Elements, ctx)
-	if len(elements) == 1 && object.IsError(elements[0]) {
-		return elements[0]
+	if len(elements) == 1 {
+		if object.IsError(elements[0]) {
+			return elements[0]
+		}
+		if _, isYield := elements[0].(*object.YieldValue); isYield {
+			return elements[0]
+		}
 	}
 	return &object.List{Elements: elements}
 }
 func evalTupleLiteral(node *ast.TupleLiteral, ctx *InterpreterContext) object.Object {
 	elements := evalExpressions(node.Elements, ctx)
-	if len(elements) == 1 && object.IsError(elements[0]) {
-		return elements[0]
+	if len(elements) == 1 {
+		if object.IsError(elements[0]) {
+			return elements[0]
+		}
+		if _, isYield := elements[0].(*object.YieldValue); isYield {
+			return elements[0]
+		}
 	}
 	return &object.Tuple{Elements: elements}
 }
@@ -570,6 +615,9 @@ func evalSetLiteral(node *ast.SetLiteral, ctx *InterpreterContext) object.Object
 	for _, elNode := range node.Elements {
 		el := Eval(elNode, ctx)
 		if object.IsError(el) {
+			return el
+		}
+		if _, isYield := el.(*object.YieldValue); isYield {
 			return el
 		}
 		hashableEl, ok := el.(object.Hashable)
@@ -592,6 +640,9 @@ func evalDictLiteral(node *ast.DictLiteral, ctx *InterpreterContext) object.Obje
 		if object.IsError(key) {
 			return key
 		}
+		if _, isYield := key.(*object.YieldValue); isYield {
+			return key
+		}
 		hashableKey, ok := key.(object.Hashable)
 		if !ok {
 			return object.NewErrorWithLocation(node.Token, constants.TypeError, constants.EvalExpressionsUnhashableType, key.Type())
@@ -604,6 +655,9 @@ func evalDictLiteral(node *ast.DictLiteral, ctx *InterpreterContext) object.Obje
 		if object.IsError(value) {
 			return value
 		}
+		if _, isYield := value.(*object.YieldValue); isYield {
+			return value
+		}
 		pairs[hashed] = object.DictPair{Key: key, Value: value}
 	}
 	return &object.Dict{Pairs: pairs}
@@ -614,8 +668,14 @@ func evalIndexExpression(node *ast.IndexExpression, ctx *InterpreterContext) obj
 	if object.IsError(left) {
 		return left
 	}
+	if _, isYield := left.(*object.YieldValue); isYield {
+		return left
+	}
 	index := Eval(node.Index, ctx)
 	if object.IsError(index) {
+		return index
+	}
+	if _, isYield := index.(*object.YieldValue); isYield {
 		return index
 	}
 	token := node.Token
@@ -911,6 +971,9 @@ func evalTernaryExpression(node *ast.TernaryExpression, ctx *InterpreterContext)
 func evalDotExpression(node *ast.DotExpression, ctx *InterpreterContext) object.Object {
 	left := Eval(node.Left, ctx)
 	if object.IsError(left) {
+		return left
+	}
+	if _, isYield := left.(*object.YieldValue); isYield {
 		return left
 	}
 

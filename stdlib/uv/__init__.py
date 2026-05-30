@@ -435,6 +435,24 @@ def shutdown_loop(loop):
     loop.close()
 
 # ==============================================================================
+#  Safe Close Helper for Handles
+# ==============================================================================
+
+def _safe_close(loop, ptr, callback=None):
+    if not ptr or _uv_is_closing(ptr):
+        return None
+    def _c_close(h):
+        if callback:
+            try:
+                callback()
+            except Exception:
+                pass
+        ffi.free(ptr)
+    cb = ffi.callback(_c_close, None, [ffi.c_void_p])
+    loop._keep(cb)
+    _uv_close(ptr, cb)
+
+# ==============================================================================
 #  Timer
 # ==============================================================================
 
@@ -485,19 +503,8 @@ class Timer:
         return _uv_timer_get_repeat(self.ptr)
 
     def close(self, callback=None):
-        if self.ptr and not _uv_is_closing(self.ptr):
-            if callback:
-                def _c_close(h):
-                    try:
-                        callback()
-                    except Exception:
-                        pass
-                cb = ffi.callback(_c_close, None, [ffi.c_void_p])
-                self.loop._keep(cb)
-                _uv_close(self.ptr, cb)
-            else:
-                _uv_close(self.ptr, None)
-            ffi.free(self.ptr)
+        if self.ptr:
+            _safe_close(self.loop, self.ptr, callback)
             self.ptr = None
 
 # ==============================================================================
@@ -528,9 +535,8 @@ class Idle:
     def stop(self):  _uv_idle_stop(self.ptr)
 
     def close(self):
-        if self.ptr and not _uv_is_closing(self.ptr):
-            _uv_close(self.ptr, None)
-            ffi.free(self.ptr)
+        if self.ptr:
+            _safe_close(self.loop, self.ptr)
             self.ptr = None
 
 
@@ -555,9 +561,8 @@ class Prepare:
     def stop(self):  _uv_prepare_stop(self.ptr)
 
     def close(self):
-        if self.ptr and not _uv_is_closing(self.ptr):
-            _uv_close(self.ptr, None)
-            ffi.free(self.ptr)
+        if self.ptr:
+            _safe_close(self.loop, self.ptr)
             self.ptr = None
 
 
@@ -582,9 +587,8 @@ class Check:
     def stop(self):  _uv_check_stop(self.ptr)
 
     def close(self):
-        if self.ptr and not _uv_is_closing(self.ptr):
-            _uv_close(self.ptr, None)
-            ffi.free(self.ptr)
+        if self.ptr:
+            _safe_close(self.loop, self.ptr)
             self.ptr = None
 
 # ==============================================================================
@@ -636,9 +640,8 @@ class Signal:
     def stop(self):  _uv_signal_stop(self.ptr)
 
     def close(self):
-        if self.ptr and not _uv_is_closing(self.ptr):
-            _uv_close(self.ptr, None)
-            ffi.free(self.ptr)
+        if self.ptr:
+            _safe_close(self.loop, self.ptr)
             self.ptr = None
 
 # ==============================================================================
@@ -881,19 +884,8 @@ class TCP:
     # ---- lifecycle ----------------------------------------------------------
 
     def close(self, callback=None):
-        if self.ptr and not _uv_is_closing(self.ptr):
-            if callback:
-                def _c_close(h):
-                    try:
-                        callback()
-                    except Exception:
-                        pass
-                cb = ffi.callback(_c_close, None, [ffi.c_void_p])
-                self.loop._keep(cb)
-                _uv_close(self.ptr, cb)
-            else:
-                _uv_close(self.ptr, None)
-            ffi.free(self.ptr)
+        if self.ptr:
+            _safe_close(self.loop, self.ptr, callback)
             self.ptr = None
 
 # ==============================================================================
@@ -1035,19 +1027,8 @@ class UDP:
         return _sockname(_uv_udp_getsockname, self.ptr)
 
     def close(self, callback=None):
-        if self.ptr and not _uv_is_closing(self.ptr):
-            if callback:
-                def _c_close(h):
-                    try:
-                        callback()
-                    except Exception:
-                        pass
-                cb = ffi.callback(_c_close, None, [ffi.c_void_p])
-                self.loop._keep(cb)
-                _uv_close(self.ptr, cb)
-            else:
-                _uv_close(self.ptr, None)
-            ffi.free(self.ptr)
+        if self.ptr:
+            _safe_close(self.loop, self.ptr, callback)
             self.ptr = None
 
 # ==============================================================================
@@ -1170,19 +1151,8 @@ class Pipe:
         return self
 
     def close(self, callback=None):
-        if self.ptr and not _uv_is_closing(self.ptr):
-            if callback:
-                def _c_close(h):
-                    try:
-                        callback()
-                    except Exception:
-                        pass
-                cb = ffi.callback(_c_close, None, [ffi.c_void_p])
-                self.loop._keep(cb)
-                _uv_close(self.ptr, cb)
-            else:
-                _uv_close(self.ptr, None)
-            ffi.free(self.ptr)
+        if self.ptr:
+            _safe_close(self.loop, self.ptr, callback)
             self.ptr = None
 
 # ==============================================================================

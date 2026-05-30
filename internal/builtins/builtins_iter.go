@@ -2,20 +2,15 @@ package builtins
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/deniskipeles/pylearn/internal/constants"
-	"github.com/deniskipeles/pylearn/internal/lexer" // For token info
+	"github.com/deniskipeles/pylearn/internal/lexer"
 	"github.com/deniskipeles/pylearn/internal/object"
 )
 
-// NOTE: These functions are highly dependent on a well-defined iterator protocol
-// ( __iter__ method returning an iterator object, and __next__ method on the iterator).
-// The implementations below are placeholders or simplified versions assuming basic types.
-
-// --- iter() ---
-// Accepts ExecutionContext
 func pyIterFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
-	token := lexer.Token{Line: -1, Column: 0, Type: lexer.ILLEGAL, Literal: constants.BuiltinsIterTokenLiteral} // Placeholder token
+	token := lexer.Token{Line: -1, Column: 0, Type: lexer.ILLEGAL, Literal: constants.BuiltinsIterTokenLiteral}
 	var obj object.Object
 
 	if len(args) < 1 || len(args) > 2 {
@@ -23,79 +18,51 @@ func pyIterFn(ctx object.ExecutionContext, args ...object.Object) object.Object 
 	}
 	obj = args[0]
 
-	if len(args) == 2 { // iter(callable, sentinel)
+	if len(args) == 2 {
 		sentinel := args[1]
-
-		// Check if 'obj' is callable using the 'callable' builtin via context
 		callableBuiltin, ok := Builtins[constants.BuiltinsCallableFuncName]
 		if !ok {
 			return object.NewError(constants.InternalError, constants.BuiltinsIterCallableBuiltinNotFound)
 		}
-		// Execute callable() using the provided context
 		callableResult := ctx.Execute(callableBuiltin, obj)
 		if object.IsError(callableResult) {
-			// Propagate error from callable() check itself
 			return callableResult
 		}
 
-		// callable() returns TRUE or FALSE object
 		if callableResult != object.TRUE {
-			// Use object.NewErrorWithLocation (using placeholder token)
 			return object.NewErrorWithLocation(token, constants.TypeError, constants.BuiltinsIterVMustBeCallable)
 		}
 
-		// Create and return a callable iterator object
 		return &object.GenericIterator{
 			Source: constants.BuiltinsIterCallableSource,
-			NextFn: func() (object.Object, bool) { // This closure still captures 'obj' and 'sentinel'
-				// --- Execute the captured callable object using the context ---
-				// This allows calling functions or instances with __call__ correctly
-				result := ctx.Execute(obj /* callable */) // Call with NO arguments
-				// --- End Execution via Context ---
-
-				if object.IsError(result) { // Use object.IsError
-					// How to handle errors from the callable? Stop iteration?
-					// Python usually propagates the error.
-					// For now, treat error as the value to check against sentinel,
-					// or maybe return it directly to stop iteration?
-					// Let's log and continue checking against sentinel for now.
-					// A dedicated error return might be better long term.
+			NextFn: func() (object.Object, bool) {
+				result := ctx.Execute(obj)
+				if object.IsError(result) {
 					fmt.Printf(constants.BuiltinsIterWarningErrorIgnored, result.Inspect())
 				}
 
-				// Basic comparison using Inspect (improve with proper equality check later)
-				// TODO: Replace with a proper object comparison helper (e.g., ctx.Equals(result, sentinel))
 				isEqual := (result.Type() == sentinel.Type() && result.Inspect() == sentinel.Inspect())
-
 				if isEqual {
-					return nil, true // Stop iteration if result == sentinel
+					return nil, true
 				}
-				return result, false // Return the result
+				return result, false
 			},
 		}
 	}
 
-	// iter(object) variant
-	// Use the GetObjectIterator helper (which should ideally be moved out of interpreter)
-	// For now, let's assume a similar helper exists or move it to 'object' package.
-	// Replace interpreter.GetObjectIterator with object.GetObjectIterator
-	iterator, errObj := object.GetObjectIterator(ctx, obj, token) // Pass context and token
+	iterator, errObj := object.GetObjectIterator(ctx, obj, token)
 	if errObj != nil {
-		// errObj should already be an object.Error
 		return errObj
 	}
 	return iterator
 }
 
-// --- next() ---
-// Accepts ExecutionContext (unused but required by signature)
 func pyNextFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
-	token := lexer.Token{Line: -1, Column: 0, Type: lexer.ILLEGAL, Literal: constants.BuiltinsNextTokenLiteral} // Placeholder token
+	token := lexer.Token{Line: -1, Column: 0, Type: lexer.ILLEGAL, Literal: constants.BuiltinsNextTokenLiteral}
 	hasDefault := false
 	var defaultVal object.Object
 
 	if len(args) < 1 || len(args) > 2 {
-		// Use object.NewErrorWithLocation
 		return object.NewErrorWithLocation(token, constants.TypeError, constants.BuiltinsNextArgCountError, len(args))
 	}
 
@@ -105,105 +72,332 @@ func pyNextFn(ctx object.ExecutionContext, args ...object.Object) object.Object 
 		defaultVal = args[1]
 	}
 
-	// Check if the argument is actually an iterator using the Go interface
-	// This remains an internal Go check.
 	iterator, ok := iteratorArg.(object.Iterator)
 	if !ok {
-		// Try checking for __next__ method if not implementing the interface? Complex.
-		// For now, require our internal Iterator interface.
-		// Use object.NewErrorWithLocation
 		return object.NewErrorWithLocation(token, constants.TypeError, constants.BuiltinsNextObjectNotIterator, iteratorArg.Type())
 	}
 
-	// Call the iterator's internal Go Next method
 	nextItem, stop := iterator.Next()
-
 	if stop {
-		// Iterator finished
 		if hasDefault {
-			return defaultVal // Return the default value
+			return defaultVal
 		}
-		// No default, raise StopIteration
-		// Return the *singleton* error instance defined in object.go
 		return object.STOP_ITERATION
 	}
 
-	// Iterator returned an item
-	// If nextItem itself is an error (e.g., from iter(callable)), propagate it
 	if object.IsError(nextItem) {
 		return nextItem
 	}
-
 	return nextItem
 }
 
-// --- Other Iterator Builtins (Placeholders) ---
-// Update signatures to accept context
-
-// pyEnumerateFn implements enumerate(iterable, start=0)
 func pyEnumerateFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
-	if len(args) < 1 || len(args) > 2 {
-		return object.NewError(constants.TypeError, constants.BuiltinsEnumerateArgCountError, len(args))
+	var kwargs *object.Dict
+	var positionalArgs []object.Object
+
+	if len(args) > 0 {
+		lastArg := args[len(args)-1]
+		if dictObj, isDict := lastArg.(*object.Dict); isDict {
+			kwargs = dictObj
+			positionalArgs = args[:len(args)-1]
+		} else {
+			positionalArgs = args
+		}
 	}
 
-	iterableArg := args[0]
-	startValue := int64(0) // Default start is 0
+	if len(positionalArgs) < 1 || len(positionalArgs) > 2 {
+		return object.NewError(constants.TypeError, constants.BuiltinsEnumerateArgCountError, len(positionalArgs))
+	}
 
-	if len(args) == 2 {
-		if args[1] != object.NULL { // Allow None for start to mean default 0
-			startObj, ok := args[1].(*object.Integer)
+	iterableArg := positionalArgs[0]
+	startValue := int64(0)
+
+	if len(positionalArgs) == 2 {
+		if positionalArgs[1] != object.NULL {
+			startObj, ok := positionalArgs[1].(*object.Integer)
 			if !ok {
-				return object.NewError(constants.TypeError, constants.BuiltinsEnumerateStartArgTypeError, args[1].Type())
+				return object.NewError(constants.TypeError, constants.BuiltinsEnumerateStartArgTypeError, positionalArgs[1].Type())
 			}
 			startValue = startObj.Value
 		}
 	}
 
-	// Get an iterator for the input iterable.
-	// Use a placeholder token for errors originating from GetObjectIterator itself,
-	// as there isn't a specific Pylearn source token for this internal step.
+	if kwargs != nil {
+		startKeyObj := &object.String{Value: constants.BuiltinsStartParam}
+		startHash, _ := startKeyObj.HashKey()
+		if pair, ok := kwargs.Pairs[startHash]; ok {
+			if len(positionalArgs) == 2 {
+				return object.NewError(constants.TypeError, constants.BuiltinsEnumerateMultipleValuesError)
+			}
+			startObj, ok := pair.Value.(*object.Integer)
+			if !ok {
+				return object.NewError(constants.TypeError, constants.BuiltinsEnumerateStartArgTypeError, pair.Value.Type())
+			}
+			startValue = startObj.Value
+		}
+	}
+
 	sourceIter, errObj := object.GetObjectIterator(ctx, iterableArg, object.NoToken)
 	if errObj != nil {
-		// errObj is already an *object.Error (TypeError: '...' object is not iterable)
 		return errObj
 	}
 
-	// Create and return the EnumerateIterator object
 	return &object.EnumerateIterator{
 		SourceIterator: sourceIter,
-		CurrentIndex:   startValue, // Initialize with the start value
+		CurrentIndex:   startValue,
 	}
 }
 
-func pyZipFn(ctx object.ExecutionContext, args ...object.Object /* *iterables */) object.Object {
-	// TODO: Implement zip(). Needs GetObjectIterator on all inputs, returns zip iterator object.
-	return object.NewError(constants.NotImplementedError, constants.BuiltinsZipNotImplemented)
+func pyZipFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
+	if len(args) == 0 {
+		return &object.GenericIterator{
+			Source: constants.BuiltinsZipSourceName,
+			NextFn: func() (object.Object, bool) { return nil, true },
+		}
+	}
+
+	iters := make([]object.Iterator, len(args))
+	for i, arg := range args {
+		iter, errObj := object.GetObjectIterator(ctx, arg, object.NoToken)
+		if errObj != nil {
+			return errObj
+		}
+		iters[i] = iter
+	}
+
+	return &object.GenericIterator{
+		Source: constants.BuiltinsZipSourceName,
+		NextFn: func() (object.Object, bool) {
+			elements := make([]object.Object, len(iters))
+			for i, iter := range iters {
+				item, stop := iter.Next()
+				if stop {
+					return nil, true
+				}
+				if object.IsError(item) {
+					return item, true
+				}
+				elements[i] = item
+			}
+			return &object.Tuple{Elements: elements}, false
+		},
+	}
 }
 
-func pyMapFn(ctx object.ExecutionContext, args ...object.Object /* function, *iterables */) object.Object {
-	// TODO: Implement map(). Needs callable check, GetObjectIterator on inputs, returns map iterator object. Uses ctx.Execute for function.
-	return object.NewError(constants.NotImplementedError, constants.BuiltinsMapNotImplemented)
+func pyMapFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
+	if len(args) < 2 {
+		return object.NewError(constants.TypeError, constants.BuiltinsMapAtLeastTwoArgsError)
+	}
+
+	fn := args[0]
+	if !object.IsCallable(fn) {
+		return object.NewError(constants.TypeError, constants.ErrNotCallable, fn.Type())
+	}
+
+	iters := make([]object.Iterator, len(args)-1)
+	for i, arg := range args[1:] {
+		iter, errObj := object.GetObjectIterator(ctx, arg, object.NoToken)
+		if errObj != nil {
+			return errObj
+		}
+		iters[i] = iter
+	}
+
+	return &object.GenericIterator{
+		Source: constants.BuiltinsMapSourceName,
+		NextFn: func() (object.Object, bool) {
+			callArgs := make([]object.Object, len(iters))
+			for i, iter := range iters {
+				item, stop := iter.Next()
+				if stop {
+					return nil, true
+				}
+				if object.IsError(item) {
+					return item, true
+				}
+				callArgs[i] = item
+			}
+
+			res := ctx.Execute(fn, callArgs...)
+			if object.IsError(res) {
+				return res, true
+			}
+			return res, false
+		},
+	}
 }
 
-func pyFilterFn(ctx object.ExecutionContext, args ...object.Object /* function or None, iterable */) object.Object {
-	// TODO: Implement filter(). Needs callable check, GetObjectIterator on input, returns filter iterator object. Uses ctx.Execute for function, object.IsTruthy for check.
-	return object.NewError(constants.NotImplementedError, constants.BuiltinsFilterNotImplemented)
+func pyFilterFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
+	if len(args) != 2 {
+		return object.NewError(constants.TypeError, constants.BuiltinsFilterArgCountError, len(args))
+	}
+
+	fn := args[0]
+	iter, errObj := object.GetObjectIterator(ctx, args[1], object.NoToken)
+	if errObj != nil {
+		return errObj
+	}
+
+	return &object.GenericIterator{
+		Source: constants.BuiltinsFilterSourceName,
+		NextFn: func() (object.Object, bool) {
+			for {
+				item, stop := iter.Next()
+				if stop {
+					return nil, true
+				}
+				if object.IsError(item) {
+					return item, true
+				}
+
+				var isTrue bool
+				if fn == object.NULL {
+					isTrue, _ = object.IsTruthy(ctx, item)
+				} else {
+					res := ctx.Execute(fn, item)
+					if object.IsError(res) {
+						return res, true
+					}
+					isTrue, _ = object.IsTruthy(ctx, res)
+				}
+
+				if isTrue {
+					return item, false
+				}
+			}
+		},
+	}
 }
 
 func pyReversedFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
-	// TODO: Implement reversed(). Needs __reversed__ or (__len__ and __getitem__) on input, returns a reverse iterator. May need ctx.Execute.
-	return object.NewError(constants.NotImplementedError, constants.BuiltinsReversedNotImplemented)
+	if len(args) != 1 {
+		return object.NewError(constants.TypeError, constants.BuiltinsReversedArgCountError, len(args))
+	}
+
+	iter, errObj := object.GetObjectIterator(ctx, args[0], object.NoToken)
+	if errObj != nil {
+		return errObj
+	}
+
+	items, unpackErr := object.UnpackIterator(iter)
+	if unpackErr != nil {
+		return object.NewError(constants.RuntimeError, unpackErr.Error())
+	}
+
+	idx := len(items) - 1
+	return &object.GenericIterator{
+		Source: constants.BuiltinsReversedSourceName,
+		NextFn: func() (object.Object, bool) {
+			if idx < 0 {
+				return nil, true
+			}
+			item := items[idx]
+			idx--
+			return item, false
+		},
+	}
+}
+
+func pySortedFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
+	var kwargs *object.Dict
+	var positionalArgs []object.Object
+
+	if len(args) > 0 {
+		lastArg := args[len(args)-1]
+		if dictObj, isDict := lastArg.(*object.Dict); isDict {
+			kwargs = dictObj
+			positionalArgs = args[:len(args)-1]
+		} else {
+			positionalArgs = args
+		}
+	}
+
+	if len(positionalArgs) != 1 {
+		return object.NewError(constants.TypeError, constants.BuiltinsSortedArgCountError, len(positionalArgs))
+	}
+
+	reverse := false
+	var keyFn object.Object = object.NULL
+
+	if kwargs != nil {
+		revKey, _ := (&object.String{Value: constants.BuiltinsReverseParam}).HashKey()
+		if pair, ok := kwargs.Pairs[revKey]; ok {
+			r, _ := object.IsTruthy(ctx, pair.Value)
+			reverse = r
+		}
+
+		keyKey, _ := (&object.String{Value: constants.BuiltinsKeyParam}).HashKey()
+		if pair, ok := kwargs.Pairs[keyKey]; ok {
+			keyFn = pair.Value
+		}
+	}
+
+	iter, errObj := object.GetObjectIterator(ctx, positionalArgs[0], object.NoToken)
+	if errObj != nil {
+		return errObj
+	}
+
+	items, unpackErr := object.UnpackIterator(iter)
+	if unpackErr != nil {
+		return object.NewError(constants.RuntimeError, unpackErr.Error())
+	}
+
+	var sortErr object.Object
+
+	sort.SliceStable(items, func(i, j int) bool {
+		if sortErr != nil {
+			return false
+		}
+
+		a := items[i]
+		b := items[j]
+
+		if keyFn != object.NULL {
+			a = ctx.Execute(keyFn, a)
+			if object.IsError(a) {
+				sortErr = a
+				return false
+			}
+			b = ctx.Execute(keyFn, b)
+			if object.IsError(b) {
+				sortErr = b
+				return false
+			}
+		}
+
+		comp := object.CompareObjects(constants.LessThanOp, a, b, ctx)
+		if object.IsError(comp) {
+			sortErr = comp
+			return false
+		}
+
+		isLt := comp == object.TRUE
+		if reverse {
+			compRev := object.CompareObjects(constants.GreaterThanOp, a, b, ctx)
+			if object.IsError(compRev) {
+				sortErr = compRev
+				return false
+			}
+			return compRev == object.TRUE
+		}
+		return isLt
+	})
+
+	if sortErr != nil {
+		return sortErr
+	}
+
+	return &object.List{Elements: items}
 }
 
 func pyAllFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return object.NewError(constants.TypeError, constants.BuiltinsAllArgCountError, len(args))
 	}
-	// Use the new object.GetObjectIterator
 	iterator, errObj := object.GetObjectIterator(ctx, args[0], object.NoToken)
 	if errObj != nil {
 		return errObj
-	} // errObj is already an object.Object error
+	}
 
 	for {
 		item, stop := iterator.Next()
@@ -212,37 +406,30 @@ func pyAllFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
 		}
 		if object.IsError(item) {
 			return item
-		} // Propagate errors from iterator
+		}
 
-		// Use IsTruthy helper - requires context if that helper needs it
 		isTrue, truthErr := object.IsTruthy(ctx, item)
 		if truthErr != nil {
-			// --- FIX HERE ---
-			// Convert the Go error 'truthErr' into a Pylearn error object
-			// Check if it's already one of our error types
 			if pyErr, ok := truthErr.(object.Object); ok && object.IsError(pyErr) {
-				return pyErr // Return the existing Pylearn error
+				return pyErr
 			}
-			// Otherwise, wrap it
 			return object.NewError(constants.RuntimeError, constants.BuiltinsAllIsTruthyPropagatedError, truthErr)
-			// --- END FIX ---
 		}
 		if !isTrue {
-			return object.FALSE // Short-circuit on first false item
+			return object.FALSE
 		}
 	}
-	return object.TRUE // All items were true (or iterable was empty)
+	return object.TRUE
 }
 
 func pyAnyFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return object.NewError(constants.TypeError, constants.BuiltinsAnyArgCountError, len(args))
 	}
-	// Use the new object.GetObjectIterator
 	iterator, errObj := object.GetObjectIterator(ctx, args[0], object.NoToken)
 	if errObj != nil {
 		return errObj
-	} // errObj is already an object.Object error
+	}
 
 	for {
 		item, stop := iterator.Next()
@@ -251,37 +438,46 @@ func pyAnyFn(ctx object.ExecutionContext, args ...object.Object) object.Object {
 		}
 		if object.IsError(item) {
 			return item
-		} // Propagate errors from iterator
+		}
 
-		// Use IsTruthy helper - requires context if that helper needs it
 		isTrue, truthErr := object.IsTruthy(ctx, item)
 		if truthErr != nil {
-			// --- FIX HERE ---
-			// Convert the Go error 'truthErr' into a Pylearn error object
 			if pyErr, ok := truthErr.(object.Object); ok && object.IsError(pyErr) {
 				return pyErr
 			}
 			return object.NewError(constants.RuntimeError, constants.BuiltinsAnyIsTruthyPropagatedError, truthErr)
-			// --- END FIX ---
 		}
 		if isTrue {
-			return object.TRUE // Short-circuit on first true item
+			return object.TRUE
 		}
 	}
-	return object.FALSE // No items were true (or iterable was empty)
+	return object.FALSE
 }
 
 // --- Registration ---
-// Ensure function signatures match object.BuiltinFunction
 func init() {
-	registerBuiltin(constants.BuiltinsIterFuncName, &object.Builtin{Fn: pyIterFn})
-	registerBuiltin(constants.BuiltinsNextFuncName, &object.Builtin{Fn: pyNextFn})
-	registerBuiltin(constants.BuiltinsEnumerateFuncName, &object.Builtin{Fn: pyEnumerateFn})
-	registerBuiltin(constants.BuiltinsZipFuncName, &object.Builtin{Fn: pyZipFn})
-	registerBuiltin(constants.BuiltinsMapFuncName, &object.Builtin{Fn: pyMapFn})
-	registerBuiltin(constants.BuiltinsFilterFuncName, &object.Builtin{Fn: pyFilterFn})
-	registerBuiltin(constants.BuiltinsReversedFuncName, &object.Builtin{Fn: pyReversedFn})
-	registerBuiltin(constants.BuiltinsAllFuncName, &object.Builtin{Fn: pyAllFn})
-	registerBuiltin(constants.BuiltinsAnyFuncName, &object.Builtin{Fn: pyAnyFn})
-}
+	registerBuiltin(constants.BuiltinsIterFuncName, &object.Builtin{Name: constants.BuiltinsIterFuncName, Fn: pyIterFn})
+	registerBuiltin(constants.BuiltinsNextFuncName, &object.Builtin{Name: constants.BuiltinsNextFuncName, Fn: pyNextFn})
 
+	// Enumerate with keyword support
+	registerBuiltin(constants.BuiltinsEnumerateFuncName, &object.Builtin{
+		Name:            constants.BuiltinsEnumerateFuncName,
+		Fn:              pyEnumerateFn,
+		AcceptsKeywords: map[string]bool{constants.BuiltinsStartParam: true},
+	})
+
+	registerBuiltin(constants.BuiltinsZipFuncName, &object.Builtin{Name: constants.BuiltinsZipFuncName, Fn: pyZipFn})
+	registerBuiltin(constants.BuiltinsMapFuncName, &object.Builtin{Name: constants.BuiltinsMapFuncName, Fn: pyMapFn})
+	registerBuiltin(constants.BuiltinsFilterFuncName, &object.Builtin{Name: constants.BuiltinsFilterFuncName, Fn: pyFilterFn})
+	registerBuiltin(constants.BuiltinsReversedFuncName, &object.Builtin{Name: constants.BuiltinsReversedFuncName, Fn: pyReversedFn})
+
+	// Sorted with keyword support
+	registerBuiltin(constants.BuiltinsSortedFuncName, &object.Builtin{
+		Name:            constants.BuiltinsSortedFuncName,
+		Fn:              pySortedFn,
+		AcceptsKeywords: map[string]bool{constants.BuiltinsKeyParam: true, constants.BuiltinsReverseParam: true},
+	})
+
+	registerBuiltin(constants.BuiltinsAllFuncName, &object.Builtin{Name: constants.BuiltinsAllFuncName, Fn: pyAllFn})
+	registerBuiltin(constants.BuiltinsAnyFuncName, &object.Builtin{Name: constants.BuiltinsAnyFuncName, Fn: pyAnyFn})
+}

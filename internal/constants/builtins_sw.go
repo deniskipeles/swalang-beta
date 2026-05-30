@@ -20,7 +20,7 @@ const (
 // internal/builtins/builtins_debug.go
 const (
 	BuiltinsDebugHelpArgCountError      = "Expected 0 or 1 arguments for help()"
-	BuiltinsDebugHelpWelcomeMessage     = "Welcome to Swalang help utility!"
+	BuiltinsDebugHelpWelcomeMessage     = "Welcome to Pylearn help utility!"
 	BuiltinsDebugHelpNotImplemented     = "Interactive help is not implemented. Pass an object to help()."
 	BuiltinsDebugHelpOnObjectFormat     = "Help on %s object:\n"
 	BuiltinsDebugHelpDocumentationTitle = "\nDocumentation:\n"
@@ -41,7 +41,7 @@ const (
 	BuiltinsFstringContentMustBeExpression        = "f-string: content of {} ('%s') must be an expression"
 	BuiltinsFstringStrBuiltinNotFound             = "'str' built-in not found for f-string formatting"
 	BuiltinsFstringErrorConvertingResult          = "Error converting f-string expression result for '%s' to string: %s"
-	BuiltinsFstringStrDidNotReturnString          = "Swalang str() on f-string expression result did not return a string (got %s)"
+	BuiltinsFstringStrDidNotReturnString          = "Pylearn str() on f-string expression result did not return a string (got %s)"
 	BuiltinsFstringSingleBraceNotAllowed          = "f-string: single '}' is not allowed outside of an expression"
 	BuiltinsFormatStringFuncName                  = "format_str"
 	BuiltinsFormatStrFuncName                     = "f"
@@ -119,6 +119,20 @@ const (
 	BuiltinsReversedFuncName            = "reversed"
 	BuiltinsAllFuncName                 = "all"
 	BuiltinsAnyFuncName                 = "any"
+	
+	BuiltinsStartParam                   = "start"
+	BuiltinsEnumerateMultipleValuesError = "enumerate() got multiple values for argument 'start'"
+	BuiltinsZipSourceName                = "zip"
+	BuiltinsMapSourceName                = "map"
+	BuiltinsMapAtLeastTwoArgsError       = "map() must have at least two arguments."
+	BuiltinsFilterSourceName             = "filter"
+	BuiltinsFilterArgCountError          = "filter expected 2 arguments, got %d"
+	BuiltinsReversedSourceName           = "reversed"
+	BuiltinsReversedArgCountError        = "reversed expected 1 argument, got %d"
+	BuiltinsSortedFuncName               = "sorted"
+	BuiltinsSortedArgCountError          = "sorted expected 1 argument, got %d"
+	BuiltinsReverseParam                 = "reverse"
+	BuiltinsKeyParam                     = "key"
 )
 
 // internal/builtins/builtins_math.go
@@ -232,11 +246,12 @@ const (
 	BuiltinsTupleFuncName   = "tuple"
 	BuiltinsSetFuncName     = "set"
 	BuiltinsBytesFuncName   = "bytes"
-	BuiltinsFunctionType    = "function"
-	BuiltinsObjectType      = "object"
 	BuiltinsTypeType        = "type"
-	BuiltinsFileType        = "file"
-	BuiltinsModuleType      = "module"
+
+	BuiltinsFunctionType = "function"
+	BuiltinsObjectType   = "object"
+	BuiltinsFileType     = "file"
+	BuiltinsModuleType   = "module"
 )
 
 // internal/builtins/builtins_string.go
@@ -302,6 +317,8 @@ const (
 	BuiltinsFloatTakesAtMost1Argument_DIGITFORMATER_Given       = "float() takes at most 1 argument (%d given)"
 	BuiltinsCouldNotConvertStringToFloat_STRINGFORMATER         = "could not convert string to float: %s"
 	BuiltinsFloatArgumentMustBeStringOrNumberNot_STRINGFORMATER = "float() argument must be a string or a number, not '%s'"
+	BuiltinsTypesDictConvertElementError = "cannot convert dictionary update sequence element to a sequence"
+	BuiltinsTypesDictElementLengthError  = "dictionary update sequence element has incorrect length"
 	// "inf", "+inf", "infinity", "+infinity"
 	BuiltinsInf            = "inf"
 	Builtins_PLUS_Inf      = "+inf"

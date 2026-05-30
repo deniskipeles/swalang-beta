@@ -1,5 +1,5 @@
 """
-mongoose.py — Production-ready Mongoose networking bindings for Swalang.
+stdlib/mongoose.py — Production-ready Mongoose networking bindings for Swalang.
 
 Covers:
   - HTTP/HTTPS server and client
@@ -56,8 +56,8 @@ MG_EV_TLS_HANDSHAKING = 6
 MG_EV_READ            = 7
 MG_EV_WRITE           = 8
 MG_EV_CLOSE           = 9
-MG_EV_HTTP_MSG        = 10
-MG_EV_HTTP_CHUNK      = 11
+MG_EV_HTTP_HDRS       = 10
+MG_EV_HTTP_MSG        = 11
 MG_EV_WS_OPEN         = 12
 MG_EV_WS_MSG          = 13
 MG_EV_WS_CTL          = 14
@@ -87,7 +87,7 @@ _mg_http_connect = _lib.mg_http_connect([ffi.c_void_p, ffi.c_char_p, ffi.c_void_
 _mg_http_reply = _lib.mg_http_reply([ffi.c_void_p, ffi.c_int32, ffi.c_char_p, ffi.c_char_p], None, is_variadic=True)
 
 # Raw send
-_mg_send = _lib.mg_send([ffi.c_void_p, ffi.c_void_p, ffi.c_int32], None)
+_mg_send = _lib.mg_send([ffi.c_void_p, ffi.c_void_p, ffi.c_uint64], None)
 
 # WebSocket
 _mg_ws_connect = _lib.mg_ws_connect([ffi.c_void_p, ffi.c_char_p, ffi.c_void_p, ffi.c_void_p, ffi.c_char_p], ffi.c_void_p, is_variadic=True)
@@ -95,13 +95,10 @@ _mg_ws_send    = _lib.mg_ws_send([ffi.c_void_p, ffi.c_void_p, ffi.c_uint64, ffi.
 _mg_ws_upgrade = _lib.mg_ws_upgrade([ffi.c_void_p, ffi.c_void_p, ffi.c_char_p], None, is_variadic=True)
 
 # Static file serving
-# void mg_http_serve_dir (mg_connection*, mg_http_message*, const mg_http_serve_opts*)
-# void mg_http_serve_file(mg_connection*, mg_http_message*, const char*, const mg_http_serve_opts*)
 _mg_http_serve_dir  = _lib.mg_http_serve_dir( [ffi.c_void_p, ffi.c_void_p, ffi.c_void_p], None)
 _mg_http_serve_file = _lib.mg_http_serve_file([ffi.c_void_p, ffi.c_void_p, ffi.c_char_p, ffi.c_void_p], None)
 
 # TLS — void mg_tls_init(mg_connection*, const mg_tls_opts*)
-# Optional: only present when Mongoose is compiled with MG_ENABLE_MBEDTLS / MG_ENABLE_OPENSSL
 try:
     _mg_tls_init  = _lib.mg_tls_init([ffi.c_void_p, ffi.c_void_p], None)
     TLS_AVAILABLE = True
@@ -137,22 +134,9 @@ def _read_mg_bytes(base_ptr, offset):
 # ==============================================================================
 
 # ---- mg_http_serve_opts -------------------------------------------------------
-# struct mg_http_serve_opts {
-#   const char *root_dir;       // offset  0
-#   const char *ssi_pattern;    // offset  8  (NULL = disabled)
-#   const char *extra_headers;  // offset 16
-#   const char *mime_types;     // offset 24  (NULL = built-ins only)
-#   const char *page404;        // offset 32  (NULL = default)
-#   struct mg_fs *fs;           // offset 40  (NULL = posix fs)
-# };
 _SERVE_OPTS_SIZE = 64   # padded generously
 
 def _make_serve_opts(root_dir, extra_headers="", mime_types="", page404=""):
-    """
-    Allocate and populate a mg_http_serve_opts on the heap.
-    Returns (opts_ptr, list_of_bufs_to_free).
-    Caller is responsible for calling ffi.free on all returned buffers.
-    """
     opts = ffi.malloc(_SERVE_OPTS_SIZE)
     bufs = []
 
@@ -164,11 +148,10 @@ def _make_serve_opts(root_dir, extra_headers="", mime_types="", page404=""):
             ffi.write_memory_with_offset(opts, offset, ffi.c_void_p, buf)
             bufs.append(buf)
         else:
-            # Write null pointer
             ffi.write_memory_with_offset(opts, offset, ffi.c_uint64, 0)
 
     _put_str(0,  root_dir)
-    _put_str(8,  "")            # ssi_pattern — SSI disabled
+    _put_str(8,  "")            # ssi_pattern
     _put_str(16, extra_headers)
     _put_str(24, mime_types)
     _put_str(32, page404)
@@ -184,36 +167,44 @@ def _free_serve_opts(opts_ptr, bufs):
 
 
 # ---- mg_tls_opts -------------------------------------------------------------
-# struct mg_tls_opts {
-#   const char *ca;     // offset  0  — CA cert PEM or file path
-#   const char *cert;   // offset  8  — server/client cert PEM or file path
-#   const char *key;    // offset 16  — private key PEM or file path
-#   const char *name;   // offset 24  — SNI hostname (client) or NULL (server)
-# };
-_TLS_OPTS_SIZE = 64   # padded generously
+_TLS_OPTS_SIZE = 80   # padded for full struct
 
-def _make_tls_opts(cert=None, key=None, ca=None, name=None):
+def _make_tls_opts(cert=None, key=None, ca=None, name=None, skip_verification=1):
     """
-    Allocate and populate a mg_tls_opts on the heap.
-    Returns (opts_ptr, list_of_bufs_to_free).
+    mg_tls_opts layout (Mongoose 7.21):
+      offset  0 : ca       (char*)
+      offset  8 : calen    (size_t)
+      offset 16 : cert     (char*)
+      offset 24 : certlen  (size_t)
+      offset 32 : key      (char*)
+      offset 40 : keylen   (size_t)
+      offset 48 : name     (char*)
+      offset 56 : namelen  (size_t)
+      offset 64 : skip_verification (int)
     """
     opts = ffi.malloc(_TLS_OPTS_SIZE)
+    # Zero the whole struct manually
+    for offset in [0, 8, 16, 24, 32, 40, 48, 56, 64, 72]:
+        ffi.write_memory_with_offset(opts, offset, ffi.c_uint64, 0)
     bufs = []
 
-    def _put_str(offset, s):
+    def _put_str(ptr_offset, len_offset, s):
         if s:
-            b = s.encode('utf-8') + b'\x00'
-            buf = ffi.malloc(len(b))
-            ffi.memcpy(buf, ffi.addressof(b), len(b))
-            ffi.write_memory_with_offset(opts, offset, ffi.c_void_p, buf)
+            b = s.encode('utf-8')
+            b_null = b + b'\x00'
+            buf = ffi.malloc(len(b_null))
+            ffi.memcpy(buf, ffi.addressof(b_null), len(b_null))
+            ffi.write_memory_with_offset(opts, ptr_offset, ffi.c_void_p, buf)
+            ffi.write_memory_with_offset(opts, len_offset, ffi.c_uint64, len(b))
             bufs.append(buf)
-        else:
-            ffi.write_memory_with_offset(opts, offset, ffi.c_uint64, 0)
 
-    _put_str(0,  ca)
-    _put_str(8,  cert)
-    _put_str(16, key)
-    _put_str(24, name)
+    _put_str(0,  8,  ca)
+    _put_str(16, 24, cert)
+    _put_str(32, 40, key)
+    _put_str(48, 56, name)
+
+    # skip_verification=1 disables cert checking (no CA bundle needed for client)
+    ffi.write_memory_with_offset(opts, 64, ffi.c_int32, skip_verification)
 
     return (opts, bufs)
 
@@ -397,7 +388,7 @@ class Manager:
     """
 
     def __init__(self):
-        self.mgr_ptr   = ffi.malloc(1024)
+        self.mgr_ptr   = ffi.malloc(8192)
         _mg_mgr_init(self.mgr_ptr)
         self.callbacks  = []   # keep C callbacks alive
         self._tls_store = []   # keep TLS struct buffers alive
@@ -441,7 +432,7 @@ class Manager:
             for b in bufs:
                 self._tls_store.append(b)
 
-        def c_handler(c_ptr, ev, ev_data, fn_data):
+        def c_handler(c_ptr, ev, ev_data):
             try:
                 safe = _is_valid_ptr(ev_data)
 
@@ -458,12 +449,12 @@ class Manager:
                     handler_func(c_ptr, "WS_MSG", WsMessage(ev_data))
                 elif ev == MG_EV_CLOSE:
                     handler_func(c_ptr, "CLOSE", None)
-                elif ev == MG_EV_ERROR and safe:
-                    handler_func(c_ptr, "ERROR", ffi.string_at(ev_data))
+                elif ev == MG_EV_ERROR:
+                    handler_func(c_ptr, "ERROR", "connection error")
             except Exception as e:
                 print(format_str("🔥 [mongoose] Listen handler error: {e}"))
 
-        cb = ffi.callback(c_handler, None, [ffi.c_void_p, ffi.c_int32, ffi.c_void_p, ffi.c_void_p])
+        cb = ffi.callback(c_handler, None, [ffi.c_void_p, ffi.c_int32, ffi.c_void_p])
         self.callbacks.append(cb)
 
         conn = _mg_http_listen(self.mgr_ptr, url.encode('utf-8'), cb, None)
@@ -503,7 +494,7 @@ class Manager:
             for b in bufs:
                 self._tls_store.append(b)
 
-        def c_handler(c_ptr, ev, ev_data, fn_data):
+        def c_handler(c_ptr, ev, ev_data):
             try:
                 safe = _is_valid_ptr(ev_data)
 
@@ -513,15 +504,14 @@ class Manager:
                     handler_func(c_ptr, "CONNECT", None)
                 elif ev == MG_EV_HTTP_MSG and safe:
                     handler_func(c_ptr, "RESPONSE", HttpMessage(ev_data))
-                elif ev == MG_EV_ERROR:
-                    msg = ffi.string_at(ev_data) if safe else "unknown error"
-                    handler_func(c_ptr, "ERROR", msg)
                 elif ev == MG_EV_CLOSE:
                     handler_func(c_ptr, "CLOSE", None)
+                elif ev == MG_EV_ERROR:
+                    handler_func(c_ptr, "ERROR", "connection error")
             except Exception as e:
                 print(format_str("🔥 [mongoose] Connect handler error: {e}"))
 
-        cb = ffi.callback(c_handler, None, [ffi.c_void_p, ffi.c_int32, ffi.c_void_p, ffi.c_void_p])
+        cb = ffi.callback(c_handler, None, [ffi.c_void_p, ffi.c_int32, ffi.c_void_p])
         self.callbacks.append(cb)
 
         conn = _mg_http_connect(self.mgr_ptr, url.encode('utf-8'), cb, None)
@@ -556,7 +546,7 @@ class Manager:
             for b in bufs:
                 self._tls_store.append(b)
 
-        def c_handler(c_ptr, ev, ev_data, fn_data):
+        def c_handler(c_ptr, ev, ev_data):
             try:
                 safe = _is_valid_ptr(ev_data)
 
@@ -568,15 +558,14 @@ class Manager:
                     handler_func(c_ptr, "WS_OPEN", None)
                 elif ev == MG_EV_WS_MSG and safe:
                     handler_func(c_ptr, "WS_MSG", WsMessage(ev_data))
-                elif ev == MG_EV_ERROR:
-                    msg = ffi.string_at(ev_data) if safe else "unknown error"
-                    handler_func(c_ptr, "ERROR", msg)
                 elif ev == MG_EV_CLOSE:
                     handler_func(c_ptr, "CLOSE", None)
+                elif ev == MG_EV_ERROR:
+                    handler_func(c_ptr, "ERROR", "connection error")
             except Exception as e:
                 print(format_str("🔥 [mongoose] WS handler error: {e}"))
 
-        cb = ffi.callback(c_handler, None, [ffi.c_void_p, ffi.c_int32, ffi.c_void_p, ffi.c_void_p])
+        cb = ffi.callback(c_handler, None, [ffi.c_void_p, ffi.c_int32, ffi.c_void_p])
         self.callbacks.append(cb)
 
         conn = _mg_ws_connect(self.mgr_ptr, url.encode('utf-8'), cb, None, b"")
@@ -623,7 +612,9 @@ def http_reply(conn_ptr, status_code, headers, body):
     if not isinstance(body, (str, bytes)):
         body = str(body)
     body_bytes = body.encode('utf-8') if isinstance(body, str) else body
-    _mg_http_reply(conn_ptr, status_code, hdr_bytes, b"%s", body_bytes)
+    
+    # Use %.*s to prevent truncation on null bytes in binary bodies
+    _mg_http_reply(conn_ptr, status_code, hdr_bytes, b"%.*s", len(body_bytes), body_bytes)
 
 
 def send(conn_ptr, data):

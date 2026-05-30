@@ -132,6 +132,9 @@ func evalIfStatement(node *ast.IfStatement, ctx *InterpreterContext) object.Obje
 		if object.IsError(elifCondition) {
 			return elifCondition
 		}
+		if _, isYield := elifCondition.(*object.YieldValue); isYield {
+			return elifCondition
+		}
 		truthy, err = object.IsTruthy(ctx, elifCondition)
 		if err != nil {
 			if pyErr, ok := err.(object.Object); ok && object.IsError(pyErr) {
@@ -153,6 +156,9 @@ func evalWhileStatement(node *ast.WhileStatement, ctx *InterpreterContext) objec
 	for {
 		condition := Eval(node.Condition, ctx) // Pass ctx
 		if object.IsError(condition) {
+			return condition
+		}
+		if _, isYield := condition.(*object.YieldValue); isYield {
 			return condition
 		}
 		truthy, err := object.IsTruthy(ctx, condition)
@@ -370,6 +376,9 @@ func evalAssertStatement(node *ast.AssertStatement, ctx *InterpreterContext) obj
 	if object.IsError(condition) {
 		return condition
 	}
+	if _, isYield := condition.(*object.YieldValue); isYield {
+		return condition
+	}
 
 	isTrue, err := object.IsTruthy(ctx, condition)
 	if err != nil {
@@ -389,6 +398,9 @@ func evalAssertStatement(node *ast.AssertStatement, ctx *InterpreterContext) obj
 		msgObj := Eval(node.Message, ctx)
 		if object.IsError(msgObj) {
 			// If evaluating the message fails, Python raises that error instead.
+			return msgObj
+		}
+		if _, isYield := msgObj.(*object.YieldValue); isYield {
 			return msgObj
 		}
 		// Use str() on the message object
@@ -501,6 +513,9 @@ func evalClassStatement(stmt *ast.ClassStatement, ctx *InterpreterContext) objec
 func evalWithStatement(node *ast.WithStatement, ctx *InterpreterContext) object.Object {
 	contextManagerObj := Eval(node.ContextManager, ctx)
 	if object.IsError(contextManagerObj) {
+		return contextManagerObj
+	}
+	if _, isYield := contextManagerObj.(*object.YieldValue); isYield {
 		return contextManagerObj
 	}
 	enterMethodObj, foundEnter := object.CallGetAttr(ctx, contextManagerObj, constants.DunderEnter, node.Token)
@@ -769,6 +784,9 @@ func evalAssignStatement(node *ast.AssignStatement, ctx *InterpreterContext) obj
 	// Step 1: Evaluate the value on the right-hand side.
 	value := Eval(node.Value, ctx)
 	if object.IsError(value) {
+		return value
+	}
+	if _, ok := value.(*object.YieldValue); ok {
 		return value
 	}
 

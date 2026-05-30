@@ -10,6 +10,13 @@ BIN_DIR="$PROJECT_ROOT/bin"
 TARGETS=("x86_64-linux-gnu.2.17" "x86_64-windows-gnu")
 
 mkdir -p "$EXT_DIR"
+
+# Ensure mbedtls is built first since mongoose links against it
+if [ ! -d "$BIN_DIR/x86_64-linux/mbedtls" ] || [ ! -d "$BIN_DIR/x86_64-windows-gnu/mbedtls" ]; then
+    echo "🛡️  MbedTLS binaries not found. Building MbedTLS first..."
+    bash "$PROJECT_ROOT/scripts/build-mbedtls.sh"
+fi
+
 cd "$EXT_DIR"
 
 echo "📥 Downloading vendor library sources..."
@@ -94,14 +101,12 @@ build_lib() {
     local lib_name=$1
     local target=$2
 
-    # Map the internal Zig target names to our clean output folder names
     local folder_target="x86_64-linux"
     if [[ "$target" == *"windows"* ]]; then folder_target="x86_64-windows-gnu"; fi
 
     local out_dir="$BIN_DIR/$folder_target/$lib_name"
     mkdir -p "$out_dir"
 
-    # Skip if already built (checks for .so, .dll, .dylib)
     if ls "$out_dir"/*.so "$out_dir"/*.dll "$out_dir"/*.dylib 1> /dev/null 2>&1; then
         echo "✔️ $lib_name for $target already exists. Skipping."
         return
@@ -110,7 +115,6 @@ build_lib() {
     echo "🔨 Building $lib_name for $target..."
     pushd "$EXT_DIR/$lib_name" > /dev/null
 
-    # Use a Bash Array for safe argument passing
     local cmake_flags=(
         "-DCMAKE_C_COMPILER=zig;cc;-target;$target"
         "-DCMAKE_CXX_COMPILER=zig;c++;-target;$target"
@@ -129,8 +133,26 @@ build_lib() {
     case $lib_name in
         mongoose)
             local out_file="libmongoose.so"
-            if [[ "$target" == *"windows"* ]]; then out_file="mongoose.dll"; fi
-            zig cc -target "$target" -shared -o "$out_dir/$out_file" mongoose.c -D_FILE_OFFSET_BITS=64 -O3 $extra_c_flags
+            if [[ "$target" == *"windows"* ]]; then
+                out_file="mongoose.dll"
+                zig cc -target "$target" -shared -o "$out_dir/$out_file" mongoose.c \
+                    -D_FILE_OFFSET_BITS=64 -DMG_TLS=1 \
+                    -I../mbedtls/include -I../mbedtls/tf-psa-crypto/include \
+                    "$EXT_DIR/mbedtls/build-x86_64-windows-gnu/library/libmbedtls.a" \
+                    "$EXT_DIR/mbedtls/build-x86_64-windows-gnu/library/libmbedx509.a" \
+                    "$EXT_DIR/mbedtls/build-x86_64-windows-gnu/library/libmbedcrypto.a" \
+                    -lbcrypt -lws2_32 \
+                    -O3 $extra_c_flags
+            else
+                zig cc -target "$target" -shared -o "$out_dir/$out_file" mongoose.c \
+                    -D_FILE_OFFSET_BITS=64 -DMG_TLS=1 \
+                    -I../mbedtls/include -I../mbedtls/tf-psa-crypto/include \
+                    "$BIN_DIR/x86_64-linux/mbedtls/libmbedtls.so" \
+                    "$BIN_DIR/x86_64-linux/mbedtls/libmbedx509.so" \
+                    "$BIN_DIR/x86_64-linux/mbedtls/libmbedcrypto.so" \
+                    -Wl,-rpath,'$ORIGIN/../mbedtls' \
+                    -O3 $extra_c_flags
+            fi
             ;;
         yyjson)
             local out_file="libyyjson.so"
@@ -154,14 +176,12 @@ build_lib() {
             rm -rf build-$target
             cmake -B build-$target "${cmake_flags[@]}"
             cmake --build build-$target --target zlib --parallel "$(nproc)"
-            # FIX: More inclusive wildcard for Windows DLLs
             find build-$target -name "libz.so*" -o -name "*z*.dll" -o -name "libz.dylib*" | xargs -I {} cp {} "$out_dir/"
             ;;
         zstd)
             rm -rf build-$target
             cmake -B build-$target -S build/cmake "${cmake_flags[@]}" -DZSTD_BUILD_STATIC=OFF -DZSTD_BUILD_PROGRAMS=OFF -DZSTD_ASSEMBLY_DISABLE=ON
             cmake --build build-$target --parallel "$(nproc)"
-            # FIX: More inclusive wildcard for Windows DLLs
             find build-$target -name "libzstd.so*" -o -name "*zstd*.dll" -o -name "libzstd.dylib*" | xargs -I {} cp {} "$out_dir/"
             ;;
         xz)
@@ -172,7 +192,6 @@ build_lib() {
             rm -rf build-$target
             cmake -B build-$target "${cmake_flags[@]}" -DBUILD_SHARED_LIBS=ON
             cmake --build build-$target --target liblzma --parallel "$(nproc)"
-            # FIX: More inclusive wildcard for Windows DLLs
             find build-$target -name "liblzma.so*" -o -name "*lzma*.dll" -o -name "liblzma.dylib*" | xargs -I {} cp {} "$out_dir/"
             ;;
         pcre2)
@@ -201,7 +220,7 @@ build_lib() {
     popd > /dev/null
 }
 
-LIBS=("mongoose" "yyjson" "sqlite3" "cjson" "zlib" "zstd" "xz" "pcre2" "libuv") # mbedtls is external
+LIBS=("mongoose") # "yyjson" "sqlite3" "cjson" "zlib" "zstd" "xz" "pcre2" "libuv")
 
 for target in "${TARGETS[@]}"; do
     for lib in "${LIBS[@]}"; do
