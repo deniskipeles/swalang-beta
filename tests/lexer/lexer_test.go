@@ -1,4 +1,4 @@
-package tests
+package lexer_test
 
 import (
 	"testing"
