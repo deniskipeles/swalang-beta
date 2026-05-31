@@ -1,4 +1,4 @@
-package tests
+package external_test
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/deniskipeles/pylearn/internal/testhelpers"
+	"github.com/deniskipeles/pylearn/tests/helpers"
 )
 
 func getLibPath(target, lib, baseName string) string {
@@ -52,7 +52,7 @@ except Exception as e:
     print(f"Error: {e}")
     raise e
 `, path)
-		testhelpers.Eval(t, input)
+		helpers.Eval(t, input)
 	})
 
 	t.Run("YYJSON Load", func(t *testing.T) {
@@ -70,7 +70,7 @@ except Exception as e:
     print(f"Error: {e}")
     raise e
 `, path)
-		testhelpers.Eval(t, input)
+		helpers.Eval(t, input)
 	})
 
 	t.Run("PCRE2 Load", func(t *testing.T) {
@@ -85,7 +85,7 @@ except Exception as e:
     print(f"Error: {e}")
     raise e
 `, path)
-		testhelpers.Eval(t, input)
+		helpers.Eval(t, input)
 	})
 
 	t.Run("MbedTLS Load", func(t *testing.T) {
@@ -100,7 +100,7 @@ except Exception as e:
     print(f"Error: {e}")
     raise e
 `, path)
-		testhelpers.Eval(t, input)
+		helpers.Eval(t, input)
 	})
 
 	t.Run("Libuv Load", func(t *testing.T) {
@@ -122,7 +122,7 @@ except Exception as e:
     print(f"Error: {e}")
     raise e
 `, path)
-		testhelpers.Eval(t, input)
+		helpers.Eval(t, input)
 	})
 
 	t.Run("XZ (liblzma) Load", func(t *testing.T) {
@@ -140,6 +140,6 @@ except Exception as e:
     print(f"Error: {e}")
     raise e
 `, path)
-		testhelpers.Eval(t, input)
+		helpers.Eval(t, input)
 	})
 }

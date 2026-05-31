@@ -1,4 +1,4 @@
-package tests
+package parser_test
 
 import (
 	"testing"
@@ -50,26 +50,26 @@ func TestAssignmentStatement(t *testing.T) {
 		t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T", program.Statements[0])
 	}
 
-    // Check if it's an assignment structure (InfixExpression with =)
-    assignExpr, ok := stmt.Expression.(*ast.InfixExpression)
+    // Check if it's an assignment structure (AssignStatement with =)
+    assignStmt, ok := stmt.Expression.(*ast.AssignStatement)
     if !ok {
-        t.Fatalf("stmt.Expression is not ast.InfixExpression. got=%T", stmt.Expression)
+        t.Fatalf("stmt.Expression is not ast.AssignStatement. got=%T", stmt.Expression)
     }
 
-    if assignExpr.Operator != "=" {
-        t.Fatalf("assignExpr.Operator is not '='. got=%q", assignExpr.Operator)
+    if assignStmt.Operator != "=" {
+        t.Fatalf("assignStmt.Operator is not '='. got=%q", assignStmt.Operator)
     }
 
-    ident, ok := assignExpr.Left.(*ast.Identifier)
+    ident, ok := assignStmt.Target.(*ast.Identifier)
     if !ok {
-        t.Fatalf("assignExpr.Left is not ast.Identifier. got=%T", assignExpr.Left)
+        t.Fatalf("assignStmt.Target is not ast.Identifier. got=%T", assignStmt.Target)
     }
     if ident.Value != "myVar" {
         t.Fatalf("ident.Value not 'myVar'. got=%s", ident.Value)
     }
 
 	// Test the value part (Right side of assignment)
-    testLiteralExpression(t, assignExpr.Right, 123)
+    testLiteralExpression(t, assignStmt.Value, 123)
 
 }
 
