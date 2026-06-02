@@ -1,0 +1,16 @@
+ainisha SimpleDict:
+  fafanua __anza__(nafsi):
+    nafsi._data = {}
+  fafanua __weka_kipengele__(nafsi, key, value):
+    nafsi._data[maneno(key)] = value
+  fafanua __pata_kipengele__(nafsi, key):
+    rudisha nafsi._data[maneno(key)]
+sd = SimpleDict()
+sd["foo"] = 100
+sd[5] = "bar"
+sd["foo"]
+jaribu:
+  andika(maneno(sd.foo))
+isipokuwa:
+  # andika(Er)
+  andika(maneno(sd["foo"]))

@@ -1,0 +1,26 @@
+leta os
+
+andika(os.orodhesha_folda())
+
+y=0
+wakati y < 10:
+    andika("y1 =", y)
+    ikiwa y == 8:
+        vunja
+    y = y+1
+
+
+x = 0
+wakati x < 20:
+    andika('x=',x)
+    ikiwa x % 2 == 0:
+        x = x + 3
+        endelea
+    ikiwa x % 3 == 0:
+        x = x + 5
+    x = x + 1
+
+kwa xx katika pengo(20):
+    andika("xx=",xx)
+    ikiwa xx == 8:
+        vunja

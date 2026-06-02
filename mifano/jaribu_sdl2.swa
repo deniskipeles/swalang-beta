@@ -1,0 +1,58 @@
+leta sdl2
+
+andika("🧪 Initializing SDL2...")
+# Initialize ONLY video na events to prevent crashes on systems without audio devices
+sdl2.anza(sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
+
+win = sdl2.Dirisha("Swalang SDL2 Animation", 800, 600)
+ren = sdl2.Wasilishaji(win)
+ev = sdl2.Tokeo()
+
+andika("🚀 Animation loop started. Press ESC au funga dirisha to exit.")
+
+inaendesha = Kweli
+box_x = 100
+box_y = 100
+box_dx = 5
+box_dy = 4
+
+wakati inaendesha:
+    # 1. Handle Events
+    wakati ev.uliza():
+        ikiwa ev.aina == sdl2.SDL_QUIT:
+            inaendesha = Uongo
+        ikiwaingine ev.aina == sdl2.SDL_KEYDOWN:
+            ikiwa ev.scancode == sdl2.SDL_SCANCODE_ESCAPE:
+                inaendesha = Uongo
+
+    # 2. Sasisha Physics
+    box_x = box_x + box_dx
+    box_y = box_y + box_dy
+
+    # Bounce off the walls (dirisha ni 800x600, box ni 50x50)
+    ikiwa box_x <= 0 au box_x >= (800 - 50):
+        box_dx = -box_dx
+    ikiwa box_y <= 0 au box_y >= (600 - 50):
+        box_dy = -box_dy
+
+    # 3. Rendering
+    # Background (Dark Purple)
+    ren.set_draw_color(45, 20, 85, 255)
+    ren.futa()
+
+    # Bouncing Box (Cyan)
+    ren.set_draw_color(0, 255, 255, 255)
+    ren.fill_rect(box_x, box_y, 50, 50)
+
+    # Onyesha the frame
+    ren.onyesha()
+
+    # Cap at ~60 FPS
+    sdl2.delay(16)
+
+andika("🧹 Cleaning up...")
+ev.free()
+ren.destroy()
+win.destroy()
+sdl2.toka()
+andika("✅ SDL2 exited gracefully.")

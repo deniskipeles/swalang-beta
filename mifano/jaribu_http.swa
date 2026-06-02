@@ -1,0 +1,42 @@
+leta http
+leta mongoose
+
+andika("===========================================")
+andika("🌐 Jaribio Swalang Kamili HTTP Library")
+andika("===========================================")
+
+andika("\n1. Jaribio HTTP Mteja (PATA)...")
+jaribu:
+    resp = http.pata("http://ip-api.com/json")
+    andika(umbiza_maneno("👉 Hali: {resp.status_code}"))
+    andika(umbiza_maneno("👉 JSON Jibu: {resp.json()}"))
+isipokuwa Isipokuwa kama e:
+    andika(umbiza_maneno("HTTP Mteja Kosa: {e}"))
+
+andika("\n2. Jaribio HTTP Mwasilishaji & WebSockets...")
+andika("Starting mwasilishaji on bandari 5000...")
+
+programu = http.Mwasilishaji(bandari=5000)
+
+@programu.njia("/")
+fafanua index(req):
+    rudisha "<h1>Karibu to Swalang HTTP Mwasilishaji!</h1><p>Try <a href='/api'>/api</a> au unganisha to /ws via WebSocket mteja.</p>"
+
+@programu.njia("/api")
+fafanua api(req):
+    rudisha {"ujumbe": "Hujambo API", "mbinu": req.mbinu, "hoja": req.hoja}
+
+@programu.ws_route("/ws")
+fafanua ws_handler(conn, tokeo, msg):
+    ikiwa tokeo == "FUNGUA":
+        andika("🟢 WebSocket Mteja Imeunganishwa!")
+        mongoose.ws_send(conn, "Karibu to Swalang WebSocket Mwasilishaji!")
+    ikiwaingine tokeo == "MSG":
+        andika(umbiza_maneno("📩 WS Imepokelewa: {msg.data}"))
+        # Mwangwi back
+        mongoose.ws_send(conn, umbiza_maneno("Mwangwi: {msg.data}"))
+    ikiwaingine tokeo == "FUNGA":
+        andika("🔴 WebSocket Mteja Imekatika")
+
+# This will block the thread forever, answering requests
+programu.endesha()

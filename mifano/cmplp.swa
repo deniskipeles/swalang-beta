@@ -1,0 +1,18 @@
+# == cmplp.py ==
+x=2
+andika(x)
+
+leta os
+
+folda = os.getcwd()
+file_path = 'output.txt'
+faili = fungua(file_path,'w')
+faili.andika('Hujambo Ulimwengu >>> AND HIGH')
+faili.funga()
+
+faili = fungua(file_path,'r')
+andika(faili.soma())
+
+# andika(os.walk(folda+'/build'))
+
+# andika(os.remove('hujambo'))

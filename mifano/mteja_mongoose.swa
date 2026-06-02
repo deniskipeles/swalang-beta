@@ -1,0 +1,24 @@
+leta mongoose
+
+# We use a kote flag to know when the sambamba ombi ni imeisha
+request_finished = Uongo
+
+fafanua handle_response(conn, jibu):
+    kote request_finished
+    andika(umbiza_maneno("✅ Mwasilishaji Responded! \n{jibu.kiwiliwili}"))
+    request_finished = Kweli
+
+mgr = mongoose.Manager()
+
+jaribu:
+    andika("🚀 Connecting to http://localhost:5000/api...")
+    mgr.http_connect("http://localhost:5000/api", handle_response)
+
+    # Tokeo loop
+    wakati sio request_finished:
+        mgr.uliza(100)
+
+isipokuwa Isipokuwa kama e:
+    andika(e)
+mwishowe:
+    mgr.free()

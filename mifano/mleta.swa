@@ -1,0 +1,166 @@
+# examples/importer.py
+kutoka hisabati_yangu leta mraba, pai, Helper,PAI kama PY,jumlisha
+
+
+list_with_values = [1,2,3]
+andika(list_with_values)
+list_with_no_values = {
+    1,2,3
+}
+andika(list_with_no_values)
+
+
+andika(pai*PY)
+andika(jumlisha(1,2))
+
+leta hisabati_yangu
+leta os
+leta http
+andika(os.orodhesha_folda())
+
+
+
+sambamba fafanua leta_data(url):
+    # sambamba operation
+    http.pata(url)
+    data = subiri http.pata(url)
+    rudisha data
+
+sambamba fafanua programu_kuu():
+    data1 = subiri leta_data("jsonplaceholder.typicode.com/todos/1")  # These can endesha concurrently
+    data2 = subiri leta_data("jsonplaceholder.typicode.com/todos/2")
+    rudisha [data1, data2]
+
+
+
+
+fafanua test():
+    obj = {'a': 1, 'b': 2 }
+    y = [1,2,3]
+
+    andika('outer fxn',obj,y)
+    fafanua inner():
+        andika('inner fxn')
+    inner()
+test()
+andika("Imported hisabati_yangu!")
+andika("Pai ni:", hisabati_yangu.pai)
+
+area = hisabati_yangu.pai * hisabati_yangu.mraba(10)
+andika("Area:", area)
+
+h = hisabati_yangu.Helper(5)
+andika("Multiplied:", h.zidisha(7))
+
+# Try importing again (should use cache)
+leta hisabati_yangu
+andika("Imported again, should be fast.")
+
+
+
+
+# This ni importer.py
+leta swalang_importlib # Assuming this ni how we access the new module
+
+andika("Importer: Trying to pakia hisabati_yangu.py dynamically...")
+
+# Construct the njia relative to importer.py
+# In a real framework, njia resolution would be more robust.
+# For this example, let's assume hisabati_yangu.py ni katika the same directory.
+math_module_path = "./hisabati_yangu.py"
+# Or, ikiwa your SetCurrentScriptDir works well, just "hisabati_yangu.py" might be enough
+# ikiwa importer.py na hisabati_yangu.py are katika the same directory kutoka where you endesha.
+# To be safe, let's assume SetCurrentScriptDir correctly sets context to examples/
+
+jaribu:
+    # Use the dynamic loading function
+    math = swalang_importlib.load_module_from_path(math_module_path)
+    andika(math)
+    x = {
+        "a":1,
+        "b":2
+    }
+
+    ikiwa math: # Check ikiwa loading was successful (sio an Kosa kitu)
+        andika("Importer: hisabati_yangu module loaded successfully.")
+        andika("Importer: Type of math:", aina(math)) # Should be <ainisha 'module'>
+
+        # Access attributes kutoka the dynamically loaded module
+        andika("Importer: PAI kutoka math:", math.PAI)
+
+        sum_result = math.jumlisha(10, 5)
+        andika("Importer: math.jumlisha(10, 5) =", sum_result)
+
+        diff_result = math.toa(10, 3)
+        andika("Importer: math.toa(10, 3) =", diff_result)
+    ingine:
+        andika("Importer: Failed to pakia hisabati_yangu module (math ni Tupu au an kosa occurred before assignment).")
+
+isipokuwa Isipokuwa kama e: # Generic Pylearn isipokuwa
+    andika("Importer: An kosa occurred during leta au usage:", 'e')
+
+andika("Importer: Script finished.")
+
+list_x = []
+andika(list_x.__urefu__())
+list_x.append(1)
+andika(list_x.__urefu__())
+list_x.append(2)
+andika(list_x.__urefu__())
+list_x.append(3)
+andika(list_x.__urefu__())
+
+andika(list_x)
+
+x='hi'
+andika(x.__urefu__())
+
+y = {"a":"b","c":"d"}
+andika(y.__ina__('a'))
+
+
+fafanua func(a, b=2, *args, **kwargs):
+    andika(a, b, args, kwargs)
+
+func(1)           # a=1, b=2, args=[], kwargs={}
+func(1, 3, 4, 5, x=6)  # a=1, b=3, args=[4, 5], kwargs={}
+
+
+ainisha BaseHTTPMiddleware:
+    fafanua __anza__(nafsi, programu):
+        nafsi.programu = programu
+
+    fafanua dispatch(nafsi, ombi, call_next):
+        # Base implementation, maybe some logging
+        andika("BaseHTTPMiddleware dispatch called",nafsi.programu)
+        jibu = 'call_next(ombi)'
+        rudisha jibu
+
+ainisha LoggingMiddleware(BaseHTTPMiddleware):
+    fafanua __anza__(nafsi, programu):
+        bora(LoggingMiddleware, nafsi).__anza__(programu) # Uses bora(Type, nafsi)
+        andika("LoggingMiddleware initialized")
+
+    fafanua dispatch(nafsi, ombi, call_next):
+        andika(ombi)
+        hujambo = "hujambo"
+        andika(f("Ombi (Logging): {ombi['url']} {hujambo}"))
+        # jibu = bora().dispatch(ombi, call_next) # Needs zero-arg bora()
+        # For now, pamoja two-arg bora:
+        jibu = bora(LoggingMiddleware, nafsi).dispatch(ombi, call_next)
+        andika(f("Jibu (Logging): ..."))
+        rudisha jibu
+
+programu = {"ombi":"hi","jibu":"bye","url":"http://google.com"}
+c = LoggingMiddleware(programu)
+andika(c.dispatch(programu, Tupu))
+
+
+leta static_class_methods
+# y=(1,2,3)
+# andika(y)
+
+# fafanua two_vals():
+#     rudisha 1,"two"
+
+andika(two_vals)

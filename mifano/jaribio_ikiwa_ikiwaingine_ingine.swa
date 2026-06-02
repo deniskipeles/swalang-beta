@@ -1,0 +1,39 @@
+# examples/if_elif_else.py
+
+# --- IF/ELIF/ELSE TEST ---
+andika("--- If/Elif/Else Test ---")
+thamani = 15
+
+ikiwa thamani < 10:
+    andika("thamani ni less than 10")
+ikiwaingine thamani < 20:
+    andika("thamani ni less than 20 but sio less than 10") # Should andika this
+ingine:
+    andika("thamani ni 20 au greater")
+
+thamani = 5
+ikiwa thamani < 10:
+    andika("thamani ni less than 10") # Should andika this
+ikiwaingine thamani < 20:
+    andika("thamani ni less than 20 but sio less than 10")
+ingine:
+    andika("thamani ni 20 au greater")
+
+thamani = 25
+ikiwa thamani < 10:
+    andika("thamani ni less than 10")
+ikiwaingine thamani < 20:
+    andika("thamani ni less than 20 but sio less than 10")
+ingine:
+    andika("thamani ni 20 au greater") # Should andika this
+
+# Test without ingine
+thamani = 100
+ikiwa thamani == 50:
+    andika("thamani ni 50")
+ikiwaingine thamani == 75:
+    andika("thamani ni 75")
+# Should andika nothing here
+
+andika("--- End If/Elif/Else Test ---")
+# --- END IF/ELIF/ELSE TEST ---

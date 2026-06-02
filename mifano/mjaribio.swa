@@ -1,0 +1,355 @@
+# examples/test.py
+empty_dict = {}
+andika(empty_dict)
+empty_list = []
+andika(empty_list)
+empty_set = seti()
+andika(empty_set)
+empty_tuple = ()
+andika(empty_tuple)
+f_string = f"""
+hujambo ulimwengu
+"""
+andika(f_string)
+
+w = 1+1
+andika(w)
+x = 10
+x += 1
+andika(x)
+kwa k katika pengo(10):
+    andika(k)
+# kosa.py
+
+fafanua kosa(value):
+    ikiwa value == 1:
+        ibua Isipokuwa('One')
+    ikiwaingine value == 2:
+        ibua Isipokuwa('Two')
+    ikiwaingine value == 3:
+        ibua Isipokuwa('Three')
+    ikiwaingine value == 4:
+        ibua Isipokuwa('Four')
+    ingine:
+        andika('no kosa here')
+jaribu:
+    e = kosa(1)
+isipokuwa Isipokuwa kama e:
+    andika(e)
+list_x = [i+2 kwa i katika pengo(10)]
+andika(list_x)
+set_x = {j+10 kwa j katika pengo(10)}
+andika(set_x)
+kwa k,v katika enumerate([1,2,3]):
+    andika(k,v)
+list_x = safu((1,2,3,4,5)) # au safu
+list_x.__jumlisha__((1,2,3,4,5))
+andika(list_x[0]," AND ",list_x[4])
+andika(1 katika list_x)
+
+
+
+value = 0
+andika(value)
+value += 1
+andika(value+1)
+andika(0x200000 + 2)
+
+get_first_vals_from_list_x = list_x[:2]
+andika(get_first_vals_from_list_x)
+
+get_last_vals_from_list_x = list_x[-2:]
+andika(get_last_vals_from_list_x)
+
+get_middle_vals_from_list_x = list_x[1:-1]
+andika(get_middle_vals_from_list_x)
+
+
+
+
+# andika(aina('hi'))
+# andika(ni_sampuli('Kweli', maneno))
+# andika(ni_sampuli(Kweli, ukweli))
+# andika(ni_sampuli((), ukweli))
+# andika(ni_sampuli([], orodha))
+# andika(ni_sampuli('Kweli', ukweli))
+
+# # kutoka webbrowser leta pata
+
+set_x = {1,2,3}
+andika(set_x)
+
+obj = {
+    "a":"a",
+    "b":"b",
+    "c":"c",
+    "d":"d"
+}
+andika(obj)
+x = 'hujambo'
+andika(x.gawa(''))
+andika(obj.__urefu__())
+andika(1 sio katika obj)
+
+
+
+
+# Test script specifically kwa the Compiler/VM features
+andika("--- VM Test Script ---")
+# Test Constants na Basic Arithmetic
+a = 10
+b = 3
+andika("a =", a)
+andika("b =", b)
+# --- JUMLISHA FUNCTION TEST ---
+fafanua jumlisha(x, y):
+    # Simple addition  # << Use spaces before this comment too (though comments are often ignored kwa indent)
+    z = x + y          # << Use 4 spaces here
+    rudisha z           # << Use 4 spaces here
+    # Implicit rudisha Tupu ikiwa no rudisha statement
+res = jumlisha(5, 9)
+andika("jumlisha(5, 9) =", res)
+# Test calling again
+andika("jumlisha(a, b) =", jumlisha(a, b))
+
+# Test function returning Tupu implicitly (optional)
+fafanua no_return():
+    c = 55 # << Use 4 spaces ikiwa uncommented
+andika("no_return() =", no_return())
+# --- END FUNCTION TEST ---
+# --- FOR LOOP TEST ---
+andika("--- For Loop Test ---")
+kwa x katika pengo(1, 10, 2):
+    andika("x =", x)
+
+kwa x2 katika pengo(5,10):
+    andika("x2 =", x2)
+
+kwa x3 katika pengo(5):
+    andika("x3 =", x3)
+
+# # kwa x katika pengo(500000000):
+# #     tokeo = x * x + x / (x+1)
+# #     ikiwa x % 10000000 == 0:
+# #         andika("tokeo=",tokeo)
+andika("--- End For Loop ---")
+# --- END FOR LOOP TEST ---
+
+# --- WHILE LOOP TEST ---
+andika("--- While Loop Test ---")
+hesabu = 0
+wakati hesabu < 3:
+    andika("hesabu =", hesabu)
+    # Use simple assignment kama += might sio be implemented
+    hesabu = hesabu + 1
+andika("After wakati, hesabu =", hesabu) # Should andika 3
+andika("--- End While Loop ---")
+# --- END WHILE LOOP TEST ---
+
+
+
+# --- IF,ELIF na ELSE TEST ---
+andika("--- If, Elif na Else Test ---")
+ikiwa a > b:
+    andika("a ni greater than b")
+ikiwaingine a < b:
+    andika("a ni less than b")
+ingine:
+    andika("a ni equal to b")
+andika("--- End If, Elif na Else ---")
+# --- END IF,ELIF na ELSE TEST ---
+
+
+
+# --- IF/ELIF/ELSE TEST ---
+andika("--- If/Elif/Else Test ---")
+thamani = 15
+
+ikiwa thamani < 10:
+    andika("thamani ni less than 10")
+ikiwaingine thamani < 20:
+    andika("thamani ni less than 20 but sio less than 10") # Should andika this
+ingine:
+    andika("thamani ni 20 au greater")
+
+thamani = 5
+ikiwa thamani < 10:
+    andika("thamani ni less than 10") # Should andika this
+ikiwaingine thamani < 20:
+    andika("thamani ni less than 20 but sio less than 10")
+ingine:
+    andika("thamani ni 20 au greater")
+
+thamani = 25
+ikiwa thamani < 10:
+    andika("thamani ni less than 10")
+ikiwaingine thamani < 20:
+    andika("thamani ni less than 20 but sio less than 10")
+ingine:
+    andika("thamani ni 20 au greater") # Should andika this
+
+# Test without ingine
+thamani = 100
+ikiwa thamani == 50:
+    andika("thamani ni 50")
+ikiwaingine thamani == 75:
+    andika("thamani ni 75")
+# Should andika nothing here
+
+andika("--- End If/Elif/Else Test ---")
+# --- END IF/ELIF/ELSE TEST ---
+
+
+
+# Simplified examples/test.py (kama before)
+# andika("--- VM Test Script ---")
+ainisha Msalimiia:
+    fafanua __anza__(nafsi, jina):
+        pita # Just pita kwa now
+
+    fafanua salimia(nafsi):
+        rudisha "Hujambo, ulimwengu!" # Return simple string
+
+    fafanua loop(nafsi):
+        kwa x katika pengo(5):
+            andika("loop:", x)
+
+andika("--- Class Test ---")
+g = Msalimiia("PyLearn") # Instantiation -> calls __anza__
+x = g.salimia()        # Mbinu call
+andika(x)
+g.loop()             # Comment out loop kwa now
+andika("Imeisha.")
+andika("--- VM Test Script Imeisha ---")
+
+
+
+
+# --- AND/OR TEST ---
+andika("--- And/Or Test ---")
+andika(" 5 na 10 =", 5 na 10)    # Should andika 10
+andika(" 0 na 10 =", 0 na 10)    # Should andika 0
+andika(" 10 na 0 =", 10 na 0)    # Should andika 0
+andika(" '' na 10 =", '' na 10) # Should andika '' (empty string)
+andika(" 'a' na 10 =", 'a' na 10) # Should andika 10
+
+andika(" 5 au 10 =", 5 au 10)     # Should andika 5
+andika(" 0 au 10 =", 0 au 10)     # Should andika 10
+andika(" 10 au 0 =", 10 au 0)     # Should andika 10
+andika(" '' au 10 =", '' au 10)  # Should andika 10
+andika(" 'a' au 10 =", 'a' au 10)  # Should andika 'a'
+
+andika(" Uongo na 5 =", Uongo na 5) # Should andika Uongo
+andika(" Kweli na 5 =", Kweli na 5)   # Should andika 5
+andika(" Uongo au 5 =", Uongo au 5)   # Should andika 5
+andika(" Kweli au 5 =", Kweli au 5)     # Should andika Kweli
+
+# Combining
+a = 1
+b = 0
+c = 3
+andika(" a na b au c =", a na b au c) # (1 na 0) au 3 -> 0 au 3 -> 3
+andika(" a au b na c =", a au b na c) # 1 au (0 na 3) -> 1 au 0 -> 1
+andika("--- End And/Or Test ---")
+# --- END AND/OR TEST ---
+
+# examples/test.py
+# --- BREAK/CONTINUE TEST ---
+andika("--- Break/Continue Test ---")
+
+# Test vunja
+i = 0
+wakati i < 10:
+    ikiwa i == 3:
+        andika("breaking at i =", i)
+        vunja
+    andika("katika wakati, i =", i)
+    i = i + 1
+andika("after wakati (vunja), i =", i) # Should be 3
+
+# Test endelea
+j = 0
+tokeo = 0
+wakati j < 5:
+    j = j + 1
+    ikiwa j == 2 au j == 4:
+        andika("continuing at j =", j)
+        endelea
+    andika("adding j =", j)
+    tokeo = tokeo + j
+andika("after wakati (endelea), tokeo =", tokeo) # Should be 1 + 3 + 5 = 9
+
+# Test katika kwa loop
+andika("--- For loop vunja/endelea ---")
+evens = 0
+kwa k katika pengo(10):
+    ikiwa k == 7:
+        andika("vunja at k =", k)
+        vunja
+    ikiwa k % 2 != 0: # If odd
+        andika("endelea at k =", k)
+        endelea
+    andika("even k =", k)
+    evens = evens + 1
+andika("evens hesabu =", evens) # Should be 0, 2, 4, 6 -> hesabu 4
+andika("--- End Break/Continue Test ---")
+# --- END BREAK/CONTINUE TEST ---
+
+list_x = [i+4 kwa i katika pengo(10)]
+andika(list_x)
+kwa k,v katika enumerate(list_x):
+    andika(k,v)
+multiline_set = {
+    1,
+    2,
+    3,
+}
+andika(multiline_set)
+multiline_dict = {
+    "a": 1,
+    "b": 2,
+    "c": 3,
+}
+andika(multiline_dict)
+
+single_line_tuple = (1, 2, 3)
+andika(single_line_tuple)
+
+multiline_tuple = (
+    1,
+    2,
+    3,
+)
+
+single_line_list = [1, 2, 3]
+andika(single_line_list)
+
+multiline_list = [
+    1,
+    2,
+    3,
+]
+andika(multiline_tuple)
+andika(multiline_list)
+
+andika("jumlisha",1+1)
+andika("toa",1-1)
+andika("zidisha",1*1)
+andika("power",1**1)
+andika("modulo  ",1%1)
+# jaribu:
+#     andika("gawa",1/0)
+# isipokuwa Isipokuwa kama e:
+#     andika(e)
+
+f_string = f"""
+hujambo ulimwengu
+"""
+andika(f_string)
+
+price = 49
+txt = f"For only {price} dollars!"
+andika(txt)
+
+txt = "For only {price:.2f} dollars!"
+andika(txt.umbiza(price = 49))

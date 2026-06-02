@@ -1,0 +1,42 @@
+leta uv
+leta time
+
+andika("===========================================")
+andika("⏱️ Jaribio libuv (Asyncio Engine) Wrapper")
+andika("===========================================")
+
+# 1. Create the Tokeo Loop
+loop = uv.Loop()
+
+counter = 0
+
+fafanua on_interval():
+    kote counter
+    counter = counter + 1
+    andika(umbiza_maneno("[{time.time()}] 🔄 Interval ticked! ({counter})"))
+
+fafanua on_timeout():
+    andika(umbiza_maneno("\n[{time.time()}] 🛑 Timeout reached! Stopping interval timer..."))
+    interval_timer.simama()
+
+# 2. Create Timers attached to the loop
+interval_timer = uv.Timer(loop)
+timeout_timer = uv.Timer(loop)
+
+# 3. Anza timers (Non-blocking!)
+andika("Starting a 500ms repeating interval...")
+interval_timer.anza(on_interval, 500, 500)
+
+andika("Starting a 2.5 second timeout...")
+timeout_timer.anza(on_timeout, 2500, 0)
+
+andika("\n🚀 Entering libuv tokeo loop. Pylearn ni now sambamba!")
+# 4. Endesha the loop. It blocks here until all active handles (timers) are stopped.
+loop.endesha()
+
+andika("✅ Tokeo loop exited gracefully.")
+
+# 5. Clean up C memory
+interval_timer.funga()
+timeout_timer.funga()
+loop.funga()

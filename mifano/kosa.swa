@@ -1,0 +1,41 @@
+# examples/kosa.py
+
+fafanua kosa(value):
+    ikiwa value == 1:
+        ibua Isipokuwa('One')
+    ikiwaingine value == 2:
+        ibua Isipokuwa('Two')
+    ikiwaingine value == 3:
+        ibua Isipokuwa('Three')
+    ikiwaingine value == 4:
+        ibua Isipokuwa('Four')
+    ingine:
+        andika('no kosa here')
+jaribu:
+    e = kosa(1)
+isipokuwa Isipokuwa kama e:
+    andika(e)
+
+# --- Isipokuwa Classes ---
+ainisha CustomError(Isipokuwa):
+    """Base isipokuwa kwa curl errors"""
+    fafanua __anza__(nafsi, namba, ujumbe):
+        nafsi.namba = namba
+        nafsi.ujumbe = ujumbe
+        bora().__anza__(umbiza_maneno("Curl kosa {namba}: {ujumbe}"))
+
+fafanua custom(thamani):
+    ikiwa thamani == 1:
+        ibua CustomError(1,"Number One")
+    ingine:
+        andika("No Number")
+
+jaribu:
+    e = custom(1)
+isipokuwa Isipokuwa kama e:
+    andika(e)
+
+fafanua issues_will_happen(thamani):
+    ibua Isipokuwa(thamani)
+
+issues_will_happen("HEY!!!!")

@@ -1,0 +1,24 @@
+# examples/ternary.py
+
+a = 10
+b = 20
+
+# Test Case 1: Condition ni Kweli
+max_val = a ikiwa a > b ingine b
+andika(f("The kiwango_juu value ni: {max_val}"))  # Expected: 20
+
+# Test Case 2: Condition ni Uongo
+hali = "active" ikiwa Kweli ingine "inactive"
+andika(f("Hali ni: {hali}"))  # Expected: active
+
+# Test Case 3: Nested ternary na changamano expressions
+tokeo = (a + 5) ikiwa a == 10 na b == 20 ingine ("b ni sio 20" ikiwa b != 20 ingine "something ingine")
+andika(f("Complex tokeo: {tokeo}"))  # Expected: 15
+
+# Test Case 4: Using a function call katika the condition
+fafanua is_even(n):
+    rudisha n % 2 == 0
+
+num = 7
+parity = "even" ikiwa is_even(num) ingine "odd"
+andika(f("The number {num} ni {parity}")) # Expected: odd

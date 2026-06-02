@@ -1,0 +1,54 @@
+leta sqlite
+leta os
+
+andika("===========================================")
+andika("🧪 Jaribio sqlite FFI Wrapper")
+andika("===========================================")
+
+db_path = "test_ffi.db"
+# Clean up before jaribio
+ikiwa db_path katika os.orodhesha_folda():
+    os.remove(db_path)
+
+# Unganisha to the database (creates it ikiwa it doesn't exist)
+conn = sqlite.unganisha(db_path)
+andika("✅ Database opened successfully.")
+
+cur = conn.kashifa()
+
+# 1. Create a table
+cur.tekeleza("CREATE TABLE users (id INTEGER PRIMARY KEY, jina MAANDISHI, umri REAL, is_admin INTEGER)")
+andika("✅ Table 'users' created.")
+
+# 2. Insert data using Parameter Binding (?)
+cur.tekeleza("INSERT INTO users (jina, umri, is_admin) VALUES (?, ?, ?)", ("Zeus", 29.5, 1))
+cur.tekeleza("INSERT INTO users (jina, umri, is_admin) VALUES (?, ?, ?)", ("Apollo", 35.2, 0))
+cur.tekeleza("INSERT INTO users (jina, umri, is_admin) VALUES (?, ?, ?)", ("Athena", Tupu, 1))
+
+andika(umbiza_maneno("✅ Rows inserted. Last Row ID: {cur.lastrowid}"))
+hakikisha cur.lastrowid == 3
+
+# 3. Hoja the data
+cur.tekeleza("SELECT * FROM users WHERE is_admin = ?", (1,))
+
+# Pata_moja test
+first_admin = cur.pata_moja()
+andika(umbiza_maneno("👉 First admin row fetched: {first_admin}"))
+hakikisha first_admin[1] == "Zeus"
+
+# Pata_zote test
+remaining_admins = cur.pata_zote()
+andika(umbiza_maneno("👉 Remaining admin rows fetched: {remaining_admins}"))
+hakikisha urefu(remaining_admins) == 1
+hakikisha remaining_admins[0][1] == "Athena"
+hakikisha remaining_admins[0][2] ni Tupu
+
+# 4. Cleanup
+conn.funga()
+andika("✅ Unganisho closed.")
+
+ikiwa db_path katika os.orodhesha_folda():
+    os.remove(db_path)
+    andika("✅ Cleanup kamili.")
+
+andika("\n🎉 sqlite FFI Wrapper tests passed successfully!")

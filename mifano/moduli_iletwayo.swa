@@ -1,0 +1,12 @@
+# examples/imported_module.py
+
+andika(f("--- Inside imported_module.py ---"))
+andika(f("The value of __jina__ ni: {__jina__}"))
+
+fafanua module_function():
+    andika("This ni a function kutoka the imported module.")
+
+ikiwa __jina__ == "__kuu__":
+    # This block will NOT endesha when this faili ni imported.
+    # It would only endesha ikiwa you executed `go endesha ... ./examples/imported_module.py`
+    andika("This should sio be printed during an leta!")

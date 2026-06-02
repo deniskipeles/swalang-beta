@@ -1,0 +1,40 @@
+# examples/test_for_yield.py
+# A generator function that yields kutoka inside a kwa loop.
+fafanua number_generator():
+    andika("Generator started.")
+
+    names = ["Alice", "Bob", "Charlie"]
+
+    kwa i katika pengo(urefu(names)):
+        # Construct a ujumbe inside the loop
+        ujumbe = umbiza_maneno("Loop {i}: Yielding {names[i]}")
+
+        # Yield the ujumbe. The generator should pause here.
+        zalisha ujumbe
+
+        # This andika statement should tekeleza *after* the generator ni resumed.
+        andika(umbiza_maneno("Generator resumed after yielding kwa index {i}."))
+
+    andika("Generator finished.")
+    # Generators implicitly rudisha after the loop.
+
+# --- Kuu execution logic ---
+fafanua kuu():
+    andika("--- Jaribio For-Loop Yielding ---")
+
+    # Create an instance of the generator.
+    # The namba inside number_generator() does NOT endesha yet.
+    gen = number_generator()
+
+    andika("Generator kitu created. Now starting iteration...")
+
+    # The kwa loop will drive the generator.
+    # Each iteration will endesha the generator's namba until the next `zalisha`.
+    kwa yielded_value katika gen:
+        andika(umbiza_maneno("Kuu program imepokelewa: '{yielded_value}'"))
+        andika("---")
+
+    andika("--- Iteration kamili. ---")
+
+ikiwa __jina__ == "__kuu__":
+    kuu()

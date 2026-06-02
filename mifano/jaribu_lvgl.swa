@@ -1,0 +1,135 @@
+leta sdl2
+leta lvgl
+leta ffi
+
+# -------------------------------------------------------------------------
+# Step 1: Initialize SDL2 & LVGL
+# -------------------------------------------------------------------------
+andika("🧪 Initializing SDL2 & LVGL...")
+# Initialize ONLY video na events to prevent audio crashes
+sdl2.anza(sdl2.SDL_INIT_VIDEO | sdl2.SDL_INIT_EVENTS)
+lvgl.anza()
+
+W, H = 800, 600
+win = sdl2.Dirisha("LVGL UI via Swalang", W, H)
+ren = sdl2.Wasilishaji(win)
+
+# Change SDL_PIXELFORMAT_ARGB8888 to SDL_PIXELFORMAT_RGB565
+texture = sdl2.Texture(ren, sdl2.SDL_PIXELFORMAT_RGB565, sdl2.SDL_TEXTUREACCESS_STREAMING, W, H)
+
+# -------------------------------------------------------------------------
+# Step 2: Setup LVGL Display & Flush Callback
+# -------------------------------------------------------------------------
+disp = lvgl.Display(W, H)
+
+# Allocate a chora buffer kwa LVGL. (W * H * 2 baiti per pixel kwa 16-bit rangi)
+buf_size = W * H * 2
+draw_buf = ffi.malloc(buf_size)
+
+# Tell LVGL to use this buffer
+disp.set_buffers(draw_buf, Tupu, buf_size, lvgl.LV_DISPLAY_RENDER_MODE_PARTIAL)
+
+fafanua flush_callback(disp_ptr, area_ptr, px_map_ptr):
+    """Called by LVGL when it wants to push rendered pixels to the screen."""
+    # Soma the updated area kutoka the C struct
+    x1 = ffi.read_memory_with_offset(area_ptr, 0, ffi.c_int32)
+    y1 = ffi.read_memory_with_offset(area_ptr, 4, ffi.c_int32)
+    x2 = ffi.read_memory_with_offset(area_ptr, 8, ffi.c_int32)
+    y2 = ffi.read_memory_with_offset(area_ptr, 12, ffi.c_int32)
+
+    w = (x2 - x1) + 1
+    h = (y2 - y1) + 1
+
+    # Change w * 4 to w * 2
+    texture.sasisha((x1, y1, w, h), px_map_ptr, w * 2)
+
+    # Tell LVGL we are imeisha flushing
+    disp.flush_ready()
+
+disp.set_flush_cb(flush_callback)
+
+# -------------------------------------------------------------------------
+# Step 3: Setup LVGL Input Device (Mouse)
+# -------------------------------------------------------------------------
+mouse_x = 0
+mouse_y = 0
+mouse_pressed = Uongo
+
+indev = lvgl.InputDevice()
+indev.set_display(disp)
+
+fafanua read_callback(indev_ptr, data_ptr):
+    """Called by LVGL to pata the current mouse state."""
+    state = lvgl.LV_INDEV_STATE_PRESSED ikiwa mouse_pressed ingine lvgl.LV_INDEV_STATE_RELEASED
+    lvgl.InputDevice.write_pointer(data_ptr, mouse_x, mouse_y, state)
+
+indev.set_read_cb(read_callback)
+
+# -------------------------------------------------------------------------
+# Step 4: Build the LVGL UI
+# -------------------------------------------------------------------------
+scr = lvgl.screen_active()
+
+btn = lvgl.Kitufe(scr.ptr)
+btn.set_size(200, 60)
+btn.align(lvgl.LV_ALIGN_CENTER, 0, 0)
+
+lbl = lvgl.Lebo(btn.ptr)
+lbl.set_text("Bonyeza Me! (Swalang)")
+lbl.align(lvgl.LV_ALIGN_CENTER, 0, 0)
+
+clicks = 0
+fafanua btn_clicked(event_ptr):
+    kote clicks
+    clicks = clicks + 1
+    andika(umbiza_maneno("👉 Kitufe ibonyezwe! Total: {clicks}"))
+    lbl.set_text(umbiza_maneno("Ibonyezwe {clicks} times"))
+
+btn.on(lvgl.LV_EVENT_CLICKED, btn_clicked)
+
+# -------------------------------------------------------------------------
+# Step 5: Kuu Loop
+# -------------------------------------------------------------------------
+andika("🚀 UI Loop started. Funga the dirisha to exit.")
+
+ev = sdl2.Tokeo()
+inaendesha = Kweli
+
+wakati inaendesha:
+    # 1. Gather SDL Events
+    wakati ev.uliza():
+        ikiwa ev.aina == sdl2.SDL_QUIT:
+            inaendesha = Uongo
+        ikiwaingine ev.aina == sdl2.SDL_MOUSEMOTION:
+            mouse_x = ev.x
+            mouse_y = ev.y
+        ikiwaingine ev.aina == sdl2.SDL_MOUSEBUTTONDOWN:
+            mouse_x = ev.x
+            mouse_y = ev.y
+            mouse_pressed = Kweli
+        ikiwaingine ev.aina == sdl2.SDL_MOUSEBUTTONUP:
+            mouse_x = ev.x
+            mouse_y = ev.y
+            mouse_pressed = Uongo
+
+    # 2. Tell LVGL time has passed (e.g., 10ms)
+    lvgl.tick_inc(10)
+
+    # 3. Endesha LVGL tasks (this triggers flush_cb ikiwa drawing ni needed)
+    lvgl.timer_handler()
+
+    # 4. Wasilisha the updated Texture to the screen
+    ren.futa()
+    ren.copy(texture)
+    ren.onyesha()
+
+    sdl2.delay(10)
+
+andika("🧹 Cleaning up...")
+ev.free()
+ffi.free(draw_buf)
+texture.destroy()
+ren.destroy()
+win.destroy()
+sdl2.toka()
+andika("✅ LVGL exited gracefully.")

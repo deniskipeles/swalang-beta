@@ -1,0 +1,72 @@
+# examples/builtins_test.py
+leta os
+andika("--- Jaribio aina() ---")
+andika(aina(10))
+andika("--- Jaribio os.orodhesha_folda() ---")
+andika(os.orodhesha_folda())
+# /*
+# well
+# imeisha
+# this ni a multiline comment
+# */
+x = """
+hujambo ulimwengu
+this ni a multiline string
+"""
+andika(x)
+andika(aina(x))
+
+
+andika(aina(3.14))
+andika(aina("hujambo"))
+andika(aina(Kweli))
+andika(aina(Tupu))
+andika(aina([1, 2]))
+andika(aina({"a":1}))
+andika(aina(pengo(3)))
+ainisha MyClass:
+  fafanua __anza__(nafsi):
+    pita
+andika(MyClass())
+andika(aina(MyClass))
+andika(aina(andika)) # Type of a built-katika
+
+fafanua my_func():
+  rudisha 42
+andika(my_func())
+andika(aina(my_func))
+andika(aina(andika)) # Type of a built-katika
+
+andika("\n--- Jaribio maneno() ---")
+andika(maneno(123))
+andika(maneno(-45.6))
+andika(maneno("string")) # Should sio jumlisha extra quotes
+andika(maneno(Uongo))
+andika(maneno(Tupu))
+andika(maneno([1, "two"]))
+s = maneno({"x": 99})
+andika(s)
+andika(aina(s))
+
+andika("\n--- Jaribio nambakamili() ---")
+andika(nambakamili(10))
+andika(nambakamili(99.9)) # Truncates
+andika(nambakamili(-1.2)) # Truncates
+andika(nambakamili(Kweli))
+andika(nambakamili(Uongo))
+andika(nambakamili("12345"))
+# andika(nambakamili("-99")) # Uncomment when negative string parsing works ikiwa needed
+# andika(nambakamili("  5 ")) # Uncomment when whitespace handling needed
+# andika(nambakamili("10.5")) # Should cause ValueError
+# andika(nambakamili("abc")) # Should cause ValueError
+
+# andika("\n--- Jaribio ingiza() ---")
+# jina = ingiza("Enter your jina: ")
+# andika("Hujambo,", jina)
+# age_str = ingiza("Enter your umri: ")
+# age_int = nambakamili(age_str) # Test combination
+# andika("Next year you will be:", age_int + 1)
+# andika(aina(age_str))
+# andika(aina(age_int))
+
+andika("Imeisha pamoja built-ins test.")

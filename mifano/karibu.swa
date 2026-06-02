@@ -1,0 +1,254 @@
+# examples/test_suite.py
+# A script to test various features of the PyLearn interpreter
+
+andika("--- PyLearn Interpreter Test Suite ---")
+
+# 1. Literals na Basic Types
+andika("\n[1] Jaribio Literals & Types")
+i = 100
+f = 3.14
+s = "hujambo pylearn"
+b = Kweli
+n = Tupu
+andika("Integer:", i, aina(i))
+andika("Float:", f, aina(f))
+andika("String:", s, aina(s))
+andika("Boolean:", b, aina(b))
+andika("Tupu:", n, aina(n))
+
+# 2. Arithmetic Operators
+andika("\n[2] Jaribio Arithmetic Operators")
+andika("i + 50 =", i + 50)
+andika("f * 2 =", f * 2)
+andika("i / 8 =", i / 8)  # Expect nambadesimali division
+andika("100 % 7 =", 100 % 7)
+andika("-i =", -i)
+andika("Precedence (10 + 2 * 3):", 10 + 2 * 3)
+andika("Parentheses ( (10 + 2) * 3 ):", (10 + 2) * 3)
+
+# 3. Comparison Operators
+andika("\n[3] Jaribio Comparison Operators")
+andika("i > 50:", i > 50)
+andika("f <= 3.0:", f <= 3.0)
+andika("s == 'hujambo pylearn':", s == "hujambo pylearn")
+andika("s != 'goodbye':", s != "goodbye")
+andika("b == Kweli:", b == Kweli)
+andika("n == Tupu:", n == Tupu)
+andika("i == f:", i == f) # Uongo (nambakamili vs nambadesimali)
+andika("100 == 100.0:", 100 == 100.0) # Kweli (numeric comparison)
+
+# 4. Logical Operators
+andika("\n[4] Jaribio Logical Operators")
+andika("Kweli na i > 0:", Kweli na i > 0)
+andika("b au f < 0:", b au f < 0)
+andika("sio b:", sio b)
+andika("sio n:", sio n) # Tupu ni falsy
+andika("sio '':", sio "") # Empty string ni falsy
+andika("sio 'a':", sio "a") # Non-empty string ni truthy
+
+# 5. Variables na Assignment
+andika("\n[5] Jaribio Variables & Assignment")
+my_var = i + 1
+andika("my_var (anza):", my_var)
+my_var = my_var * 2
+andika("my_var (updated):", my_var)
+a = b = 10 # Chained assignment (ikiwa supported by parser/eval)
+andika("a, b:", a, b)
+
+# 6. Control Flow: If/Elif/Else
+andika("\n[6] Jaribio If/Elif/Else")
+ikiwa i > 200:
+    andika("i ni large")
+ikiwaingine i > 50:
+    andika("i ni medium")
+ingine:
+    andika("i ni small")
+
+ikiwa sio n:
+    andika("Tupu ni Falsy - PASS")
+
+# 7. Control Flow: While Loop
+andika("\n[7] Jaribio While Loop")
+counter = 0
+wakati counter < 4:
+    andika("While counter:", counter)
+    counter = counter + 1
+    ikiwa counter == 2:
+        andika("Continuing loop...")
+        endelea
+    ikiwa counter == 3:
+        andika("Breaking loop...")
+        vunja
+# ingine: # Python's wakati-ingine (executes ikiwa loop finished without vunja)
+#     andika("While loop finished normally.") # This shouldn't andika
+
+# 8. Control Flow: For Loop (Range, List)
+andika("\n[8] Jaribio For Loop")
+andika("For loop over pengo(5):")
+kwa x katika pengo(5):
+    andika("  pengo x:", x)
+
+andika("For loop over orodha:")
+vitu = ["apple", 1, Kweli]
+kwa kitu katika vitu:
+    andika("  orodha kitu:", kitu, aina(kitu))
+
+# 9. Data Structures: List
+andika("\n[9] Jaribio Lists")
+my_list = [10, "hi", 30.5]
+andika("Initial orodha:", my_list, "urefu:", urefu(my_list))
+andika("Element at index 1:", my_list[1])
+my_list[0] = 99
+andika("Modified orodha:", my_list)
+# andika("Out of bounds:", my_list[5]) # Should cause IndexError
+
+# 10. Data Structures: Dictionary
+andika("\n[10] Jaribio Dictionaries")
+my_dict = {"jina": "PyLearn", "version": 0.1, 1: "one"}
+andika("Initial kamusi:", my_dict, "urefu:", urefu(my_dict))
+andika("Value kwa 'jina':", my_dict["jina"])
+my_dict["version"] = 0.2
+my_dict[Kweli] = "boolean key"
+andika("Modified kamusi:", my_dict)
+# andika("Missing key:", my_dict["unknown"]) # Should cause KeyError
+
+# 11. Functions
+andika("\n[11] Jaribio Functions")
+global_var = 1000
+
+fafanua piga_hesabu(p1, p2):
+    andika("  Inside piga_hesabu, global_var =", global_var) # Access kote
+    local_var = p1 * p2
+    rudisha local_var
+
+res = piga_hesabu(5, 6)
+andika("piga_hesabu(5, 6) =", res)
+# andika("local_var outside function:", local_var) # Should cause NameError
+
+# 12. Classes na OOP
+andika("\n[12] Jaribio Classes & OOP")
+ainisha Chombo:
+    # class_attr = "movable" # Optional: Test ainisha attributes later
+
+    fafanua __anza__(nafsi, magurudumu):
+        nafsi.num_wheels = magurudumu
+        andika("Chombo pamoja", magurudumu, "magurudumu created.")
+
+    fafanua display(nafsi):
+        rudisha "A chombo pamoja " + maneno(nafsi.num_wheels) + " magurudumu."
+
+    fafanua __maneno__(nafsi):
+        rudisha "<Chombo magurudumu=" + maneno(nafsi.num_wheels) + ">"
+
+    fafanua __urefu__(nafsi):
+        andika("Called Chombo.__urefu__")
+        rudisha nafsi.num_wheels # Example: urefu ni number of magurudumu
+
+    fafanua __jumlisha__(nafsi, other):
+        # Example: Adding vehicles adds their magurudumu
+        ikiwa aina(other) == Chombo:
+            rudisha Chombo(nafsi.num_wheels + other.num_wheels)
+        rudisha Tupu # Or ibua TypeError
+
+    fafanua __sawa__(nafsi, other):
+         ikiwa aina(other) == Chombo:
+             rudisha nafsi.num_wheels == other.num_wheels
+         rudisha Uongo
+
+
+gari = Chombo(4)
+baiskeli = Chombo(2)
+baiskeli_ya_magurudumu_matatu = Chombo(3)
+car_copy = Chombo(4)
+
+andika("Gari kitu:", gari) # Uses __maneno__
+andika("Gari display:", gari.display())
+andika("Length of baiskeli (magurudumu):", urefu(baiskeli)) # Uses __urefu__
+
+andika("gari == baiskeli:", gari == baiskeli) # Uses __sawa__ -> Uongo
+andika("gari == car_copy:", gari == car_copy) # Uses __sawa__ -> Kweli
+andika("gari != baiskeli:", gari != baiskeli) # Uses __sawa__ negation -> Kweli
+
+big_vehicle = gari + baiskeli # Uses __jumlisha__
+andika("Gari + Baiskeli =", big_vehicle)
+
+andika("Type of gari:", aina(gari))
+andika("Type of Chombo ainisha:", aina(Chombo))
+
+
+# 13. Modules (Native & Faili-based)
+andika("\n[13] Jaribio Modules")
+
+# Native 'sys'
+leta sys
+andika("sys.platform:", sys.platform)
+andika("urefu(sys.argv):", urefu(sys.argv))
+ikiwa urefu(sys.argv) > 0:
+    kwa arg katika sys.argv:
+        andika("sys.argv:", arg)
+    andika("sys.argv[0]:", sys.argv[0])
+
+# Native 'http' (Requires internet & assumes httpbin.org ni up)
+leta http
+andika("Attempting HTTP PATA...")
+ikiwa Kweli:
+    jibu = http.pata("https://httpbin.org/pata")
+    andika("http.pata hali:", jibu.status_code)
+    ikiwa jibu.status_code == 200:
+        andika("http.pata jibu maandishi contains 'httpbin.org':", "httpbin.org" + jibu.maandishi) # Requires 'katika' kwa strings
+    # Test TUMA
+    post_resp = http.tuma("https://httpbin.org/tuma", "test_data=hujambo")
+    andika("http.tuma hali:", post_resp.status_code)
+ingine:
+    # No specific kosa types yet, catch generic runtime kosa
+    # Need to check the actual kosa kitu aina/ujumbe ikiwa interpreter provides it
+    andika("HTTP ombi failed (Network/httpbin issue au TypeError?). Check interpreter kosa output.")
+
+
+# Faili-based 'hisabati_yangu' (Create examples/hisabati_yangu.py first)
+# Contents of examples/hisabati_yangu.py:
+# pai = 3.14159
+# fafanua mraba(x): rudisha x * x
+
+ikiwa Kweli: # Use jaribu only ikiwa you want the script to endelea past leta kosa
+    leta hisabati_yangu
+    andika("hisabati_yangu.pai:", hisabati_yangu.pai)
+    andika("hisabati_yangu.mraba(9):", hisabati_yangu.mraba(9))
+ingine:
+    andika("Failed to leta 'hisabati_yangu'. Make sure examples/hisabati_yangu.py ipo.")
+
+
+# 14. Runtime Errors (Uncomment to test reporting)
+andika("\n[14] Jaribio Runtime Kosa Reporting (Examples)")
+# andika(10 / 0)
+# andika(non_existent_variable)
+# andika("a" + 1)
+# vitu[99]
+# my_dict["nope"]
+# gari.non_existent_method()
+
+
+andika("\n--- Interpreter Test Suite Imeisha ---")
+
+# Optionally, use sys.exit to signal mafanikio/failure ikiwa desired
+# leta sys
+# sys.exit(0) # Signal mafanikio
+
+# Using the ternary operator
+fafanua compare(val1, val2, ret1, ret2):
+    ikiwa val1 > val2:
+        rudisha ret1
+    ingine:
+        rudisha ret2
+
+
+x = 10
+tokeo = compare(x,5,'greater','lesser')
+
+andika(tokeo)  # Output: Greater than 5
+
+leta os
+
+mafaili = os.orodhesha_folda('../cmd')
+kwa faili katika mafaili:
+    andika(faili)

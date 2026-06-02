@@ -1,0 +1,42 @@
+# examples/multi_assign_test.py
+
+andika("--- Jaribio basic multiple assignment ---")
+x, y = 10, 20
+andika(umbiza_maneno("x ni {x}, y ni {y}")) # Expected: x ni 10, y ni 20
+
+# Test swapping variables
+x, y = y, x
+andika(umbiza_maneno("After swap, x ni {x}, y ni {y}")) # Expected: After swap, x ni 20, y ni 10
+
+andika("\n--- Jaribio unpacking kutoka a orodha ---")
+data_list = [100, "hujambo", Kweli]
+a, b, c = data_list
+andika(umbiza_maneno("a = {a} (aina: {aina(a)})"))
+andika(umbiza_maneno("b = {b} (aina: {aina(b)})"))
+andika(umbiza_maneno("c = {c} (aina: {aina(c)})"))
+
+andika("\n--- Jaribio unpacking kutoka a safu ---")
+DELIMITERS = {
+    "variable": ("{{", "}}"),
+    "block": ("{%", "%}"),
+}
+var_start, var_end = DELIMITERS["variable"]
+andika(umbiza_maneno("Variable anza: '{var_start}', Variable end: '{var_end}'"))
+
+andika("\n--- Jaribio kosa: sio enough values ---")
+jaribu:
+    j, k, l = [1, 2]
+isipokuwa ValueError kama e:
+    andika(umbiza_maneno("Caught expected kosa: {e}"))
+
+andika("\n--- Jaribio kosa: too many values ---")
+jaribu:
+    m, n = (5, 6, 7)
+isipokuwa ValueError kama e:
+    andika(umbiza_maneno("Caught expected kosa: {e}"))
+
+andika("\n--- Jaribio kosa: unpacking non-iterable ---")
+jaribu:
+    p, q = 123
+isipokuwa TypeError kama e:
+    andika(umbiza_maneno("Caught expected kosa: {e}"))
